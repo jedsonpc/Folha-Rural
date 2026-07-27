@@ -63,7 +63,7 @@ const navGroups = [
       items: [["IA", "Importar Access"]],
     },
   ],
-  SYSTEM_VERSION = "1.3.27",
+  SYSTEM_VERSION = "1.3.28",
   LAST_UPDATE = "27/07/2026";
 type Company = { sourceId: number; name: string };
 type LocalUser = {
@@ -78,7 +78,7 @@ export default function Home() {
     [company, setCompany] = useState("all"),
     [companies, setCompanies] = useState<Company[]>([]),
     [menu, setMenu] = useState(false),
-    [openGroup, setOpenGroup] = useState<string | null>("Consultas"),
+    [openGroup, setOpenGroup] = useState<string | null>(null),
     [closed, setClosed] = useState(false),
     [localUser, setLocalUser] = useState<LocalUser | null | undefined>(
       undefined,
@@ -103,11 +103,23 @@ export default function Home() {
     if (localUser) loadCompanies();
   }, [loadCompanies, localUser]);
   useEffect(() => {
-    const group = navGroups.find((item) =>
-      item.items.some(([, label]) => label === active),
-    );
-    if (group) setOpenGroup(group.label);
-  }, [active]);
+    const closeOutside = (event: PointerEvent) => {
+      if (
+        !(event.target instanceof Element) ||
+        !event.target.closest(".menu-groups")
+      )
+        setOpenGroup(null);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpenGroup(null);
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOutside);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, []);
   const selected = companies.find((x) => String(x.sourceId) === company),
     title = useMemo(
       () => (active === "Visão geral" ? "Painel operacional" : active),
@@ -209,7 +221,7 @@ export default function Home() {
                       className={active === label ? "active" : ""}
                       onClick={() => {
                         setActive(label);
-                        setOpenGroup(group.label);
+                        setOpenGroup(null);
                         setMenu(false);
                       }}
                     >
