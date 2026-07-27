@@ -63,7 +63,7 @@ const navGroups = [
       items: [["IA", "Importar Access"]],
     },
   ],
-  SYSTEM_VERSION = "1.3.24",
+  SYSTEM_VERSION = "1.3.25",
   LAST_UPDATE = "27/07/2026";
 type Company = { sourceId: number; name: string };
 type LocalUser = {
@@ -102,6 +102,12 @@ export default function Home() {
   useEffect(() => {
     if (localUser) loadCompanies();
   }, [loadCompanies, localUser]);
+  useEffect(() => {
+    const group = navGroups.find((item) =>
+      item.items.some(([, label]) => label === active),
+    );
+    if (group) setOpenGroup(group.label);
+  }, [active]);
   const selected = companies.find((x) => String(x.sourceId) === company),
     title = useMemo(
       () => (active === "Visão geral" ? "Painel operacional" : active),
@@ -179,7 +185,7 @@ export default function Home() {
             );
             if (!items.length) return null;
             const selected = items.some(([, label]) => label === active);
-            const expanded = selected || openGroup === group.label;
+            const expanded = openGroup === group.label;
             return (
               <div
                 className={`menu-group ${expanded ? "expanded" : ""}`}
@@ -189,11 +195,7 @@ export default function Home() {
                   className={`menu-trigger ${selected ? "selected" : ""}`}
                   aria-expanded={expanded}
                   onClick={() =>
-                    setOpenGroup(
-                      openGroup === group.label && !selected
-                        ? null
-                        : group.label,
-                    )
+                    setOpenGroup(openGroup === group.label ? null : group.label)
                   }
                 >
                   <i>{group.icon}</i>

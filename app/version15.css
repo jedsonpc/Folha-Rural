@@ -183,7 +183,6 @@
     background 0.18s ease,
     border-color 0.18s ease;
 }
-.menu-group:hover,
 .menu-group.expanded {
   background: rgba(255, 253, 248, 0.72);
   border-color: rgba(102, 115, 77, 0.18);
@@ -213,7 +212,6 @@
   transform: rotate(0deg);
   transition: transform 0.2s ease;
 }
-.menu-group:hover .menu-trigger > b,
 .menu-group.expanded .menu-trigger > b {
   transform: rotate(90deg);
 }
@@ -230,7 +228,6 @@
     opacity 0.16s ease,
     padding 0.2s ease;
 }
-.menu-group:hover .submenu,
 .menu-group.expanded .submenu {
   max-height: 360px;
   padding: 3px 6px 8px;
