@@ -165,3 +165,107 @@
     gap: 5px;
   }
 }
+
+/* Menu vertical 1.3.24: grupos inspirados em menus clássicos de folha. */
+.terra-sidebar .menu-groups {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  margin-top: 10px;
+  overflow-y: auto;
+  padding: 2px 2px 14px;
+}
+.menu-group {
+  border: 1px solid transparent;
+  border-radius: 11px;
+  overflow: hidden;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease;
+}
+.menu-group:hover,
+.menu-group.expanded {
+  background: rgba(255, 253, 248, 0.72);
+  border-color: rgba(102, 115, 77, 0.18);
+}
+.terra-sidebar nav .menu-trigger {
+  width: 100%;
+  height: 46px;
+  margin: 0;
+  border-radius: 10px;
+  padding: 0 11px;
+  color: var(--graphite);
+}
+.terra-sidebar nav .menu-trigger:hover {
+  background: #f5ecdf;
+}
+.terra-sidebar nav .menu-trigger.selected {
+  color: var(--terra-dark);
+  background: #f4e5dc;
+}
+.menu-trigger > span {
+  flex: 1;
+}
+.menu-trigger > b {
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--muted);
+  transform: rotate(0deg);
+  transition: transform 0.2s ease;
+}
+.menu-group:hover .menu-trigger > b,
+.menu-group.expanded .menu-trigger > b {
+  transform: rotate(90deg);
+}
+.menu-group .submenu {
+  max-height: 0;
+  padding: 0 6px;
+  display: grid;
+  gap: 3px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    max-height 0.24s ease,
+    opacity 0.16s ease,
+    padding 0.2s ease;
+}
+.menu-group:hover .submenu,
+.menu-group.expanded .submenu {
+  max-height: 360px;
+  padding: 3px 6px 8px;
+  opacity: 1;
+  pointer-events: auto;
+}
+.terra-sidebar nav .submenu button {
+  height: 40px;
+  margin: 0;
+  padding: 0 10px 0 15px;
+  border-radius: 8px;
+  font-size: 13px;
+  box-shadow: none;
+}
+.terra-sidebar nav .submenu button i {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  font-size: 8px;
+}
+.terra-sidebar nav .submenu button.active {
+  background: var(--terra);
+  color: #fff;
+  box-shadow: 0 5px 14px rgba(184, 92, 59, 0.18);
+}
+.terra-sidebar nav .submenu button.active i {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.26);
+  background: rgba(255, 255, 255, 0.12);
+}
+@media (max-width: 760px) {
+  .terra-sidebar .menu-groups {
+    margin-top: 5px;
+  }
+  .menu-group .submenu {
+    transition-duration: 0.16s;
+  }
+}

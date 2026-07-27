@@ -23,29 +23,47 @@ const UnionsModule = lazy(() => import("./unions-module"));
 const UsersModule = lazy(() => import("./users-module"));
 const CompaniesModule = lazy(() => import("./companies-module"));
 const RegistrationsModule = lazy(() => import("./registrations-module"));
-const nav = [
-    ["VG", "Visão geral"],
-    ["EM", "Empresas"],
-    ["CL", "Colaboradores"],
-    ["CD", "Cadastros"],
-    ["SV", "Serviços"],
-    ["SN", "Sindicatos"],
-    ["TB", "Tabelas oficiais"],
-    ["AP", "Apontamentos"],
-    ["FC", "Fechamento"],
-    ["RL", "Relatórios"],
-    ["IA", "Importar Access"],
-    ["US", "Usuários"],
+const navGroups = [
+    {
+      label: "Consultas",
+      icon: "CO",
+      items: [
+        ["VG", "Visão geral"],
+        ["RL", "Relatórios"],
+      ],
+    },
+    {
+      label: "Cadastros",
+      icon: "CD",
+      items: [
+        ["EM", "Empresas"],
+        ["CL", "Colaboradores"],
+        ["AX", "Cadastros"],
+        ["SV", "Serviços"],
+        ["SN", "Sindicatos"],
+        ["US", "Usuários"],
+      ],
+    },
+    {
+      label: "Processamento",
+      icon: "PR",
+      items: [
+        ["AP", "Apontamentos"],
+        ["FC", "Fechamento"],
+      ],
+    },
+    {
+      label: "Tributos",
+      icon: "TR",
+      items: [["TB", "Tabelas oficiais"]],
+    },
+    {
+      label: "Integrações",
+      icon: "IN",
+      items: [["IA", "Importar Access"]],
+    },
   ],
-  quickNav = [
-    ["CL", "Colaboradores", "Cadastro pessoal"],
-    ["CC", "Cadastros", "Centros de custo e CBO"],
-    ["AP", "Apontamentos", "Produção diária"],
-    ["SV", "Serviços", "Atividades e preços"],
-    ["FC", "Fechamento", "Conferência da folha"],
-    ["RL", "Relatórios", "Análises e recibos"],
-  ],
-  SYSTEM_VERSION = "1.3.23",
+  SYSTEM_VERSION = "1.3.24",
   LAST_UPDATE = "27/07/2026";
 type Company = { sourceId: number; name: string };
 type LocalUser = {
@@ -60,6 +78,7 @@ export default function Home() {
     [company, setCompany] = useState("all"),
     [companies, setCompanies] = useState<Company[]>([]),
     [menu, setMenu] = useState(false),
+    [openGroup, setOpenGroup] = useState<string | null>("Consultas"),
     [closed, setClosed] = useState(false),
     [localUser, setLocalUser] = useState<LocalUser | null | undefined>(
       undefined,
@@ -88,10 +107,6 @@ export default function Home() {
       () => (active === "Visão geral" ? "Painel operacional" : active),
       [active],
     );
-  const visibleNav = nav.filter(
-    ([, label]) =>
-      localUser?.role === "admin" || localUser?.permissions.includes(label),
-  );
   const openCompany = (v: string) => {
     setCompany(v);
     setActive("Colaboradores");
@@ -155,20 +170,55 @@ export default function Home() {
             <small>GESTÃO DO CAMPO</small>
           </span>
         </div>
-        <nav>
-          {visibleNav.map(([icon, label]) => (
-            <button
-              key={label}
-              className={active === label ? "active" : ""}
-              onClick={() => {
-                setActive(label);
-                setMenu(false);
-              }}
-            >
-              <i>{icon}</i>
-              {label}
-            </button>
-          ))}
+        <nav className="menu-groups" aria-label="Menu principal">
+          {navGroups.map((group) => {
+            const items = group.items.filter(
+              ([, label]) =>
+                localUser?.role === "admin" ||
+                localUser?.permissions.includes(label),
+            );
+            if (!items.length) return null;
+            const selected = items.some(([, label]) => label === active);
+            const expanded = selected || openGroup === group.label;
+            return (
+              <div
+                className={`menu-group ${expanded ? "expanded" : ""}`}
+                key={group.label}
+              >
+                <button
+                  className={`menu-trigger ${selected ? "selected" : ""}`}
+                  aria-expanded={expanded}
+                  onClick={() =>
+                    setOpenGroup(
+                      openGroup === group.label && !selected
+                        ? null
+                        : group.label,
+                    )
+                  }
+                >
+                  <i>{group.icon}</i>
+                  <span>{group.label}</span>
+                  <b>›</b>
+                </button>
+                <div className="submenu">
+                  {items.map(([icon, label]) => (
+                    <button
+                      key={label}
+                      className={active === label ? "active" : ""}
+                      onClick={() => {
+                        setActive(label);
+                        setOpenGroup(group.label);
+                        setMenu(false);
+                      }}
+                    >
+                      <i>{icon}</i>
+                      <span>{label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </nav>
         <button className="exit-button" onClick={exitApp}>
           <i>↪</i>Sair e encerrar
@@ -210,26 +260,6 @@ export default function Home() {
             <b>＋</b> Novo apontamento
           </button>
         </header>
-        <nav className="quick-launcher" aria-label="Atalhos principais">
-          {quickNav
-            .filter(([, label]) =>
-              localUser?.role === "admin" ||
-              localUser?.permissions.includes(label),
-            )
-            .map(([icon, label, detail]) => (
-              <button
-                key={label}
-                className={active === label ? "active" : ""}
-                onClick={() => setActive(label)}
-              >
-                <i>{icon}</i>
-                <span>
-                  <b>{label}</b>
-                  <small>{detail}</small>
-                </span>
-              </button>
-            ))}
-        </nav>
         <div className="title-row">
           <div>
             <p>
