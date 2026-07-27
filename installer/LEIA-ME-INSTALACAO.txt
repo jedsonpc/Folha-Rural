@@ -1,0 +1,13 @@
+INSTALADOR COMPLETO - FOLHA RURAL
+
+1. Encerre o Folha Rural antes de instalar.
+2. Clique duas vezes em INSTALAR-FOLHA-RURAL.bat.
+3. Digite SIM quando solicitado.
+4. Aguarde a instalacao e use o novo atalho da Area de Trabalho.
+
+O instalador faz uma copia automatica dos dados locais em:
+D:\Folha Rural Backups\AAAA-MM-DD-HHMMSS
+
+A instalacao anterior somente e removida depois que a nova versao e instalada.
+Se houver falha, o instalador tenta restaurar automaticamente a versao anterior.
+Antes da substituicao, o instalador abre uma copia de teste do sistema na porta 4183.

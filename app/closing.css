@@ -1,0 +1,73 @@
+.closing-module {
+  display: grid;
+  gap: 16px;
+}
+.closing-controls {
+  padding: 22px;
+}
+.closing-filters {
+  display: grid;
+  grid-template-columns: 170px 250px auto auto;
+  gap: 10px;
+  align-items: end;
+  margin-top: 18px;
+}
+.closing-filters label {
+  display: grid;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--muted);
+}
+.closing-filters input,
+.closing-filters select {
+  height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 10px;
+  background: #fff;
+}
+.closing-cards {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 10px;
+}
+.closing-cards article {
+  display: grid;
+  gap: 5px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 15px;
+}
+.closing-cards small {
+  color: var(--muted);
+  font-weight: 700;
+}
+.closing-cards b {
+  font-size: 17px;
+}
+.closing-cards .net {
+  background: var(--olive);
+  color: #fff;
+}
+.closing-cards .net small {
+  color: #fff;
+}
+.closing-table {
+  min-width: 1200px;
+}
+@media (max-width: 1000px) {
+  .closing-filters {
+    grid-template-columns: 1fr 1fr;
+  }
+  .closing-cards {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+@media (max-width: 600px) {
+  .closing-filters,
+  .closing-cards {
+    grid-template-columns: 1fr;
+  }
+}

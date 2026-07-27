@@ -1,0 +1,196 @@
+.services-module .module-hero .primary {
+  margin-left: auto;
+}
+.service-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 20px 0 12px;
+}
+.service-toolbar input,
+.service-toolbar select {
+  flex: 1;
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 0 13px;
+  background: #fff;
+  font: inherit;
+}
+.service-toolbar label {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+.service-toolbar select {
+  min-width: 185px;
+}
+.service-tabs {
+  display: flex;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+.service-tabs button {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 7px 14px;
+  background: #fff;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.service-tabs button.active {
+  border-color: var(--olive);
+  background: var(--olive);
+  color: #fff;
+}
+.service-toolbar b {
+  font-size: 12px;
+  color: var(--muted);
+}
+.services-module .table-scroll {
+  overflow: visible;
+}
+.service-table {
+  min-width: 0;
+  width: 100%;
+  table-layout: fixed;
+}
+.service-table th,
+.service-table td {
+  padding-left: 7px;
+  padding-right: 7px;
+  overflow-wrap: anywhere;
+}
+.service-table th:nth-child(1) {
+  width: 24%;
+}
+.service-table th:nth-child(2) {
+  width: 18%;
+}
+.service-table th:nth-child(3) {
+  width: 10%;
+}
+.service-table th:nth-child(4) {
+  width: 30%;
+}
+.service-table th:nth-child(5) {
+  width: 9%;
+}
+.service-table th:nth-child(6) {
+  width: 9%;
+}
+.incidences {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.incidences i {
+  font-style: normal;
+  font-size: 8px;
+  font-weight: 850;
+  color: var(--olive);
+  background: #e7ebdd;
+  border-radius: 5px;
+  padding: 4px 6px;
+}
+.service-modal {
+  width: calc(100vw - 40px);
+  max-width: none;
+  min-height: calc(100vh - 40px);
+  max-height: none;
+  overflow: visible;
+}
+.services-module .modal-backdrop {
+  align-items: flex-start;
+  overflow-y: auto;
+  padding: 20px;
+}
+.service-modal .form-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.service-modal .form-grid .wide {
+  grid-column: span 2;
+}
+.check-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 9px;
+  background: #f5eee4;
+  border-radius: 9px;
+  padding: 14px;
+}
+.check-grid label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.check-grid input {
+  accent-color: var(--terra);
+}
+.actions .danger {
+  margin-right: auto;
+}
+.danger:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+@media (max-width: 760px) {
+  .services-module .modal-backdrop {
+    padding: 8px;
+  }
+  .service-modal {
+    width: calc(100vw - 16px);
+    min-height: calc(100vh - 16px);
+  }
+  .service-modal .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .service-modal .form-grid .wide {
+    grid-column: auto;
+  }
+  .service-toolbar {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+  .service-toolbar input,
+  .service-toolbar label {
+    width: 100%;
+  }
+  .services-module .module-hero {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .services-module .module-hero .primary {
+    width: 100%;
+    margin: 0;
+  }
+  .check-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .service-table th:nth-child(2),
+  .service-table td:nth-child(2),
+  .service-table th:nth-child(3),
+  .service-table td:nth-child(3) {
+    display: none;
+  }
+  .service-table th:nth-child(1) {
+    width: 30%;
+  }
+  .service-table th:nth-child(4) {
+    width: 42%;
+  }
+  .service-table th:nth-child(5) {
+    width: 12%;
+  }
+  .service-table th:nth-child(6) {
+    width: 16%;
+  }
+}

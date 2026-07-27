@@ -1,0 +1,257 @@
+.reports-module {
+  display: grid;
+  gap: 18px;
+}
+.report-controls {
+  padding: 24px;
+}
+.report-filters {
+  display: grid;
+  grid-template-columns: 160px 1.3fr 170px 170px auto;
+  gap: 10px;
+  margin-top: 20px;
+  align-items: end;
+}
+.report-filters label {
+  display: grid;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--muted);
+}
+.report-filters input,
+.report-filters select {
+  height: 43px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 0 10px;
+}
+.report-types {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  overflow: auto;
+}
+.report-types button {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 8px;
+  padding: 10px 14px;
+  white-space: nowrap;
+  font-weight: 700;
+  color: var(--muted);
+}
+.report-types button.active {
+  background: var(--olive);
+  color: #fff;
+}
+.employee-selection {
+  margin-top: 16px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 13px;
+}
+.employee-selection > div:first-child {
+  display: inline-grid;
+  margin-right: 15px;
+}
+.employee-selection span {
+  font-size: 10px;
+  color: var(--muted);
+}
+.selection-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+  margin-top: 10px;
+  max-height: 150px;
+  overflow: auto;
+}
+.selection-grid label {
+  display: flex;
+  gap: 7px;
+  font-size: 10px;
+  padding: 6px;
+  background: #faf6ee;
+}
+.report-actions {
+  display: flex;
+  align-items: center;
+  margin-top: 15px;
+  gap: 15px;
+}
+.report-actions span {
+  flex: 1;
+  color: var(--muted);
+  font-size: 10px;
+}
+.print-area {
+  display: grid;
+  gap: 16px;
+}
+.receipt,
+.detail-block,
+.summary-report {
+  background: #fff;
+  border: 1px solid var(--line);
+  padding: 28px;
+  box-shadow: var(--shadow);
+}
+.print-head {
+  display: flex !important;
+  justify-content: space-between;
+  border-bottom: 2px solid #333;
+  padding-bottom: 12px;
+}
+.print-head h1 {
+  font-size: 18px;
+  margin: 0;
+}
+.print-head p {
+  font-size: 10px;
+  margin: 5px 0;
+}
+.print-head > div:last-child {
+  display: grid;
+  text-align: right;
+}
+.worker-line {
+  display: grid;
+  grid-template-columns: 1fr 180px;
+  gap: 20px;
+  padding: 15px 0;
+}
+.worker-line div {
+  display: grid;
+}
+.worker-line small,
+.receipt-totals small {
+  font-size: 8px;
+  color: #666;
+}
+.pay-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+.pay-table th,
+.pay-table td {
+  border: 1px solid #bbb;
+  padding: 7px;
+  text-align: left;
+}
+.pay-table th:nth-last-child(-n + 3),
+.pay-table td:nth-last-child(-n + 3) {
+  text-align: right;
+}
+.receipt-totals {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin-top: 12px;
+  border: 1px solid #bbb;
+}
+.receipt-totals div {
+  display: grid;
+  padding: 10px;
+  border-right: 1px solid #bbb;
+}
+.receipt-totals .net {
+  background: #eef0e5;
+}
+.receipt-text {
+  font-size: 10px;
+  margin-top: 22px;
+}
+.signatures {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 38px;
+}
+.signatures span {
+  width: 42%;
+  border-top: 1px solid #333;
+  padding-top: 5px;
+  text-align: center;
+  font-size: 9px;
+}
+.copy-note {
+  display: block;
+  text-align: center;
+  margin-top: 15px;
+}
+.detail-block footer {
+  padding: 10px;
+  text-align: right;
+  background: #f4f0e8;
+}
+.detail-block h3 {
+  font-size: 13px;
+}
+.summary-report h1 {
+  font-size: 20px;
+}
+.report-empty {
+  text-align: center;
+}
+@media (max-width: 1000px) {
+  .report-filters {
+    grid-template-columns: 1fr 1fr;
+  }
+  .selection-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 600px) {
+  .report-filters,
+  .selection-grid {
+    grid-template-columns: 1fr;
+  }
+  .receipt {
+    padding: 15px;
+  }
+}
+@media print {
+  body {
+    background: #fff;
+  }
+  .sidebar,
+  .workspace > header,
+  .title-row,
+  .report-controls {
+    display: none !important;
+  }
+  .workspace {
+    margin: 0;
+    padding: 0;
+    background: #fff;
+  }
+  .print-area {
+    display: block;
+  }
+  .receipt,
+  .detail-block,
+  .summary-report {
+    border: 0;
+    box-shadow: none;
+    padding: 12mm;
+    margin: 0;
+  }
+  .print-page {
+    break-after: page;
+  }
+  .detail-block {
+    break-inside: avoid;
+    margin-bottom: 8mm;
+  }
+  .print-head {
+    position: static;
+  }
+  .pay-table {
+    font-size: 9pt;
+  }
+  @page {
+    size: A4;
+    margin: 8mm;
+  }
+}

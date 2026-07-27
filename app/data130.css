@@ -1,0 +1,124 @@
+.dependents-editor {
+  display: grid;
+  gap: 18px;
+}
+.dependent-list {
+  display: grid;
+  gap: 7px;
+}
+.dependent-list article {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.dependent-list article div {
+  display: grid;
+}
+.dependent-list small {
+  color: var(--muted);
+}
+.dependent-list span {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--olive);
+}
+.dependent-form {
+  padding: 16px;
+  border-radius: 10px;
+  background: #faf7f0;
+}
+.dependent-form h3 {
+  margin-top: 0;
+}
+.edit-tabs {
+  overflow-x: auto;
+}
+.edit-tabs button {
+  white-space: nowrap;
+}
+.data-panel > .table-scroll {
+  overflow-x: hidden;
+}
+.data-panel .data-table {
+  min-width: 0;
+  table-layout: fixed;
+}
+.data-panel .data-table th,
+.data-panel .data-table td {
+  padding-left: 8px;
+  padding-right: 8px;
+  overflow-wrap: anywhere;
+}
+.data-panel .row-actions {
+  flex-wrap: wrap;
+}
+.selection-help {
+  margin: 4px 0;
+  color: var(--terra);
+  font-size: 11px;
+  font-weight: 700;
+}
+.photo-field {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 18px;
+  align-items: center;
+  padding: 16px;
+  border: 2px dashed #c9bca8;
+  border-radius: 12px;
+  background: #fbf8f2;
+}
+.photo-preview {
+  width: 120px;
+  height: 140px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #e8e2d7;
+  display: grid;
+  place-items: center;
+}
+.photo-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.photo-preview span {
+  font-size: 42px;
+  color: var(--muted);
+}
+.photo-field p {
+  margin: 5px 0 12px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.photo-button {
+  display: inline-flex !important;
+  width: auto !important;
+  cursor: pointer;
+}
+.photo-button input {
+  display: none;
+}
+.photo-field .table-action {
+  margin-left: 8px;
+}
+@media (max-width: 600px) {
+  .photo-field {
+    grid-template-columns: 1fr;
+  }
+  .photo-preview {
+    margin: auto;
+  }
+}
+@media (max-width: 700px) {
+  .dependent-list article {
+    grid-template-columns: 1fr 1fr;
+  }
+  .dependent-list article div {
+    grid-column: 1/-1;
+  }
+}

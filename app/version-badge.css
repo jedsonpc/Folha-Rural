@@ -1,0 +1,18 @@
+.terra-brand {
+  position: relative;
+}
+.terra-brand:after {
+  content: "v1.3.22";
+  position: absolute;
+  right: 10px;
+  bottom: -5px;
+  background: #b85c3b;
+  color: #fff;
+  border-radius: 12px;
+  padding: 3px 7px;
+  font:
+    800 9px/1 Inter,
+    sans-serif;
+  letter-spacing: 0.06em;
+  box-shadow: 0 3px 9px rgba(0, 0, 0, 0.18);
+}

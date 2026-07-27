@@ -1,0 +1,125 @@
+.union-list {
+  margin-top: 20px;
+  overflow-x: hidden;
+}
+.union-list .data-table {
+  min-width: 0;
+  width: 100%;
+  table-layout: fixed;
+}
+.union-list th,
+.union-list td {
+  padding-left: 7px;
+  padding-right: 7px;
+  overflow-wrap: anywhere;
+}
+.union-list th:nth-child(1) {
+  width: 9%;
+}
+.union-list th:nth-child(2) {
+  width: 16%;
+}
+.union-list th:nth-child(3) {
+  width: 24%;
+}
+.union-list th:nth-child(4) {
+  width: 13%;
+}
+.union-list th:nth-child(5) {
+  width: 12%;
+}
+.union-list th:nth-child(6) {
+  width: 9%;
+}
+.union-list th:nth-child(7) {
+  width: 17%;
+}
+.union-list td:last-child {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.union-editor {
+  margin-top: 20px;
+  border: 2px solid #d8c8b5;
+}
+.union-form {
+  width: 100%;
+}
+.union-form .form-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.cnpj-lookup {
+  padding: 10px;
+  border-radius: 9px;
+  background: #f5eee4;
+}
+.lookup-status,
+.lookup-ok {
+  display: block;
+  min-height: 16px;
+  margin-top: 5px;
+  font-weight: 700;
+}
+.lookup-status {
+  color: #8b4a35;
+}
+.lookup-ok {
+  color: #42633a;
+}
+.field-error {
+  color: #a33f2c;
+  font-weight: 800;
+}
+.danger-link {
+  color: #a33f2c !important;
+}
+@media (max-width: 900px) {
+  .union-form .form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .union-list th:nth-child(5),
+  .union-list td:nth-child(5),
+  .union-list th:nth-child(6),
+  .union-list td:nth-child(6) {
+    display: none;
+  }
+}
+@media (max-width: 600px) {
+  .union-form .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .union-list th:nth-child(4),
+  .union-list td:nth-child(4) {
+    display: none;
+  }
+}
+.union-history {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 9px;
+  background: #f5eee4;
+}
+.union-history b {
+  width: 100%;
+  color: var(--olive);
+}
+.union-history span {
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 10px;
+  font-weight: 700;
+}
+.check-field {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+}
+.check-field input {
+  width: auto !important;
+  height: auto !important;
+}

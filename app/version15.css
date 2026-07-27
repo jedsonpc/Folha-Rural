@@ -1,0 +1,167 @@
+.system-version {
+  margin-left: auto;
+  min-width: 225px;
+  border-left: 3px solid var(--terra);
+  padding: 8px 13px;
+  display: grid;
+  gap: 2px;
+  background: rgba(255, 253, 248, 0.65);
+  border-radius: 0 8px 8px 0;
+}
+.system-version small {
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+  color: var(--terra);
+}
+.system-version b {
+  font-size: 13px;
+}
+.system-version span {
+  font-size: 10px;
+  color: var(--muted);
+}
+.daily-sheet {
+  width: min(1100px, 96vw);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Navegação 1.3.23: atalhos próprios, organizados como abas operacionais. */
+.quick-launcher {
+  display: flex;
+  gap: 9px;
+  margin: 18px 0 0;
+  padding: 11px;
+  overflow-x: auto;
+  background: rgba(255, 253, 248, 0.76);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  scrollbar-width: thin;
+}
+.quick-launcher button {
+  min-width: 165px;
+  padding: 9px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  background: transparent;
+  color: var(--graphite);
+  text-align: left;
+  cursor: pointer;
+  transition: 0.18s ease;
+}
+.quick-launcher button:hover {
+  background: #fffdf8;
+  border-color: var(--line);
+  transform: translateY(-1px);
+}
+.quick-launcher button.active {
+  color: #fff;
+  background: var(--terra);
+  box-shadow: 0 7px 18px rgba(184, 92, 59, 0.19);
+}
+.quick-launcher i {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: #e7ecdc;
+  color: var(--olive);
+  font: 850 10px/1 sans-serif;
+  letter-spacing: 0.04em;
+}
+.quick-launcher button:nth-child(2n) i {
+  background: #e9eef8;
+  color: #4f668f;
+}
+.quick-launcher button:nth-child(3n) i {
+  background: #f7e8df;
+  color: var(--terra-dark);
+}
+.quick-launcher button.active i {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+.quick-launcher span,
+.quick-launcher b,
+.quick-launcher small {
+  display: block;
+}
+.quick-launcher b {
+  font-size: 12px;
+  white-space: nowrap;
+}
+.quick-launcher small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 9px;
+  white-space: nowrap;
+}
+.quick-launcher button.active small {
+  color: rgba(255, 255, 255, 0.78);
+}
+.terra-sidebar nav button i {
+  height: 29px;
+  width: 29px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(102, 115, 77, 0.22);
+  border-radius: 8px;
+  font: 850 9px/1 sans-serif;
+  letter-spacing: 0.04em;
+}
+.terra-sidebar nav button.active i {
+  border-color: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.12);
+}
+.daily-sheet .table-scroll {
+  max-height: 58vh;
+  margin-top: 12px;
+}
+.sheet-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 15px;
+  padding: 12px;
+  background: #f3eee5;
+  border-radius: 8px;
+  font-size: 12px;
+}
+.sheet-summary b {
+  color: var(--olive);
+}
+.sheet-empty {
+  text-align: center;
+  color: var(--muted);
+  padding: 30px;
+}
+@media (max-width: 760px) {
+  .quick-launcher {
+    margin-top: 13px;
+    padding: 8px;
+  }
+  .quick-launcher button {
+    min-width: 145px;
+  }
+  .system-version {
+    width: 100%;
+    margin: 10px 0 0;
+  }
+  .title-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .sheet-summary {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+  }
+}
