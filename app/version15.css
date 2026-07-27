@@ -176,6 +176,8 @@
   padding: 2px 2px 14px;
 }
 .menu-group {
+  --menu-accent: #2563eb;
+  --menu-soft: #eaf1ff;
   border: 1px solid transparent;
   border-radius: 11px;
   overflow: hidden;
@@ -183,9 +185,26 @@
     background 0.18s ease,
     border-color 0.18s ease;
 }
+.menu-group:nth-child(2) {
+  --menu-accent: #db2777;
+  --menu-soft: #fce7f3;
+}
+.menu-group:nth-child(3) {
+  --menu-accent: #ea580c;
+  --menu-soft: #fff0e6;
+}
+.menu-group:nth-child(4) {
+  --menu-accent: #7c3aed;
+  --menu-soft: #f1eaff;
+}
+.menu-group:nth-child(5) {
+  --menu-accent: #059669;
+  --menu-soft: #e6fff6;
+}
 .menu-group.expanded {
-  background: rgba(255, 253, 248, 0.72);
-  border-color: rgba(102, 115, 77, 0.18);
+  background: var(--menu-soft);
+  border-color: color-mix(in srgb, var(--menu-accent) 30%, transparent);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--menu-accent) 12%, transparent);
 }
 .terra-sidebar nav .menu-trigger {
   width: 100%;
@@ -199,8 +218,17 @@
   background: #f5ecdf;
 }
 .terra-sidebar nav .menu-trigger.selected {
-  color: var(--terra-dark);
-  background: #f4e5dc;
+  color: var(--menu-accent);
+  background: var(--menu-soft);
+}
+.menu-group.expanded .menu-trigger {
+  color: var(--menu-accent);
+  font-weight: 800;
+}
+.menu-group.expanded .menu-trigger i {
+  color: #fff;
+  border-color: var(--menu-accent);
+  background: var(--menu-accent);
 }
 .menu-trigger > span {
   flex: 1;
@@ -219,28 +247,74 @@
   max-height: 0;
   padding: 0 6px;
   display: grid;
-  gap: 3px;
+  gap: 5px;
   overflow: hidden;
   opacity: 0;
   pointer-events: none;
+  transform: translateY(-8px);
   transition:
-    max-height 0.24s ease,
+    max-height 0.32s ease,
     opacity 0.16s ease,
-    padding 0.2s ease;
+    padding 0.22s ease,
+    transform 0.22s ease;
 }
 .menu-group.expanded .submenu {
-  max-height: 360px;
-  padding: 3px 6px 8px;
+  max-height: 560px;
+  padding: 4px 7px 10px;
   opacity: 1;
   pointer-events: auto;
+  transform: translateY(0);
 }
 .terra-sidebar nav .submenu button {
-  height: 40px;
+  min-height: 41px;
+  height: auto;
   margin: 0;
-  padding: 0 10px 0 15px;
+  padding: 8px 10px 8px 15px;
+  border: 1px solid color-mix(in srgb, var(--menu-accent) 18%, transparent);
   border-radius: 8px;
+  background: rgba(255, 255, 255, 0.84);
+  color: #2d302e;
   font-size: 13px;
   box-shadow: none;
+  opacity: 0;
+  transform: translateX(-7px);
+  transition:
+    opacity 0.2s ease,
+    transform 0.22s ease,
+    background 0.16s ease,
+    color 0.16s ease;
+}
+.menu-group.expanded .submenu button {
+  opacity: 1;
+  transform: translateX(0);
+}
+.menu-group.expanded .submenu button:nth-child(2) {
+  transition-delay: 0.025s;
+}
+.menu-group.expanded .submenu button:nth-child(3) {
+  transition-delay: 0.05s;
+}
+.menu-group.expanded .submenu button:nth-child(4) {
+  transition-delay: 0.075s;
+}
+.menu-group.expanded .submenu button:nth-child(5) {
+  transition-delay: 0.1s;
+}
+.menu-group.expanded .submenu button:nth-child(6) {
+  transition-delay: 0.125s;
+}
+.terra-sidebar nav .submenu button:first-child {
+  min-height: 46px;
+  color: #fff;
+  background: var(--menu-accent);
+  border-color: var(--menu-accent);
+  font-weight: 800;
+  box-shadow: 0 6px 14px color-mix(in srgb, var(--menu-accent) 24%, transparent);
+}
+.terra-sidebar nav .submenu button:hover {
+  color: var(--menu-accent);
+  background: #fff;
+  border-color: var(--menu-accent);
 }
 .terra-sidebar nav .submenu button i {
   width: 24px;
@@ -249,9 +323,10 @@
   font-size: 8px;
 }
 .terra-sidebar nav .submenu button.active {
-  background: var(--terra);
+  background: var(--menu-accent);
+  border-color: var(--menu-accent);
   color: #fff;
-  box-shadow: 0 5px 14px rgba(184, 92, 59, 0.18);
+  box-shadow: 0 5px 14px color-mix(in srgb, var(--menu-accent) 24%, transparent);
 }
 .terra-sidebar nav .submenu button.active i {
   color: #fff;
