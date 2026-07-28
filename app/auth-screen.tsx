@@ -2,7 +2,7 @@
 import { useState } from "react";
 import "./auth.css";
 type User = {
-  id: number;
+  id: number | string;
   name: string;
   username: string;
   role: string;

@@ -1,5 +1,6 @@
 import { and, asc, eq, gte, lt } from "drizzle-orm";
 import { ensureDatabase, getDb } from "../../../db";
+import { authorizeCloud } from "../../auth-cloud";
 import {
   dailyEntries,
   employmentContracts,
@@ -14,6 +15,8 @@ const monthEnd = (m: string) => {
   return `${n === 12 ? y + 1 : y}-${String(n === 12 ? 1 : n + 1).padStart(2, "0")}-01`;
 };
 export async function GET(request: Request) {
+  const access = await authorizeCloud(request, "Apontamentos");
+  if (access.response) return access.response;
   try {
     await ensureDatabase();
     const db = getDb(),
@@ -22,6 +25,12 @@ export async function GET(request: Request) {
       company = Number(url.searchParams.get("company")),
       month =
         url.searchParams.get("month") || new Date().toISOString().slice(0, 7);
+    const companyAccess = await authorizeCloud(
+      request,
+      "Apontamentos",
+      company,
+    );
+    if (companyAccess.response) return companyAccess.response;
     if (!company)
       return Response.json(
         { error: "Selecione uma empresa." },
@@ -104,6 +113,8 @@ export async function GET(request: Request) {
   }
 }
 export async function POST(request: Request) {
+  const access = await authorizeCloud(request, "Apontamentos");
+  if (access.response) return access.response;
   try {
     await ensureDatabase();
     const db = getDb(),
@@ -111,6 +122,12 @@ export async function POST(request: Request) {
       b = (await request.json()) as Record<string, unknown>,
       company = Number(b.companySourceId),
       action = String(b.action || "");
+    const companyAccess = await authorizeCloud(
+      request,
+      "Apontamentos",
+      company,
+    );
+    if (companyAccess.response) return companyAccess.response;
     if (!company)
       return Response.json(
         { error: "Selecione uma empresa." },

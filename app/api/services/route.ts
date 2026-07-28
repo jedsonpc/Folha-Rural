@@ -1,9 +1,12 @@
 import { and, asc, eq, max } from "drizzle-orm";
 import { ensureDatabase, getDb } from "../../../db";
+import { authorizeCloud } from "../../auth-cloud";
 import { dailyEntries, services } from "../../../db/schema";
 const tenant = (r: Request) =>
   r.headers.get("oai-authenticated-user-email")?.toLowerCase() || "local-owner";
 export async function GET(r: Request) {
+  const access = await authorizeCloud(r, "Serviços");
+  if (access.response) return access.response;
   try {
     await ensureDatabase();
     const db = getDb(),
@@ -50,6 +53,8 @@ const normalizeNature = (value: unknown) => {
     : "earning";
 };
 export async function POST(r: Request) {
+  const access = await authorizeCloud(r, "Serviços");
+  if (access.response) return access.response;
   try {
     await ensureDatabase();
     const db = getDb(),

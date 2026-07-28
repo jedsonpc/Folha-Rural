@@ -20,7 +20,7 @@ export function getSupabaseConfig(): SupabaseConfig | null {
 
 export const usesSupabase = () => Boolean(getSupabaseConfig());
 
-async function request<T>(
+export async function supabaseRequest<T>(
   path: string,
   init: RequestInit = {},
   bearer?: string,
@@ -48,27 +48,27 @@ async function request<T>(
 
 export const supabaseAdmin = {
   get<T>(path: string) {
-    return request<T>(path);
+    return supabaseRequest<T>(path);
   },
   post<T>(path: string, body: unknown, headers?: HeadersInit) {
-    return request<T>(path, {
+    return supabaseRequest<T>(path, {
       method: "POST",
       body: JSON.stringify(body),
       headers,
     });
   },
   patch<T>(path: string, body: unknown, headers?: HeadersInit) {
-    return request<T>(path, {
+    return supabaseRequest<T>(path, {
       method: "PATCH",
       body: JSON.stringify(body),
       headers,
     });
   },
   delete<T>(path: string) {
-    return request<T>(path, { method: "DELETE" });
+    return supabaseRequest<T>(path, { method: "DELETE" });
   },
   auth<T>(path: string, body: unknown, bearer?: string) {
-    return request<T>(
+    return supabaseRequest<T>(
       path,
       { method: "POST", body: JSON.stringify(body) },
       bearer,
@@ -107,4 +107,3 @@ export function clearAuthCookies() {
     `fr_refresh_token=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`,
   ];
 }
-

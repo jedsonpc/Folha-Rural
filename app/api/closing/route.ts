@@ -1,5 +1,6 @@
 import { and, asc, eq, gte, lt } from "drizzle-orm";
 import { ensureDatabase, getDb } from "../../../db";
+import { authorizeCloud } from "../../auth-cloud";
 import {
   dailyEntries,
   employmentContracts,
@@ -274,6 +275,8 @@ async function calculate(
   };
 }
 export async function GET(request: Request) {
+  const access = await authorizeCloud(request, "Fechamento");
+  if (access.response) return access.response;
   try {
     await ensureDatabase();
     const u = new URL(request.url),
@@ -282,6 +285,8 @@ export async function GET(request: Request) {
         u.searchParams.get("month") || new Date().toISOString().slice(0, 7),
       period =
         u.searchParams.get("period") === "advance" ? "advance" : "balance";
+    const companyAccess = await authorizeCloud(request, "Fechamento", company);
+    if (companyAccess.response) return companyAccess.response;
     if (!company)
       return Response.json(
         { error: "Selecione uma empresa." },
@@ -299,6 +304,8 @@ export async function GET(request: Request) {
   }
 }
 export async function POST(request: Request) {
+  const access = await authorizeCloud(request, "Fechamento");
+  if (access.response) return access.response;
   try {
     await ensureDatabase();
     const b = (await request.json()) as {
@@ -307,12 +314,18 @@ export async function POST(request: Request) {
         period: string;
       },
       tenantId = tenant(request),
+      companyAccess = await authorizeCloud(
+        request,
+        "Fechamento",
+        Number(b.companySourceId),
+      ),
       result = await calculate(
         request,
         Number(b.companySourceId),
         b.month,
         b.period,
       );
+    if (companyAccess.response) return companyAccess.response;
     if (!result.officialTables.inss || !result.officialTables.irrf)
       return Response.json(
         { error: "Atualize as tabelas oficiais antes de fechar." },

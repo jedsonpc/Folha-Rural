@@ -72,11 +72,12 @@ const navGroups = [
   LAST_UPDATE = "27/07/2026";
 type Company = { sourceId: number; name: string };
 type LocalUser = {
-  id: number;
+  id: number | string;
   name: string;
   username: string;
   role: string;
   permissions: string[];
+  companyIds?: number[] | null;
 };
 export default function Home() {
   const [active, setActive] = useState("Visão geral"),
@@ -101,9 +102,16 @@ export default function Home() {
   const loadCompanies = useCallback(() => {
     fetch(`/api/companies?fresh=${Date.now()}`, { cache: "no-store" })
       .then((r) => r.json())
-      .then((b) => setCompanies(b.companies || []))
+      .then((b) => {
+        const rows = (b.companies || []) as Company[];
+        setCompanies(
+          localUser?.companyIds == null
+            ? rows
+            : rows.filter((row) => localUser.companyIds?.includes(row.sourceId)),
+        );
+      })
       .catch(() => undefined);
-  }, []);
+  }, [localUser]);
   useEffect(() => {
     if (localUser) loadCompanies();
   }, [loadCompanies, localUser]);

@@ -8,6 +8,13 @@ import {
   randomHex,
   sha256,
 } from "../../auth-local";
+import { cloudUser } from "../../auth-cloud";
+import {
+  authCookies,
+  clearAuthCookies,
+  getSupabaseConfig,
+  supabaseRequest,
+} from "../../../db/supabase";
 const json = (body: object, status = 200, headers?: HeadersInit) =>
   Response.json(body, { status, headers });
 async function current(request: Request) {
@@ -37,6 +44,10 @@ async function current(request: Request) {
   return row || null;
 }
 export async function GET(request: Request) {
+  if (getSupabaseConfig()) {
+    const user = await cloudUser(request);
+    return json({ setupRequired: false, authMode: "cloud", user });
+  }
   try {
     await ensureDatabase();
     const db = getDb(),
@@ -56,6 +67,7 @@ export async function GET(request: Request) {
   }
 }
 export async function POST(request: Request) {
+  if (getSupabaseConfig()) return cloudAuth(request);
   try {
     await ensureDatabase();
     const db = getDb(),
@@ -118,6 +130,58 @@ export async function POST(request: Request) {
       { error: e instanceof Error ? e.message : "Falha na autenticação." },
       500,
     );
+  }
+}
+
+async function cloudAuth(request: Request) {
+  const config = getSupabaseConfig()!;
+  try {
+    const body = (await request.json()) as Record<string, unknown>;
+    const action = String(body.action || "login");
+    if (action === "logout") {
+      const headers = new Headers();
+      clearAuthCookies().forEach((cookie) => headers.append("Set-Cookie", cookie));
+      return json({ ok: true }, 200, headers);
+    }
+    if (action !== "login")
+      return json(
+        { error: "O administrador inicial já foi criado no Supabase." },
+        409,
+      );
+    const email = String(body.username || "").trim().toLowerCase();
+    const password = String(body.password || "");
+    if (!email.includes("@") || password.length < 8)
+      return json({ error: "Informe seu e-mail e sua senha." }, 400);
+    const session = await supabaseRequest<{
+      access_token: string;
+      refresh_token: string;
+      expires_in: number;
+    }>("/auth/v1/token?grant_type=password", {
+      method: "POST",
+      headers: { apikey: config.publicKey },
+      body: JSON.stringify({ email, password }),
+    });
+    const headers = new Headers();
+    authCookies(
+      session.access_token,
+      session.refresh_token,
+      session.expires_in,
+    ).forEach((cookie) => headers.append("Set-Cookie", cookie));
+    const authenticatedRequest = new Request(request, {
+      headers: new Headers({
+        ...Object.fromEntries(request.headers),
+        cookie: `fr_access_token=${encodeURIComponent(session.access_token)}`,
+      }),
+    });
+    const user = await cloudUser(authenticatedRequest);
+    if (!user)
+      return json(
+        { error: "Usuário sem perfil ativo ou acesso à organização." },
+        403,
+      );
+    return json({ ok: true, user }, 200, headers);
+  } catch {
+    return json({ error: "E-mail ou senha inválidos." }, 401);
   }
 }
 async function login(

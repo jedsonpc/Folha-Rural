@@ -6,6 +6,7 @@ import {
   employmentContracts,
 } from "../../../db/schema";
 import { cleanCpf, isValidCpf } from "../../cpf";
+import { authorizeCloud } from "../../auth-cloud";
 
 const tenant = (request: Request) =>
   request.headers.get("oai-authenticated-user-email")?.toLowerCase() ||
@@ -14,15 +15,23 @@ const cleanDocument = (value: unknown) =>
   String(value || "").replace(/\D/g, "").slice(0, 14);
 
 export async function GET(request: Request) {
+  const access = await authorizeCloud(request, "Empresas");
+  if (access.response) return access.response;
   try {
     await ensureDatabase();
     const db = getDb(),
       tenantId = tenant(request),
-      rows = await db
+      allRows = await db
         .select()
         .from(companies)
         .where(eq(companies.tenantId, tenantId))
         .orderBy(asc(companies.name)),
+      rows =
+        access.user?.companyIds == null
+          ? allRows
+          : allRows.filter((row) =>
+              access.user?.companyIds?.includes(row.sourceId),
+            ),
       contracts = await db
         .select({
           companySourceId: employmentContracts.companySourceId,
@@ -63,6 +72,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const access = await authorizeCloud(request, "Empresas");
+  if (access.response) return access.response;
   try {
     await ensureDatabase();
     const db = getDb(),

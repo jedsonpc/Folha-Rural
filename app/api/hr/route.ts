@@ -1,4 +1,5 @@
 import { ensureDatabase, getRuntimeDatabase } from "../../../db";
+import { authorizeCloud } from "../../auth-cloud";
 
 const tenant = (r: Request) =>
   r.headers.get("oai-authenticated-user-email")?.toLowerCase() || "local-owner";
@@ -7,6 +8,8 @@ const money = (v: unknown) =>
 const validDate = (v: unknown) => /^\d{4}-\d{2}-\d{2}$/.test(String(v || ""));
 
 export async function GET(r: Request) {
+  const access = await authorizeCloud(r, "Cadastros");
+  if (access.response) return access.response;
   try {
     await ensureDatabase();
     const db = getRuntimeDatabase(), t = tenant(r), url = new URL(r.url);
@@ -34,6 +37,8 @@ export async function GET(r: Request) {
 }
 
 export async function POST(r: Request) {
+  const access = await authorizeCloud(r, "Cadastros");
+  if (access.response) return access.response;
   try {
     await ensureDatabase();
     const db = getRuntimeDatabase(), t = tenant(r), b = await r.json() as Record<string, unknown>;

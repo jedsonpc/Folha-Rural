@@ -1,5 +1,6 @@
 import { and, asc, eq, ne, or } from "drizzle-orm";
 import { ensureDatabase, getDb } from "../../../db";
+import { authorizeCloud } from "../../auth-cloud";
 import {
   employmentContracts,
   payrollClosings,
@@ -28,6 +29,8 @@ const validCnpj = (value: unknown) => {
   return digit(12) === Number(cnpj[12]) && digit(13) === Number(cnpj[13]);
 };
 export async function GET(r: Request) {
+  const access = await authorizeCloud(r, "Sindicatos");
+  if (access.response) return access.response;
   try {
     await ensureDatabase();
     const tenantId = tenant(r),
@@ -59,6 +62,8 @@ export async function GET(r: Request) {
   }
 }
 export async function POST(r: Request) {
+  const access = await authorizeCloud(r, "Sindicatos");
+  if (access.response) return access.response;
   try {
     await ensureDatabase();
     const db = getDb(),

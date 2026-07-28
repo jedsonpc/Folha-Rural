@@ -1,5 +1,6 @@
 import { and, asc, count, desc, eq } from "drizzle-orm";
 import { ensureDatabase, getDb } from "../../../db";
+import { authorizeCloud } from "../../auth-cloud";
 import {
   companies,
   employmentContracts,
@@ -22,6 +23,8 @@ const photoValid = (value: string) =>
     value.length <= 1500000);
 
 export async function GET(request: Request) {
+  const access = await authorizeCloud(request, "Colaboradores");
+  if (access.response) return access.response;
   try {
     await ensureDatabase();
     const db = getDb();
@@ -140,21 +143,46 @@ export async function GET(request: Request) {
     ]);
     const [personTotal] = personTotals;
     const [reviewTotal] = reviewTotals;
+    const allowedCompanies = access.user?.companyIds;
+    const visibleCompanies =
+      allowedCompanies == null
+        ? companyRows
+        : companyRows.filter((company) =>
+            allowedCompanies.includes(company.sourceId),
+          );
+    const visibleContracts =
+      allowedCompanies == null
+        ? contracts
+        : contracts.filter((contract) =>
+            allowedCompanies.includes(contract.companySourceId),
+          );
+    const visiblePeople = new Set(
+      visibleContracts.map((contract) => contract.personId),
+    );
     return Response.json(
       {
-        companies: companyRows,
-        contracts,
+        companies: visibleCompanies,
+        contracts: visibleContracts,
         counts: {
-          people: personTotal.value,
-          contracts: contracts.length,
-          active: contracts.filter((row) => row.status === "active").length,
-          review: reviewTotal.value,
+          people:
+            allowedCompanies == null ? personTotal.value : visiblePeople.size,
+          contracts: visibleContracts.length,
+          active: visibleContracts.filter((row) => row.status === "active")
+            .length,
+          review:
+            allowedCompanies == null
+              ? reviewTotal.value
+              : visibleContracts.filter((row) => row.needsReview).length,
         },
-        imports,
+        imports: allowedCompanies == null ? imports : [],
         dependents: (dependentRows || []).map((row) => ({
-          ...row,
-          cpf: row.cpf.startsWith("LEGACY-DEP:") ? "" : row.cpf,
-        })),
+            ...row,
+            cpf: row.cpf.startsWith("LEGACY-DEP:") ? "" : row.cpf,
+          }))
+          .filter(
+            (row) =>
+              allowedCompanies == null || visiblePeople.has(row.personId),
+          ),
         unions: unionRows || [],
       },
       {
@@ -179,6 +207,8 @@ export async function GET(request: Request) {
 }
 
 export async function PUT(request: Request) {
+  const access = await authorizeCloud(request, "Colaboradores");
+  if (access.response) return access.response;
   try {
     await ensureDatabase();
     const db = getDb();
@@ -421,6 +451,8 @@ export async function PUT(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const access = await authorizeCloud(request, "Colaboradores");
+  if (access.response) return access.response;
   try {
     await ensureDatabase();
     const db = getDb();

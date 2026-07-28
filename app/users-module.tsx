@@ -2,24 +2,29 @@
 import { useEffect, useState } from "react";
 import "./users.css";
 type User = {
-  id: number;
+  id: number | string;
   name: string;
   username: string;
   role: string;
   permissions: string[];
+  companyIds?: string[];
   active: boolean;
 };
+type Company = { id: string; sourceId: number; name: string };
 const empty = {
   name: "",
   username: "",
   password: "",
   role: "operator",
   permissions: [] as string[],
+  companyIds: [] as string[],
   active: true,
 };
 export default function UsersModule() {
   const [rows, setRows] = useState<User[]>([]),
     [modules, setModules] = useState<string[]>([]),
+    [companies, setCompanies] = useState<Company[]>([]),
+    [cloudMode, setCloudMode] = useState(false),
     [editing, setEditing] = useState<User | null | undefined>(),
     [form, setForm] = useState(empty),
     [message, setMessage] = useState("");
@@ -29,6 +34,8 @@ export default function UsersModule() {
       .then((b) => {
         setRows(b.users || []);
         setModules(b.modules || []);
+        setCompanies(b.companies || []);
+        setCloudMode(b.authMode === "cloud");
         if (b.error) setMessage(b.error);
       });
   useEffect(() => {
@@ -55,8 +62,8 @@ export default function UsersModule() {
           <small>SEGURANÇA E PERMISSÕES</small>
           <h2>Usuários do sistema</h2>
           <p>
-            Crie acessos individuais e defina os módulos liberados para cada
-            perfil.
+            Convide usuários e defina o perfil, os módulos e as empresas
+            liberadas para cada acesso.
           </p>
         </div>
         <button
@@ -78,6 +85,7 @@ export default function UsersModule() {
               <th>Usuário</th>
               <th>Perfil</th>
               <th>Acessos</th>
+              <th>Empresas</th>
               <th>Situação</th>
               <th></th>
             </tr>
@@ -97,6 +105,11 @@ export default function UsersModule() {
                     ? "Todos"
                     : `${u.permissions.length} módulos`}
                 </td>
+                <td>
+                  {u.role === "admin"
+                    ? "Todas"
+                    : `${u.companyIds?.length || 0} empresa(s)`}
+                </td>
                 <td>{u.active ? "Ativo" : "Bloqueado"}</td>
                 <td>
                   <button
@@ -109,6 +122,7 @@ export default function UsersModule() {
                         password: "",
                         role: u.role,
                         permissions: u.permissions,
+                        companyIds: u.companyIds || [],
                         active: u.active,
                       });
                     }}
@@ -140,25 +154,28 @@ export default function UsersModule() {
                 />
               </label>
               <label>
-                Usuário
+                E-mail
                 <input
+                  type={cloudMode ? "email" : "text"}
                   value={form.username}
                   onChange={(e) =>
                     setForm({ ...form, username: e.target.value })
                   }
                 />
               </label>
-              <label>
-                Senha {editing && "(deixe vazia para manter)"}
-                <input
-                  type="password"
-                  minLength={8}
-                  value={form.password}
-                  onChange={(e) =>
-                    setForm({ ...form, password: e.target.value })
-                  }
-                />
-              </label>
+              {!cloudMode && (
+                <label>
+                  Senha {editing && "(deixe vazia para manter)"}
+                  <input
+                    type="password"
+                    minLength={8}
+                    value={form.password}
+                    onChange={(e) =>
+                      setForm({ ...form, password: e.target.value })
+                    }
+                  />
+                </label>
+              )}
               <label>
                 Perfil
                 <select
@@ -181,27 +198,56 @@ export default function UsersModule() {
               </label>
             </div>
             {form.role !== "admin" && (
-              <div className="permission-grid">
-                {modules
-                  .filter((m) => m !== "Usuários")
-                  .map((m) => (
-                    <label key={m}>
-                      <input
-                        type="checkbox"
-                        checked={form.permissions.includes(m)}
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            permissions: e.target.checked
-                              ? [...form.permissions, m]
-                              : form.permissions.filter((x) => x !== m),
-                          })
-                        }
-                      />
-                      {m}
-                    </label>
-                  ))}
-              </div>
+              <>
+                <h3>Módulos permitidos</h3>
+                <div className="permission-grid">
+                  {modules
+                    .filter((m) => m !== "Usuários")
+                    .map((m) => (
+                      <label key={m}>
+                        <input
+                          type="checkbox"
+                          checked={form.permissions.includes(m)}
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              permissions: e.target.checked
+                                ? [...form.permissions, m]
+                                : form.permissions.filter((x) => x !== m),
+                            })
+                          }
+                        />
+                        {m}
+                      </label>
+                    ))}
+                </div>
+                {cloudMode && (
+                  <>
+                    <h3>Empresas permitidas</h3>
+                    <div className="permission-grid company-permissions">
+                      {companies.map((company) => (
+                        <label key={company.id}>
+                          <input
+                            type="checkbox"
+                            checked={form.companyIds.includes(company.id)}
+                            onChange={(e) =>
+                              setForm({
+                                ...form,
+                                companyIds: e.target.checked
+                                  ? [...form.companyIds, company.id]
+                                  : form.companyIds.filter(
+                                      (id) => id !== company.id,
+                                    ),
+                              })
+                            }
+                          />
+                          {company.name}
+                        </label>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </>
             )}
             <div className="actions">
               <button
@@ -211,7 +257,7 @@ export default function UsersModule() {
                 Cancelar
               </button>
               <button className="primary" onClick={save}>
-                Salvar usuário
+                {cloudMode && !editing ? "Enviar convite" : "Salvar usuário"}
               </button>
             </div>
           </div>

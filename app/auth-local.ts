@@ -37,6 +37,7 @@ export const ALL_MODULES = [
   "Visão geral",
   "Empresas",
   "Colaboradores",
+  "Cadastros",
   "Serviços",
   "Sindicatos",
   "Tabelas oficiais",
