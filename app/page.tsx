@@ -38,7 +38,12 @@ const navGroups = [
       items: [
         ["EM", "Empresas"],
         ["CL", "Colaboradores"],
-        ["AX", "Funções"],
+        ["FN", "Funções"],
+        ["ES", "Evolução salarial"],
+        ["RS", "Reajuste salarial"],
+        ["CC", "Centros de custo"],
+        ["EP", "EPI"],
+        ["FR", "Ferramentas"],
         ["SV", "Serviços"],
         ["SN", "Sindicatos"],
         ["US", "Usuários"],
@@ -190,10 +195,20 @@ export default function Home() {
         </div>
         <nav className="menu-groups" aria-label="Menu principal">
           {navGroups.map((group) => {
+            const registrationItems = [
+              "Funções",
+              "Evolução salarial",
+              "Reajuste salarial",
+              "Centros de custo",
+              "EPI",
+              "Ferramentas",
+            ];
             const items = group.items.filter(
               ([, label]) =>
                 localUser?.role === "admin" ||
-                localUser?.permissions.includes(label),
+                localUser?.permissions.includes(label) ||
+                (registrationItems.includes(label) &&
+                  localUser?.permissions.includes("Cadastros")),
             );
             if (!items.length) return null;
             const selected = items.some(([, label]) => label === active);
@@ -318,8 +333,15 @@ export default function Home() {
             <ReportsModule />
           ) : active === "Empresas" ? (
             <CompaniesModule onChanged={loadCompanies} />
-          ) : active === "Funções" ? (
-            <RegistrationsModule />
+          ) : [
+              "Funções",
+              "Evolução salarial",
+              "Reajuste salarial",
+              "Centros de custo",
+              "EPI",
+              "Ferramentas",
+            ].includes(active) ? (
+            <RegistrationsModule activeSection={active} />
           ) : active === "Colaboradores" ? (
             <DataModule
               mode={active}
