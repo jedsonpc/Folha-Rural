@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import AppInstallation from "./app-installation";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,8 +16,14 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Folha Rural",
   description: "Sistema moderno de folha de pagamento rural.",
+  applicationName: "Folha Rural",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Folha Rural",
+  },
   other: {
-    "codex-preview": "development",
     google: "notranslate",
   },
   icons: {
@@ -36,6 +43,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased notranslate`}
       >
         {children}
+        <AppInstallation />
       </body>
     </html>
   );

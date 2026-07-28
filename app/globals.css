@@ -27,6 +27,63 @@ body {
     "Segoe UI",
     sans-serif;
 }
+.app-install-button,
+.app-update-card {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 100;
+  border: 0;
+  border-radius: 14px;
+  box-shadow: 0 10px 32px rgba(45, 48, 46, 0.2);
+}
+.app-install-button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 13px 17px;
+  background: var(--olive);
+  color: white;
+  font-weight: 750;
+  cursor: pointer;
+}
+.app-install-button span {
+  font-size: 20px;
+}
+.app-update-card {
+  width: min(390px, calc(100vw - 32px));
+  padding: 15px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.app-update-card div {
+  display: grid;
+  gap: 3px;
+  flex: 1;
+}
+.app-update-card span {
+  color: var(--muted);
+  font-size: 12px;
+}
+.app-update-card button {
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--olive);
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+}
+@media (max-width: 640px) {
+  .app-install-button,
+  .app-update-card {
+    right: 16px;
+    bottom: 16px;
+  }
+}
 .app-shell {
   min-height: 100vh;
 }

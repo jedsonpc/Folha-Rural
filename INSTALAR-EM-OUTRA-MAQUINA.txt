@@ -1,0 +1,18 @@
+FOLHA RURAL — INSTALAÇÃO EM OUTRA MÁQUINA
+
+1. Abra no Microsoft Edge ou Google Chrome a URL oficial do Folha Rural.
+2. Entre com o usuário convidado e autorizado para a empresa.
+3. Clique no botão “Instalar Folha Rural”, exibido no canto inferior direito.
+4. Confirme a instalação. Um atalho será criado no computador.
+
+Não copie a pasta D:\App Folha Rural para a outra máquina.
+Os dados e permissões ficam centralizados com segurança no Supabase.
+
+ATUALIZAÇÕES
+
+Depois de uma nova versão ser publicada, o aplicativo baixa a atualização
+automaticamente. Quando ela estiver pronta, será exibido o aviso
+“Nova versão disponível”. Clique em “Atualizar agora”.
+
+Se o botão de instalação não aparecer, use o menu do navegador:
+Aplicativos > Instalar Folha Rural.
