@@ -221,6 +221,7 @@ async function cloudUsersPost(request: Request) {
     const id = String(body.id || "");
     const name = String(body.name || "").trim();
     const email = String(body.username || "").trim().toLowerCase();
+    const password = String(body.password || "");
     const role = body.role === "admin" ? "admin" : "operator";
     const permissions =
       role === "admin"
@@ -243,6 +244,11 @@ async function cloudUsersPost(request: Request) {
         { error: "Selecione pelo menos uma empresa para este usuário." },
         { status: 400 },
       );
+    if (password && password.length < 8)
+      return Response.json(
+        { error: "A nova senha deve ter pelo menos 8 caracteres." },
+        { status: 400 },
+      );
     let userId = id;
     if (!userId) {
       const configuredUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
@@ -254,6 +260,11 @@ async function cloudUsersPost(request: Request) {
       );
       userId = invited.id;
     }
+    if (id && password)
+      await supabaseAdmin.patch(
+        `/auth/v1/admin/users/${encodeURIComponent(userId)}`,
+        { password },
+      );
     await supabaseAdmin.post(
       "/rest/v1/user_profiles?on_conflict=user_id",
       {
@@ -291,7 +302,9 @@ async function cloudUsersPost(request: Request) {
     return Response.json({
       ok: true,
       message: id
-        ? "Acesso atualizado com sucesso."
+        ? password
+          ? "Acesso e senha atualizados com sucesso."
+          : "Acesso atualizado com sucesso."
         : "Convite enviado com sucesso.",
     });
   } catch (error) {

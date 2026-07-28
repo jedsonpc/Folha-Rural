@@ -163,12 +163,14 @@ export default function UsersModule() {
                   }
                 />
               </label>
-              {!cloudMode && (
+              {(!cloudMode || editing) && (
                 <label>
-                  Senha {editing && "(deixe vazia para manter)"}
+                  {cloudMode ? "Nova senha" : "Senha"}{" "}
+                  {editing && "(deixe vazia para manter)"}
                   <input
                     type="password"
                     minLength={8}
+                    autoComplete="new-password"
                     value={form.password}
                     onChange={(e) =>
                       setForm({ ...form, password: e.target.value })
