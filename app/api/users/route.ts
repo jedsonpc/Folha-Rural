@@ -245,8 +245,11 @@ async function cloudUsersPost(request: Request) {
       );
     let userId = id;
     if (!userId) {
+      const configuredUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
+      const requestOrigin = new URL(request.url).origin;
+      const inviteOrigin = (configuredUrl || requestOrigin).replace(/\/$/, "");
       const invited = await supabaseAdmin.auth<{ id: string }>(
-        `/auth/v1/invite?redirect_to=${encodeURIComponent("https://folha-rural.goicanadesenvolve.chatgpt.site/accept-invite")}`,
+        `/auth/v1/invite?redirect_to=${encodeURIComponent(`${inviteOrigin}/accept-invite`)}`,
         { email, data: { full_name: name } },
       );
       userId = invited.id;
