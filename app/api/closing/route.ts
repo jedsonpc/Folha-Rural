@@ -1,6 +1,8 @@
 import { and, asc, eq, gte, lt } from "drizzle-orm";
 import { ensureDatabase, getDb } from "../../../db";
 import { authorizeCloud } from "../../auth-cloud";
+import { getSupabaseConfig } from "../../../db/supabase";
+import { cloudClosingGet, cloudClosingPost } from "./cloud";
 import {
   dailyEntries,
   employmentContracts,
@@ -277,6 +279,7 @@ async function calculate(
 export async function GET(request: Request) {
   const access = await authorizeCloud(request, "Fechamento");
   if (access.response) return access.response;
+  if (getSupabaseConfig()) return cloudClosingGet(request);
   try {
     await ensureDatabase();
     const u = new URL(request.url),
@@ -306,6 +309,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const access = await authorizeCloud(request, "Fechamento");
   if (access.response) return access.response;
+  if (getSupabaseConfig()) return cloudClosingPost(request);
   try {
     await ensureDatabase();
     const b = (await request.json()) as {

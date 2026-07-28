@@ -97,9 +97,14 @@ exposto em componentes do navegador ou arquivos versionados.
   clonagem de dia;
 - função transacional `folha_save_launches` instalada pela migração
   `202607280008`, com validação da empresa, contrato e serviço;
+- Fechamento convertido para cálculo no Supabase, com prévia e confirmação
+  consistentes para Adiantamento e Fechamento Mensal;
+- função transacional `folha_save_payroll_closing` instalada pela migração
+  `202607280009`, preservando a memória de cálculo por empresa e competência;
 - convites preparados para usar a URL da Vercel em vez de endereço fixo.
 
 ## Próximo marco
 
-Converter Fechamento. A Preview da Vercel só será liberada quando todas as
-rotas operacionais deixarem de depender do D1.
+Converter as rotas operacionais restantes e executar a homologação integrada.
+A Preview da Vercel só será liberada quando todas as rotas operacionais
+deixarem de depender do D1.
