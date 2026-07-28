@@ -1,6 +1,8 @@
 import { and, asc, eq, ne, or } from "drizzle-orm";
 import { ensureDatabase, getDb } from "../../../db";
 import { authorizeCloud } from "../../auth-cloud";
+import { getSupabaseConfig } from "../../../db/supabase";
+import { cloudUnionsGet, cloudUnionsPost } from "./cloud";
 import {
   employmentContracts,
   payrollClosings,
@@ -31,6 +33,7 @@ const validCnpj = (value: unknown) => {
 export async function GET(r: Request) {
   const access = await authorizeCloud(r, "Sindicatos");
   if (access.response) return access.response;
+  if (getSupabaseConfig()) return cloudUnionsGet(r);
   try {
     await ensureDatabase();
     const tenantId = tenant(r),
@@ -64,6 +67,7 @@ export async function GET(r: Request) {
 export async function POST(r: Request) {
   const access = await authorizeCloud(r, "Sindicatos");
   if (access.response) return access.response;
+  if (getSupabaseConfig()) return cloudUnionsPost(r);
   try {
     await ensureDatabase();
     const db = getDb(),

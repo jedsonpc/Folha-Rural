@@ -106,6 +106,11 @@ exposto em componentes do navegador ou arquivos versionados.
   vigentes desde janeiro de 2026;
 - função transacional `folha_sync_tax_brackets` instalada pela migração
   `202607280010`, aceitando somente fontes oficiais em `gov.br`;
+- Sindicatos convertidos para Supabase, incluindo cadastro completo, histórico
+  de contribuições, validação de duplicidade e vínculo com colaboradores;
+- função transacional `folha_save_union` instalada pela migração
+  `202607280011`, com proteção dos descontos processados e dos fechamentos
+  legados antes de qualquer exclusão;
 - convites preparados para usar a URL da Vercel em vez de endereço fixo.
 
 ## Próximo marco
