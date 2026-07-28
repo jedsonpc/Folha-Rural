@@ -149,7 +149,8 @@ async function cloudHrGet(request: Request, user: CloudUser | null) {
       });
     }
 
-    const [functions, contracts, references] = await Promise.all([
+    const [functions, contracts, references, centers, services, items, issues] =
+      await Promise.all([
       supabaseAdmin.get<CloudRow[]>(
         `/rest/v1/job_functions?select=*&organization_id=eq.${config.organizationId}&order=official_description.asc`,
       ),
@@ -158,6 +159,18 @@ async function cloudHrGet(request: Request, user: CloudUser | null) {
       ),
       supabaseAdmin.get<CloudRow[]>(
         `/rest/v1/salary_references?select=*&organization_id=eq.${config.organizationId}&order=effective_date.desc,created_at.desc`,
+      ),
+      supabaseAdmin.get<CloudRow[]>(
+        `/rest/v1/cost_centers?select=*&organization_id=eq.${config.organizationId}&order=description.asc`,
+      ),
+      supabaseAdmin.get<CloudRow[]>(
+        `/rest/v1/services?select=group_legacy_id&organization_id=eq.${config.organizationId}&not.group_legacy_id=is.null`,
+      ),
+      supabaseAdmin.get<CloudRow[]>(
+        `/rest/v1/safety_items?select=*&organization_id=eq.${config.organizationId}&order=item_type.asc,description.asc`,
+      ),
+      supabaseAdmin.get<CloudRow[]>(
+        `/rest/v1/item_issues?select=*&organization_id=eq.${config.organizationId}&order=issue_date.desc,created_at.desc`,
       ),
     ]);
     const usage = new Map<string, number>();
@@ -173,10 +186,35 @@ async function cloudHrGet(request: Request, user: CloudUser | null) {
             String(row.local_description || row.official_description),
           ) || 0,
       })),
-      centers: [],
+      centers: centers.map((row) => ({
+        ...row,
+        cloud_id: row.id,
+        id: Number(row.legacy_id),
+        usage_count: services.filter(
+          (service) =>
+            Number(service.group_legacy_id) === Number(row.legacy_id),
+        ).length,
+      })),
       references,
-      items: [],
-      issues: [],
+      items: items.map((row) => ({
+        ...row,
+        usage_count: issues.filter((issue) => issue.item_id === row.id).length,
+      })),
+      issues: issues
+        .filter((issue) =>
+          contracts.some((contract) => contract.id === issue.contract_id),
+        )
+        .map((issue) => {
+          const item = items.find((row) => row.id === issue.item_id);
+          const contract = contracts.find(
+            (row) => row.id === issue.contract_id,
+          );
+          return {
+            ...issue,
+            item_description: item?.description,
+            worker_name: contract?.people?.full_name,
+          };
+        }),
       workers: contracts
         .filter((row) => row.status === "active")
         .map((row) => ({
@@ -353,6 +391,42 @@ async function cloudHrPost(request: Request, user: CloudUser | null) {
         ...saved,
         batchId: "batch_id" in saved ? saved.batch_id : undefined,
       });
+    }
+
+    if (
+      ["saveCenter", "saveItem", "issueItem"].includes(action) ||
+      (action === "delete" &&
+        ["center", "item"].includes(String(body.entity || "")))
+    ) {
+      if (
+        action === "saveCenter" &&
+        !String(body.description || "").trim()
+      )
+        return Response.json(
+          { error: "Informe a descrição." },
+          { status: 400 },
+        );
+      if (action === "saveItem" && !String(body.description || "").trim())
+        return Response.json(
+          { error: "Informe a descrição." },
+          { status: 400 },
+        );
+      if (
+        action === "issueItem" &&
+        (!body.itemId || !body.contractId || !validDate(body.issueDate))
+      )
+        return Response.json(
+          { error: "Selecione item, colaborador e data." },
+          { status: 400 },
+        );
+      const result = await supabaseAdmin.post<
+        Array<{ ok: boolean; message: string; affected: number }>
+      >("/rest/v1/rpc/folha_save_auxiliary_hr", {
+        p_organization_id: config.organizationId,
+        p_company_legacy_ids: user?.companyIds,
+        p_payload: body,
+      });
+      return Response.json(result[0] || { ok: true });
     }
 
     return Response.json(

@@ -116,6 +116,11 @@ exposto em componentes do navegador ou arquivos versionados.
   desfazimento e períodos aquisitivos/concessivos;
 - função transacional `folha_save_hr` instalada pela migração `202607280012`,
   limitando consultas e alterações às empresas autorizadas de cada usuário;
+- Centros de Custo, EPI e Ferramentas convertidos para Supabase, incluindo
+  fornecimentos aos colaboradores, quantidades, devolução e confirmação;
+- migração `202607280013` preserva códigos legados dos centros e instala
+  `folha_save_auxiliary_hr`, protegendo centros e itens que possuam vínculos;
+- seletor de funções do reajuste corrigido para os identificadores do Supabase;
 - convites preparados para usar a URL da Vercel em vez de endereço fixo.
 
 ## Próximo marco
