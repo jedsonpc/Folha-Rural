@@ -1,6 +1,8 @@
 import { asc, eq } from "drizzle-orm";
 import { ensureDatabase, getDb } from "../../../db";
 import { authorizeCloud } from "../../auth-cloud";
+import { getSupabaseConfig } from "../../../db/supabase";
+import { cloudTaxTablesGet, cloudTaxTablesPost } from "./cloud";
 import { taxBrackets } from "../../../db/schema";
 const tenant = (r: Request) =>
   r.headers.get("oai-authenticated-user-email")?.toLowerCase() || "local-owner";
@@ -104,6 +106,7 @@ async function sync(tenantId: string) {
 export async function GET(r: Request) {
   const access = await authorizeCloud(r, "Tabelas oficiais");
   if (access.response) return access.response;
+  if (getSupabaseConfig()) return cloudTaxTablesGet(r);
   try {
     await ensureDatabase();
     const tenantId = tenant(r);
@@ -136,6 +139,7 @@ export async function GET(r: Request) {
 export async function POST(r: Request) {
   const access = await authorizeCloud(r, "Tabelas oficiais");
   if (access.response) return access.response;
+  if (getSupabaseConfig()) return cloudTaxTablesPost(r);
   try {
     await ensureDatabase();
     await sync(tenant(r));

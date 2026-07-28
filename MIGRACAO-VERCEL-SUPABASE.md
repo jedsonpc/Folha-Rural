@@ -101,6 +101,11 @@ exposto em componentes do navegador ou arquivos versionados.
   consistentes para Adiantamento e Fechamento Mensal;
 - função transacional `folha_save_payroll_closing` instalada pela migração
   `202607280009`, preservando a memória de cálculo por empresa e competência;
+- Tabelas Oficiais convertidas para Supabase e conferidas nas fontes do INSS e
+  da Receita Federal, com 4 faixas de INSS, 5 de IRRF e 1 de salário-família
+  vigentes desde janeiro de 2026;
+- função transacional `folha_sync_tax_brackets` instalada pela migração
+  `202607280010`, aceitando somente fontes oficiais em `gov.br`;
 - convites preparados para usar a URL da Vercel em vez de endereço fixo.
 
 ## Próximo marco
