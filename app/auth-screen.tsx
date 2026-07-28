@@ -48,7 +48,7 @@ export default function AuthScreen({
     <main className="auth-screen">
       <section className="auth-card">
         <div className="auth-brand">
-          <span>FR</span>
+          <img src="/folha-rural-128.png" alt="" />
           <div>
             <b>Folha Rural</b>
             <small>

@@ -4,6 +4,8 @@
 .companies-head h2,.company-editor-head h2{margin:4px 0 0;color:#203a2e}
 .company-list{display:grid;gap:10px;margin-top:20px}
 .company-list article{display:grid;grid-template-columns:minmax(230px,1fr) minmax(180px,.7fr) 80px auto;gap:18px;align-items:center;border:1px solid #e9e5dc;border-radius:14px;padding:14px 16px}
+.company-list article.branded-company{overflow:hidden;padding-top:0}
+.company-brand-image{width:calc(100% + 32px);height:155px;margin:0 -16px;grid-column:1/-1;object-fit:cover;object-position:center 48%}
 .company-id{display:flex;align-items:center;gap:12px;min-width:0}.company-id>span{display:grid;place-items:center;width:42px;height:42px;border-radius:12px;background:#e8efe9;color:#28543d;font-weight:900}.company-id h3{margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.company-id p,.company-location small{margin:3px 0 0;color:#72766f}
 .company-location{display:grid;gap:4px}.status{padding:5px 9px;border-radius:20px;background:#eee;color:#666;text-align:center;font-size:12px;font-weight:800}.status.active{background:#e1f2e7;color:#21603b}
 .row-actions,.company-actions{display:flex;gap:8px}.row-actions button,.company-editor-head button,.company-actions button{border:1px solid #d8d6cf;background:#fff;border-radius:9px;padding:8px 12px;cursor:pointer}.row-actions button:disabled{opacity:.35;cursor:not-allowed}

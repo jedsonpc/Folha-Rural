@@ -27,8 +27,12 @@ export const metadata: Metadata = {
     google: "notranslate",
   },
   icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
+    icon: [
+      { url: "/folha-rural-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/folha-rural-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    shortcut: "/folha-rural.ico",
+    apple: "/folha-rural-180.png",
   },
 };
 

@@ -1,5 +1,12 @@
-const CACHE_NAME = "folha-rural-shell-v1";
-const APP_SHELL = ["/", "/manifest.webmanifest", "/favicon.svg", "/folha-rural.ico"];
+const CACHE_NAME = "folha-rural-shell-v2";
+const APP_SHELL = [
+  "/",
+  "/manifest.webmanifest",
+  "/folha-rural.ico",
+  "/folha-rural-32.png",
+  "/folha-rural-192.png",
+  "/folha-rural-512.png",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

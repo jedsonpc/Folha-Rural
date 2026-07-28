@@ -19,15 +19,22 @@
   gap: 12px;
   margin-bottom: 28px;
 }
-.auth-brand > span {
-  display: grid;
-  place-items: center;
+.auth-brand > span,
+.auth-brand > img {
   width: 48px;
   height: 48px;
   border-radius: 14px;
+}
+.auth-brand > span {
+  display: grid;
+  place-items: center;
   background: var(--olive);
   color: #fff;
   font-weight: 900;
+}
+.auth-brand > img {
+  object-fit: cover;
+  box-shadow: 0 4px 12px rgba(32, 58, 46, 0.22);
 }
 .auth-brand div {
   display: grid;

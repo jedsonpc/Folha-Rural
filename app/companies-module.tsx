@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import "./companies-module.css";
+import { companyBrandImage } from "./company-branding";
 
 type Company = {
   id: number;
@@ -313,7 +314,15 @@ export default function CompaniesModule({
       <div className="companies-head"><div><small>CADASTRO EMPRESARIAL</small><h2>{rows.length} empresas cadastradas</h2></div><button className="primary" onClick={() => edit()}>＋ Nova empresa</button></div>
       {message && <p className="company-message">{message}</p>}
       <div className="company-list">
-        {rows.map((row) => <article key={row.id}><div className="company-id"><span>{row.name.slice(0, 2).toUpperCase()}</span><div><h3>{row.name}</h3><p>{row.documentType?.toUpperCase()} {mask(row.document || "")}</p></div></div><div className="company-location"><b>{row.city || "Cidade não informada"}{row.state ? ` / ${row.state}` : ""}</b><small>{row.contractsCount} contratos · {row.entriesCount} lançamentos</small></div><span className={row.active ? "status active" : "status"}>{row.active ? "Ativa" : "Inativa"}</span><div className="row-actions"><button onClick={() => edit(row)}>Editar</button><button disabled={Boolean(row.contractsCount || row.entriesCount)} title={row.contractsCount || row.entriesCount ? "Há histórico vinculado" : "Excluir"} onClick={() => remove(row)}>Excluir</button></div></article>)}
+        {rows.map((row) => {
+          const brandImage = companyBrandImage(row.name);
+          return (
+            <article key={row.id} className={brandImage ? "branded-company" : ""}>
+              {brandImage && <img className="company-brand-image" src={brandImage} alt={`Paisagem rural de ${row.name}`} />}
+              <div className="company-id"><span>{row.name.slice(0, 2).toUpperCase()}</span><div><h3>{row.name}</h3><p>{row.documentType?.toUpperCase()} {mask(row.document || "")}</p></div></div><div className="company-location"><b>{row.city || "Cidade não informada"}{row.state ? ` / ${row.state}` : ""}</b><small>{row.contractsCount} contratos · {row.entriesCount} lançamentos</small></div><span className={row.active ? "status active" : "status"}>{row.active ? "Ativa" : "Inativa"}</span><div className="row-actions"><button onClick={() => edit(row)}>Editar</button><button disabled={Boolean(row.contractsCount || row.entriesCount)} title={row.contractsCount || row.entriesCount ? "Há histórico vinculado" : "Excluir"} onClick={() => remove(row)}>Excluir</button></div>
+            </article>
+          );
+        })}
         {!rows.length && <div className="empty-company">Nenhuma empresa cadastrada.</div>}
       </div>
     </section>
