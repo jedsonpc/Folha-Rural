@@ -250,12 +250,11 @@
   top: 0;
   left: calc(100% + 12px);
   width: 278px;
-  max-height: min(560px, calc(100vh - 70px));
+  max-height: none;
   padding: 10px;
   display: grid;
   gap: 5px;
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: visible;
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -268,6 +267,14 @@
     opacity 0.18s ease,
     visibility 0.18s ease,
     transform 0.22s ease;
+}
+.menu-group:nth-child(2) .submenu {
+  top: clamp(-120px, calc(50vh - 390px), -36px);
+}
+.menu-group:nth-child(2) .submenu button {
+  min-height: 36px;
+  padding-top: 6px;
+  padding-bottom: 6px;
 }
 .menu-group.expanded .submenu {
   opacity: 1;
