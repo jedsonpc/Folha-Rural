@@ -111,6 +111,11 @@ exposto em componentes do navegador ou arquivos versionados.
 - função transacional `folha_save_union` instalada pela migração
   `202607280011`, com proteção dos descontos processados e dos fechamentos
   legados antes de qualquer exclusão;
+- Evolução Salarial, Reajuste Salarial e Férias convertidos para Supabase,
+  incluindo salário individual, histórico, referências, reajuste em lote,
+  desfazimento e períodos aquisitivos/concessivos;
+- função transacional `folha_save_hr` instalada pela migração `202607280012`,
+  limitando consultas e alterações às empresas autorizadas de cada usuário;
 - convites preparados para usar a URL da Vercel em vez de endereço fixo.
 
 ## Próximo marco

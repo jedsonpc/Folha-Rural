@@ -15,7 +15,7 @@ const validDate = (v: unknown) => /^\d{4}-\d{2}-\d{2}$/.test(String(v || ""));
 export async function GET(r: Request) {
   const access = await authorizeCloud(r, "Cadastros");
   if (access.response) return access.response;
-  if (getSupabaseConfig()) return cloudFunctionsGet(access.user);
+  if (getSupabaseConfig()) return cloudHrGet(r, access.user);
   try {
     await ensureDatabase();
     const db = getRuntimeDatabase(), t = tenant(r), url = new URL(r.url);
@@ -45,7 +45,7 @@ export async function GET(r: Request) {
 export async function POST(r: Request) {
   const access = await authorizeCloud(r, "Cadastros");
   if (access.response) return access.response;
-  if (getSupabaseConfig()) return cloudFunctionsPost(r);
+  if (getSupabaseConfig()) return cloudHrPost(r, access.user);
   try {
     await ensureDatabase();
     const db = getRuntimeDatabase(), t = tenant(r), b = await r.json() as Record<string, unknown>;
@@ -111,19 +111,53 @@ export async function POST(r: Request) {
 
 type CloudRow = Record<string, any>;
 
-async function cloudFunctionsGet(user: CloudUser | null) {
+const allowedCompanyFilter = (user: CloudUser | null) =>
+  user?.companyIds == null
+    ? ""
+    : `&companies.legacy_id=in.(${user.companyIds.join(",") || "0"})`;
+
+async function cloudHrGet(request: Request, user: CloudUser | null) {
   const config = getSupabaseConfig()!;
   try {
-    const companyFilter =
-      user?.companyIds == null
-        ? ""
-        : `&companies.legacy_id=in.(${user.companyIds.join(",") || "0"})`;
-    const [functions, contracts] = await Promise.all([
+    const url = new URL(request.url);
+    const contractId = String(url.searchParams.get("contractId") || "");
+    if (contractId) {
+      const contracts = await supabaseAdmin.get<CloudRow[]>(
+        `/rest/v1/employment_contracts?select=id,companies!inner(legacy_id)&id=eq.${contractId}&organization_id=eq.${config.organizationId}${allowedCompanyFilter(user)}&limit=1`,
+      );
+      if (!contracts.length)
+        return Response.json(
+          { error: "Colaborador não encontrado ou sem acesso." },
+          { status: 404 },
+        );
+      const [profiles, salaries, vacations] = await Promise.all([
+        supabaseAdmin.get<CloudRow[]>(
+          `/rest/v1/worker_payroll_profiles?select=*&organization_id=eq.${config.organizationId}&contract_id=eq.${contractId}&limit=1`,
+        ),
+        supabaseAdmin.get<CloudRow[]>(
+          `/rest/v1/salary_history?select=*&organization_id=eq.${config.organizationId}&contract_id=eq.${contractId}&order=effective_date.desc,created_at.desc`,
+        ),
+        supabaseAdmin.get<CloudRow[]>(
+          `/rest/v1/vacation_periods?select=*&organization_id=eq.${config.organizationId}&contract_id=eq.${contractId}&order=accrual_start.desc,created_at.desc`,
+        ),
+      ]);
+      return Response.json({
+        profile: profiles[0] || null,
+        salaries,
+        vacations,
+        dataSource: "supabase",
+      });
+    }
+
+    const [functions, contracts, references] = await Promise.all([
       supabaseAdmin.get<CloudRow[]>(
         `/rest/v1/job_functions?select=*&organization_id=eq.${config.organizationId}&order=official_description.asc`,
       ),
       supabaseAdmin.get<CloudRow[]>(
-        `/rest/v1/employment_contracts?select=role_name,companies!inner(legacy_id)&organization_id=eq.${config.organizationId}${companyFilter}`,
+        `/rest/v1/employment_contracts?select=id,role_name,status,people(full_name),companies!inner(legacy_id)&organization_id=eq.${config.organizationId}${allowedCompanyFilter(user)}&order=created_at.asc`,
+      ),
+      supabaseAdmin.get<CloudRow[]>(
+        `/rest/v1/salary_references?select=*&organization_id=eq.${config.organizationId}&order=effective_date.desc,created_at.desc`,
       ),
     ]);
     const usage = new Map<string, number>();
@@ -140,12 +174,18 @@ async function cloudFunctionsGet(user: CloudUser | null) {
           ) || 0,
       })),
       centers: [],
-      references: [],
+      references,
       items: [],
       issues: [],
-      workers: [],
+      workers: contracts
+        .filter((row) => row.status === "active")
+        .map((row) => ({
+          id: row.id,
+          name: row.people?.full_name,
+          role: row.role_name,
+        })),
       dataSource: "supabase",
-      conversionScope: "functions",
+      conversionScope: "functions,salaries,adjustments,vacations",
     });
   } catch (error) {
     return Response.json(
@@ -160,7 +200,7 @@ async function cloudFunctionsGet(user: CloudUser | null) {
   }
 }
 
-async function cloudFunctionsPost(request: Request) {
+async function cloudHrPost(request: Request, user: CloudUser | null) {
   const config = getSupabaseConfig()!;
   try {
     const body = (await request.json()) as Record<string, unknown>;
@@ -225,6 +265,96 @@ async function cloudFunctionsPost(request: Request) {
       );
       return Response.json({ ok: true, message: "Função excluída." });
     }
+
+    if (
+      [
+        "saveProfile",
+        "saveVacation",
+        "saveReference",
+        "applyAdjustment",
+        "undoAdjustment",
+      ].includes(action) ||
+      (action === "delete" && body.entity === "reference")
+    ) {
+      const payload: Record<string, unknown> = { ...body, action };
+      if (action === "saveProfile") {
+        const baseSalaryCents = money(body.baseSalary);
+        if (!body.contractId || !baseSalaryCents)
+          return Response.json(
+            { error: "Informe o salário-base." },
+            { status: 400 },
+          );
+        payload.baseSalaryCents = baseSalaryCents;
+        payload.dailyRateCents = body.dailyRate
+          ? money(body.dailyRate)
+          : Math.round(baseSalaryCents / 30);
+        payload.advanceRateBasisPoints = Math.round(
+          Number(body.advanceRate || 40) * 100,
+        );
+        payload.salaryType = body.salaryType === "daily" ? "daily" : "monthly";
+      } else if (action === "saveVacation") {
+        if (
+          ![body.accrualStart, body.accrualEnd, body.concessionDeadline].every(
+            validDate,
+          )
+        )
+          return Response.json(
+            { error: "Informe o período aquisitivo e o prazo concessivo." },
+            { status: 400 },
+          );
+      } else if (action === "saveReference") {
+        const valueCents = money(body.value);
+        if (!validDate(body.effectiveDate) || !valueCents)
+          return Response.json(
+            { error: "Informe data e valor." },
+            { status: 400 },
+          );
+        payload.valueCents = valueCents;
+        payload.referenceType =
+          body.referenceType === "category" ? "category" : "national";
+      } else if (action === "applyAdjustment") {
+        if (!validDate(body.effectiveDate) || !Number(body.value))
+          return Response.json(
+            { error: "Informe a data e o valor do reajuste." },
+            { status: 400 },
+          );
+        payload.mode = body.mode === "percentage" ? "percentage" : "value";
+        payload.valueStored =
+          payload.mode === "percentage"
+            ? Math.round(Number(body.value) * 100)
+            : money(body.value);
+        payload.functionIds = Array.isArray(body.functionIds)
+          ? body.functionIds.map(String).filter(Boolean)
+          : [];
+      } else if (
+        action === "undoAdjustment" &&
+        !validDate(body.effectiveDate)
+      ) {
+        return Response.json(
+          { error: "Informe a data do reajuste." },
+          { status: 400 },
+        );
+      }
+
+      const result = await supabaseAdmin.post<
+        Array<{
+          ok: boolean;
+          message: string;
+          affected: number;
+          batch_id: string | null;
+        }>
+      >("/rest/v1/rpc/folha_save_hr", {
+        p_organization_id: config.organizationId,
+        p_company_legacy_ids: user?.companyIds,
+        p_payload: payload,
+      });
+      const saved = result[0] || { ok: true };
+      return Response.json({
+        ...saved,
+        batchId: "batch_id" in saved ? saved.batch_id : undefined,
+      });
+    }
+
     return Response.json(
       { error: "Este cadastro será convertido em uma etapa própria." },
       { status: 503 },
