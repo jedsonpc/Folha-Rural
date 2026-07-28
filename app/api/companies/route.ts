@@ -7,6 +7,10 @@ import {
 } from "../../../db/schema";
 import { cleanCpf, isValidCpf } from "../../cpf";
 import { authorizeCloud } from "../../auth-cloud";
+import {
+  getSupabaseConfig,
+  supabaseAdmin,
+} from "../../../db/supabase";
 
 const tenant = (request: Request) =>
   request.headers.get("oai-authenticated-user-email")?.toLowerCase() ||
@@ -17,6 +21,7 @@ const cleanDocument = (value: unknown) =>
 export async function GET(request: Request) {
   const access = await authorizeCloud(request, "Empresas");
   if (access.response) return access.response;
+  if (getSupabaseConfig()) return cloudCompaniesGet(access.user);
   try {
     await ensureDatabase();
     const db = getDb(),
@@ -74,6 +79,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const access = await authorizeCloud(request, "Empresas");
   if (access.response) return access.response;
+  if (getSupabaseConfig()) return cloudCompaniesPost(request, access.user);
   try {
     await ensureDatabase();
     const db = getDb(),
@@ -240,6 +246,231 @@ export async function POST(request: Request) {
   } catch (error) {
     return Response.json(
       { error: error instanceof Error ? error.message : "Falha ao salvar." },
+      { status: 500 },
+    );
+  }
+}
+
+type CloudCompany = {
+  id: string;
+  legacy_id: number;
+  name: string;
+  document: string | null;
+  document_type: string | null;
+  owner_cpf: string | null;
+  cei: string | null;
+  legal_name: string | null;
+  trade_name: string | null;
+  registration_status: string | null;
+  email: string | null;
+  phone: string | null;
+  postal_code: string | null;
+  address: string | null;
+  address_number: string | null;
+  address_complement: string | null;
+  district: string | null;
+  city: string | null;
+  state: string | null;
+  checked_at: string | null;
+  active: boolean;
+  employment_contracts?: Array<{ count: number }>;
+  daily_entries?: Array<{ count: number }>;
+};
+
+const cloudCompanyResponse = (row: CloudCompany) => ({
+  id: row.id,
+  sourceId: Number(row.legacy_id),
+  name: row.name,
+  document: row.document,
+  documentType: row.document_type || "cnpj",
+  ownerCpf: row.owner_cpf,
+  cei: row.cei,
+  legalName: row.legal_name,
+  tradeName: row.trade_name,
+  registrationStatus: row.registration_status,
+  email: row.email,
+  phone: row.phone,
+  postalCode: row.postal_code,
+  address: row.address,
+  addressNumber: row.address_number,
+  addressComplement: row.address_complement,
+  district: row.district,
+  city: row.city,
+  state: row.state,
+  checkedAt: row.checked_at,
+  active: row.active,
+  contractsCount: Number(row.employment_contracts?.[0]?.count || 0),
+  entriesCount: Number(row.daily_entries?.[0]?.count || 0),
+});
+
+async function cloudCompaniesGet(
+  user: { companyIds?: number[] | null } | null,
+) {
+  const config = getSupabaseConfig()!;
+  try {
+    const allowed =
+      user?.companyIds == null
+        ? ""
+        : `&legacy_id=in.(${user.companyIds.map(Number).join(",") || "0"})`;
+    const rows = await supabaseAdmin.get<CloudCompany[]>(
+      `/rest/v1/companies?select=*,employment_contracts(count),daily_entries(count)&organization_id=eq.${config.organizationId}${allowed}&order=name.asc`,
+    );
+    return Response.json(
+      { companies: rows.map(cloudCompanyResponse), dataSource: "supabase" },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  } catch (error) {
+    return Response.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Falha ao consultar empresas no Supabase.",
+      },
+      { status: 500 },
+    );
+  }
+}
+
+async function cloudCompaniesPost(
+  request: Request,
+  user: { role: string; companyIds?: number[] | null } | null,
+) {
+  const config = getSupabaseConfig()!;
+  try {
+    const body = (await request.json()) as Record<string, unknown>;
+    const action = String(body.action || "save");
+    const id = String(body.id || "").trim();
+    if (action === "delete") {
+      if (!id)
+        return Response.json({ error: "Empresa inválida." }, { status: 400 });
+      const [contracts, entries] = await Promise.all([
+        supabaseAdmin.get<Array<{ id: string }>>(
+          `/rest/v1/employment_contracts?select=id&organization_id=eq.${config.organizationId}&company_id=eq.${id}&limit=1`,
+        ),
+        supabaseAdmin.get<Array<{ id: string }>>(
+          `/rest/v1/daily_entries?select=id&organization_id=eq.${config.organizationId}&company_id=eq.${id}&limit=1`,
+        ),
+      ]);
+      if (contracts.length || entries.length)
+        return Response.json(
+          {
+            error:
+              "A empresa possui histórico e não pode ser excluída. Desative-a para preservar os dados.",
+          },
+          { status: 409 },
+        );
+      await supabaseAdmin.delete(
+        `/rest/v1/companies?id=eq.${id}&organization_id=eq.${config.organizationId}`,
+      );
+      return Response.json({ ok: true });
+    }
+
+    const documentType = body.documentType === "caepf" ? "caepf" : "cnpj";
+    const document = cleanDocument(body.document);
+    const ownerCpf = cleanCpf(String(body.ownerCpf || ""));
+    const name = String(
+      body.name || body.tradeName || body.legalName || "",
+    ).trim();
+    if (document.length !== 14)
+      return Response.json(
+        { error: `${documentType.toUpperCase()} deve conter 14 dígitos.` },
+        { status: 400 },
+      );
+    if (!name)
+      return Response.json(
+        { error: "Informe o nome da empresa." },
+        { status: 400 },
+      );
+    if (documentType === "caepf" && !isValidCpf(ownerCpf))
+      return Response.json(
+        { error: "Informe um CPF válido para o titular do CAEPF." },
+        { status: 400 },
+      );
+
+    const duplicateFilter = id ? `&id=neq.${id}` : "";
+    const duplicate = await supabaseAdmin.get<Array<{ id: string }>>(
+      `/rest/v1/companies?select=id&organization_id=eq.${config.organizationId}&document=eq.${document}${duplicateFilter}&limit=1`,
+    );
+    if (duplicate.length)
+      return Response.json(
+        { error: "Este CNPJ/CAEPF já está cadastrado." },
+        { status: 409 },
+      );
+
+    let legacyId = Number(body.sourceId || 0);
+    if (!id && !legacyId) {
+      const last = await supabaseAdmin.get<Array<{ legacy_id: number }>>(
+        `/rest/v1/companies?select=legacy_id&organization_id=eq.${config.organizationId}&order=legacy_id.desc&limit=1`,
+      );
+      legacyId = Number(last[0]?.legacy_id || 0) + 1;
+    }
+    if (
+      user?.role !== "admin" &&
+      user?.companyIds != null &&
+      id &&
+      !user.companyIds.includes(legacyId)
+    )
+      return Response.json({ error: "Empresa não autorizada." }, { status: 403 });
+
+    const values = {
+      organization_id: config.organizationId,
+      legacy_id: legacyId,
+      name,
+      document,
+      document_type: documentType,
+      owner_cpf: documentType === "caepf" ? ownerCpf : null,
+      cei:
+        documentType === "caepf"
+          ? String(body.cei || "").replace(/\D/g, "").slice(0, 12) || null
+          : null,
+      legal_name: String(body.legalName || "").trim() || null,
+      trade_name: String(body.tradeName || "").trim() || null,
+      registration_status:
+        String(body.registrationStatus || "").trim() || null,
+      email: String(body.email || "").trim() || null,
+      phone: String(body.phone || "").trim() || null,
+      postal_code:
+        String(body.postalCode || "").replace(/\D/g, "").slice(0, 8) || null,
+      address: String(body.address || "").trim() || null,
+      address_number: String(body.addressNumber || "").trim() || null,
+      address_complement:
+        String(body.addressComplement || "").trim() || null,
+      district: String(body.district || "").trim() || null,
+      city: String(body.city || "").trim() || null,
+      state: String(body.state || "").trim().toUpperCase().slice(0, 2) || null,
+      checked_at: String(body.checkedAt || "").trim() || null,
+      active: body.active !== false,
+    };
+    const saved = id
+      ? await supabaseAdmin.patch<CloudCompany[]>(
+          `/rest/v1/companies?id=eq.${id}&organization_id=eq.${config.organizationId}&select=*`,
+          values,
+          { prefer: "return=representation" },
+        )
+      : await supabaseAdmin.post<CloudCompany[]>(
+          "/rest/v1/companies?select=*",
+          values,
+          { prefer: "return=representation" },
+        );
+    if (!saved[0])
+      return Response.json(
+        { error: "O Supabase não confirmou a gravação da empresa." },
+        { status: 500 },
+      );
+    return Response.json({
+      ok: true,
+      company: cloudCompanyResponse(saved[0]),
+      dataSource: "supabase",
+    });
+  } catch (error) {
+    return Response.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Falha ao salvar empresa no Supabase.",
+      },
       { status: 500 },
     );
   }

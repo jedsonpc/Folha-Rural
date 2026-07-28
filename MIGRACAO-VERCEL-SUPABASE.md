@@ -77,10 +77,16 @@ exposto em componentes do navegador ou arquivos versionados.
 - rota `/api/migration-status` preparada para a futura Preview da Vercel;
 - versão Cloudflare/Sites continua sendo a produção segura;
 - nenhuma alteração destrutiva foi aplicada ao D1 ou ao Supabase.
+- módulo Empresas convertido para leitura e gravação no Supabase, incluindo
+  isolamento por organização, empresas permitidas, validação de documento e
+  proteção de histórico;
+- migração aditiva `202607280005` aplicada na homologação para os campos
+  completos de Empresas;
+- convites preparados para usar a URL da Vercel em vez de endereço fixo.
 
 ## Próximo marco
 
-Criar o primeiro administrador no Supabase Auth, vinculá-lo como `owner` da
-organização de homologação e ativar gradualmente os repositórios PostgreSQL das
-rotas da aplicação. A Preview da Vercel só será liberada quando as rotas
-operacionais deixarem de depender do D1.
+Converter Colaboradores como uma operação transacional, reunindo pessoa,
+contrato, salário e dependentes sem risco de gravação parcial. Depois serão
+convertidos Funções/Serviços, Apontamentos e Fechamento. A Preview da Vercel só
+será liberada quando todas as rotas operacionais deixarem de depender do D1.
