@@ -38,7 +38,7 @@ const navGroups = [
       items: [
         ["EM", "Empresas"],
         ["CL", "Colaboradores"],
-        ["AX", "Cadastros"],
+        ["AX", "Funções"],
         ["SV", "Serviços"],
         ["SN", "Sindicatos"],
         ["US", "Usuários"],
@@ -318,7 +318,7 @@ export default function Home() {
             <ReportsModule />
           ) : active === "Empresas" ? (
             <CompaniesModule onChanged={loadCompanies} />
-          ) : active === "Cadastros" ? (
+          ) : active === "Funções" ? (
             <RegistrationsModule />
           ) : active === "Colaboradores" ? (
             <DataModule

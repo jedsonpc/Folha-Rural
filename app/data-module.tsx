@@ -22,6 +22,11 @@ type Contract = {
   admissionDate: string | null;
   terminationDate: string | null;
   role: string | null;
+  cboCode: string | null;
+  weeklyHours: number;
+  employmentLinkCode: string | null;
+  employmentLinkDescription: string | null;
+  contractTerm: "determined" | "indefinite";
   status: string;
   personId: number;
   name: string;
@@ -97,6 +102,13 @@ type Union = {
   code: string;
   description: string;
   contributionCents: number;
+  active: boolean;
+};
+type JobFunction = {
+  id: number;
+  cbo_code: string;
+  official_description: string;
+  local_description: string | null;
   active: boolean;
 };
 const showDate = (v: string | null) =>
@@ -176,7 +188,8 @@ export default function DataModule({
     [search, setSearch] = useState(""),
     [status, setStatus] = useState("all"),
     [error, setError] = useState(""),
-    [notice, setNotice] = useState("");
+    [notice, setNotice] = useState(""),
+    [functions, setFunctions] = useState<JobFunction[]>([]);
   const [admission, setAdmission] = useState<Contract | null>(null),
     [editing, setEditing] = useState<Contract | null>(null),
     [creating, setCreating] = useState(false),
@@ -223,7 +236,11 @@ export default function DataModule({
       companySourceId: "",
       admissionDate: today(),
       role: "",
-      seasonSourceId: "",
+      cboCode: "",
+      weeklyHours: "44",
+      employmentLinkCode: "",
+      employmentLinkDescription: "",
+      contractTerm: "indefinite",
       employmentCondition: "reemployment",
       contractType: "harvest",
     }),
@@ -267,6 +284,11 @@ export default function DataModule({
       companySourceId: selectedCompany === "all" ? "" : selectedCompany,
       admissionDate: today(),
       role: "",
+      cboCode: "",
+      weeklyHours: "44",
+      employmentLinkCode: "",
+      employmentLinkDescription: "",
+      contractTerm: "indefinite",
       paymentType: "production",
       unionMember: false,
       unionDiscount: "",
@@ -295,6 +317,10 @@ export default function DataModule({
       .catch((e) => setError(e.message || "Falha ao carregar."));
   useEffect(() => {
     load();
+    fetch("/api/hr")
+      .then((r) => r.json())
+      .then((b) => setFunctions(Array.isArray(b.functions) ? b.functions : []))
+      .catch(() => setFunctions([]));
   }, []);
   const companyName = (id: number) =>
     data?.companies.find((c) => c.sourceId === id)?.name || `Empresa ${id}`;
@@ -328,7 +354,11 @@ export default function DataModule({
       companySourceId: String(r.companySourceId),
       admissionDate: today(),
       role: "",
-      seasonSourceId: "",
+      cboCode: "",
+      weeklyHours: "44",
+      employmentLinkCode: "",
+      employmentLinkDescription: "",
+      contractTerm: "indefinite",
       employmentCondition: "reemployment",
       contractType: "harvest",
     });
@@ -376,7 +406,11 @@ export default function DataModule({
       postalCode: formatCep(r.postalCode),
       admissionDate: r.admissionDate || "",
       role: r.role || "",
-      seasonSourceId: "",
+      cboCode: r.cboCode || "",
+      weeklyHours: String(r.weeklyHours || 44),
+      employmentLinkCode: r.employmentLinkCode || "",
+      employmentLinkDescription: r.employmentLinkDescription || "",
+      contractTerm: r.contractTerm || "indefinite",
       terminationDate: today(),
       paymentType: r.paymentType || "production",
       unionMember: r.unionMember ? "true" : "false",
@@ -463,9 +497,11 @@ export default function DataModule({
         companySourceId: Number(newForm.companySourceId),
         admissionDate: newForm.admissionDate,
         role: newForm.role,
-        seasonSourceId: newForm.seasonSourceId
-          ? Number(newForm.seasonSourceId)
-          : null,
+        cboCode: newForm.cboCode,
+        weeklyHours: Number(newForm.weeklyHours),
+        employmentLinkCode: newForm.employmentLinkCode,
+        employmentLinkDescription: newForm.employmentLinkDescription,
+        contractTerm: newForm.contractTerm,
         employmentCondition: newForm.employmentCondition,
         contractType: newForm.contractType,
       }))
@@ -1022,12 +1058,58 @@ export default function DataModule({
                           setCreateForm({ ...createForm, admissionDate: v })
                         }
                       />
+                      <FunctionField
+                        functions={functions}
+                        role={createForm.role}
+                        cboCode={createForm.cboCode}
+                        set={(role, cboCode) =>
+                          setCreateForm({ ...createForm, role, cboCode })
+                        }
+                      />
+                      <Field
+                        label="Horas semanais"
+                        type="number"
+                        value={createForm.weeklyHours}
+                        set={(v) =>
+                          setCreateForm({ ...createForm, weeklyHours: v })
+                        }
+                      />
+                      <Field
+                        label="Código do vínculo"
+                        value={createForm.employmentLinkCode}
+                        set={(v) =>
+                          setCreateForm({
+                            ...createForm,
+                            employmentLinkCode: v,
+                          })
+                        }
+                      />
                       <Field
                         wide
-                        label="Função"
-                        value={createForm.role}
-                        set={(v) => setCreateForm({ ...createForm, role: v })}
+                        label="Vínculo"
+                        value={createForm.employmentLinkDescription}
+                        set={(v) =>
+                          setCreateForm({
+                            ...createForm,
+                            employmentLinkDescription: v,
+                          })
+                        }
                       />
+                      <label>
+                        Prazo do contrato
+                        <select
+                          value={createForm.contractTerm}
+                          onChange={(e) =>
+                            setCreateForm({
+                              ...createForm,
+                              contractTerm: e.target.value,
+                            })
+                          }
+                        >
+                          <option value="determined">Prazo determinado</option>
+                          <option value="indefinite">Prazo indeterminado</option>
+                        </select>
+                      </label>
                       <label>
                         Tipo de apontamento
                         <select
@@ -1428,18 +1510,47 @@ export default function DataModule({
                   value={newForm.admissionDate}
                   set={(v) => setNewForm({ ...newForm, admissionDate: v })}
                 />
+                <FunctionField
+                  functions={functions}
+                  role={newForm.role}
+                  cboCode={newForm.cboCode}
+                  set={(role, cboCode) =>
+                    setNewForm({ ...newForm, role, cboCode })
+                  }
+                />
                 <Field
-                  label="Código da safra"
+                  label="Horas semanais"
                   type="number"
-                  value={newForm.seasonSourceId}
-                  set={(v) => setNewForm({ ...newForm, seasonSourceId: v })}
+                  value={newForm.weeklyHours}
+                  set={(v) => setNewForm({ ...newForm, weeklyHours: v })}
+                />
+                <Field
+                  label="Código do vínculo"
+                  value={newForm.employmentLinkCode}
+                  set={(v) =>
+                    setNewForm({ ...newForm, employmentLinkCode: v })
+                  }
                 />
                 <Field
                   wide
-                  label="Função"
-                  value={newForm.role}
-                  set={(v) => setNewForm({ ...newForm, role: v })}
+                  label="Vínculo"
+                  value={newForm.employmentLinkDescription}
+                  set={(v) =>
+                    setNewForm({ ...newForm, employmentLinkDescription: v })
+                  }
                 />
+                <label>
+                  Prazo do contrato
+                  <select
+                    value={newForm.contractTerm}
+                    onChange={(e) =>
+                      setNewForm({ ...newForm, contractTerm: e.target.value })
+                    }
+                  >
+                    <option value="determined">Prazo determinado</option>
+                    <option value="indefinite">Prazo indeterminado</option>
+                  </select>
+                </label>
                 <label>
                   Histórico profissional
                   <select
@@ -1511,6 +1622,12 @@ export default function DataModule({
               >
                 Contrato
               </button>
+              <button type="button" className={tab === "salary" ? "active" : ""} onClick={() => setTab("salary")}>
+                Salário
+              </button>
+              <button type="button" className={tab === "vacation" ? "active" : ""} onClick={() => setTab("vacation")}>
+                Férias
+              </button>
               <button
                 type="button"
                 className={tab === "dependents" ? "active" : ""}
@@ -1522,12 +1639,6 @@ export default function DataModule({
                     .length
                 }
                 )
-              </button>
-              <button type="button" className={tab === "salary" ? "active" : ""} onClick={() => setTab("salary")}>
-                Salário
-              </button>
-              <button type="button" className={tab === "vacation" ? "active" : ""} onClick={() => setTab("vacation")}>
-                Férias
               </button>
             </div>
             <form className="worker-form" onSubmit={saveEdit}>
@@ -1728,18 +1839,47 @@ export default function DataModule({
                         value={form.admissionDate}
                         set={(v) => setForm({ ...form, admissionDate: v })}
                       />
+                      <FunctionField
+                        functions={functions}
+                        role={form.role}
+                        cboCode={form.cboCode}
+                        set={(role, cboCode) =>
+                          setForm({ ...form, role, cboCode })
+                        }
+                      />
                       <Field
-                        label="Código da safra"
+                        label="Horas semanais"
                         type="number"
-                        value={form.seasonSourceId}
-                        set={(v) => setForm({ ...form, seasonSourceId: v })}
+                        value={form.weeklyHours}
+                        set={(v) => setForm({ ...form, weeklyHours: v })}
+                      />
+                      <Field
+                        label="Código do vínculo"
+                        value={form.employmentLinkCode}
+                        set={(v) =>
+                          setForm({ ...form, employmentLinkCode: v })
+                        }
                       />
                       <Field
                         wide
-                        label="Função"
-                        value={form.role}
-                        set={(v) => setForm({ ...form, role: v })}
+                        label="Vínculo"
+                        value={form.employmentLinkDescription}
+                        set={(v) =>
+                          setForm({ ...form, employmentLinkDescription: v })
+                        }
                       />
+                      <label>
+                        Prazo do contrato
+                        <select
+                          value={form.contractTerm}
+                          onChange={(e) =>
+                            setForm({ ...form, contractTerm: e.target.value })
+                          }
+                        >
+                          <option value="determined">Prazo determinado</option>
+                          <option value="indefinite">Prazo indeterminado</option>
+                        </select>
+                      </label>
                       <label>
                         Tipo de apontamento
                         <select
@@ -2122,6 +2262,53 @@ export default function DataModule({
         </div>
       )}
     </section>
+  );
+}
+function FunctionField({
+  functions,
+  role,
+  cboCode,
+  set,
+}: {
+  functions: JobFunction[];
+  role?: string;
+  cboCode?: string;
+  set: (role: string, cboCode: string) => void;
+}) {
+  const select = (value: string) => {
+    const fn = functions.find((item) => String(item.id) === value);
+    if (!fn) return set("", "");
+    set(fn.local_description || fn.official_description, fn.cbo_code);
+  };
+  const selected =
+    functions.find(
+      (item) =>
+        item.cbo_code === cboCode &&
+        (item.local_description || item.official_description) === role,
+    )?.id || "";
+  return (
+    <>
+      <label className="wide">
+        Função
+        <select
+          value={selected}
+          onChange={(event) => select(event.target.value)}
+        >
+          <option value="">Selecione uma função cadastrada…</option>
+          {functions
+            .filter((item) => item.active !== false)
+            .map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.local_description || item.official_description}
+              </option>
+            ))}
+        </select>
+      </label>
+      <label>
+        CBO
+        <input value={cboCode || ""} readOnly placeholder="Preenchido pela função" />
+      </label>
+    </>
   );
 }
 function Field({

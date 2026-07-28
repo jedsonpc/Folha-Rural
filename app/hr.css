@@ -1,1 +1,10 @@
 .hr-pane{padding:18px 4px}.hr-pane h3{margin:8px 0 12px}.hr-pane .helper{color:#617067;margin-top:-6px}.hr-pane textarea{min-height:78px}.vacation-alert{display:flex;gap:8px;flex-direction:column;background:#fff2d8;border:1px solid #e5a633;border-radius:10px;padding:13px;margin-bottom:16px;color:#754b00}.compact-list{display:grid;gap:8px;margin-top:12px}.compact-list>div{display:flex;justify-content:space-between;gap:12px;padding:10px 12px;background:#f5f7f4;border-radius:8px}.compact-list span{color:#617067}
+.registrations-module{display:grid;grid-template-columns:220px minmax(0,1fr);gap:20px}
+.registrations-module>.module-hero,.registrations-module>.inline-notice{grid-column:1/-1}
+.registration-tabs{grid-column:1;grid-row:3/span 20;display:flex!important;flex-direction:column;align-items:stretch}
+.registration-tabs button{text-align:left}
+.registrations-module>h3,.registrations-module>.form-grid,.registrations-module>.cbo-search,.registrations-module>.table-scroll,.registrations-module>.primary,.registrations-module>.danger{grid-column:2}
+.cbo-results{display:grid;gap:6px;margin:8px 0 14px;max-height:260px;overflow:auto;border:1px solid #d9e2dc;border-radius:10px;padding:6px}
+.cbo-results button{display:grid;grid-template-columns:90px 1fr;gap:12px;text-align:left;padding:10px;border:0;border-radius:8px;background:#f5f8f6;cursor:pointer}
+.cbo-results button:hover{background:#e7f2eb}.cbo-results span{color:#34483b}
+@media(max-width:800px){.registrations-module{display:block}.registration-tabs{flex-direction:row;overflow:auto;margin-bottom:18px}.registration-tabs button{white-space:nowrap}}

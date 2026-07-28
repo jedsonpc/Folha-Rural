@@ -4,18 +4,15 @@ import "./hr.css";
 const brl=(c:number)=>new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format((c||0)/100);
 export default function WorkerHrTabs({contractId,kind}:{contractId:number;kind:"salary"|"vacation"}) {
   const [data,setData]=useState<any>({profile:null,salaries:[],vacations:[]}),[msg,setMsg]=useState("");
-  const [salary,setSalary]=useState<any>({linkCode:"101",linkDescription:"Empregado geral",contractTerm:"indefinite",salaryType:"monthly",baseSalary:"",dailyRate:"",advanceRate:40,effectiveDate:new Date().toISOString().slice(0,10),reason:""});
+  const [salary,setSalary]=useState<any>({salaryType:"monthly",baseSalary:"",dailyRate:"",advanceRate:40,effectiveDate:new Date().toISOString().slice(0,10),reason:""});
   const [vac,setVac]=useState<any>({accrualStart:"",accrualEnd:"",concessionDeadline:"",scheduledStart:"",scheduledEnd:"",days:30,soldDays:0,paymentDate:"",status:"pending",notes:""});
-  const load=()=>fetch(`/api/hr?contractId=${contractId}`).then(r=>r.json()).then(b=>{setData(b);if(b.profile)setSalary((s:any)=>({...s,linkCode:b.profile.employment_link_code||"",linkDescription:b.profile.employment_link_description||"",contractTerm:b.profile.contract_term,salaryType:b.profile.salary_type,baseSalary:(b.profile.base_salary_cents/100).toFixed(2),dailyRate:(b.profile.daily_rate_cents/100).toFixed(2),advanceRate:b.profile.advance_rate_basis_points/100}))});
+  const load=()=>fetch(`/api/hr?contractId=${contractId}`).then(r=>r.json()).then(b=>{setData(b);if(b.profile)setSalary((s:any)=>({...s,salaryType:b.profile.salary_type,baseSalary:(b.profile.base_salary_cents/100).toFixed(2),dailyRate:(b.profile.daily_rate_cents/100).toFixed(2),advanceRate:b.profile.advance_rate_basis_points/100}))});
   useEffect(()=>{void load()},[contractId]);
   const save=async(body:any)=>{const r=await fetch("/api/hr",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}),b=await r.json();setMsg(b.error||b.message);if(r.ok)load()};
   const alerts=(data.vacations||[]).filter((v:any)=>v.status!=="paid" && new Date(v.concession_deadline).getTime()-Date.now()<=122*86400000);
   if(kind==="salary") return <div className="hr-pane">
-    <h3>Salário e vínculo</h3><p className="helper">Parâmetros usados na folha. Mensalista gera adiantamento de 40% na quinzena; apontamento diário usa 1/30 do salário, com valor flexível.</p>
+    <h3>Salário</h3><p className="helper">Parâmetros usados na folha. Os dados de vínculo e contrato ficam na aba Contrato do colaborador.</p>
     <div className="form-grid">
-      <label>Código do vínculo (padrão IOB)<input value={salary.linkCode} onChange={e=>setSalary({...salary,linkCode:e.target.value})}/></label>
-      <label className="wide">Descrição do vínculo<input value={salary.linkDescription} onChange={e=>setSalary({...salary,linkDescription:e.target.value})}/></label>
-      <label>Tipo de contrato<select value={salary.contractTerm} onChange={e=>setSalary({...salary,contractTerm:e.target.value})}><option value="determined">Prazo determinado</option><option value="indefinite">Prazo indeterminado</option></select></label>
       <label>Tipo de salário<select value={salary.salaryType} onChange={e=>setSalary({...salary,salaryType:e.target.value})}><option value="monthly">Mensalista</option><option value="daily">Apontamento diário</option></select></label>
       <label>Salário-base (R$)<input type="number" step=".01" value={salary.baseSalary} onChange={e=>setSalary({...salary,baseSalary:e.target.value,dailyRate:salary.dailyRate||(+e.target.value/30).toFixed(2)})}/></label>
       <label>Valor da diária (R$)<input type="number" step=".01" value={salary.dailyRate} onChange={e=>setSalary({...salary,dailyRate:e.target.value})}/></label>

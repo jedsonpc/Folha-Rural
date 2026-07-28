@@ -141,6 +141,11 @@ export const employmentContracts = sqliteTable(
     admissionDate: text("admission_date"),
     terminationDate: text("termination_date"),
     role: text("role"),
+    cboCode: text("cbo_code"),
+    weeklyHours: integer("weekly_hours").notNull().default(44),
+    employmentLinkCode: text("employment_link_code"),
+    employmentLinkDescription: text("employment_link_description"),
+    contractTerm: text("contract_term").notNull().default("indefinite"),
     paymentType: text("payment_type").notNull().default("production"),
     unionMember: integer("union_member", { mode: "boolean" })
       .notNull()

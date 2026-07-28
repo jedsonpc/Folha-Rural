@@ -29,7 +29,7 @@ const money = (c: number) =>
   todayMonth = () => new Date().toISOString().slice(0, 7);
 export default function ClosingModule({ company }: { company: string }) {
   const [month, setMonth] = useState(todayMonth()),
-    [period, setPeriod] = useState("balance"),
+    [period, setPeriod] = useState("monthly"),
     [result, setResult] = useState<Result | null>(null),
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false);
@@ -109,8 +109,8 @@ export default function ClosingModule({ company }: { company: string }) {
           <label>
             Período
             <select value={period} onChange={(e) => setPeriod(e.target.value)}>
-              <option value="advance">01 a 15 — Adiantamento</option>
-              <option value="balance">16 ao final — Saldo mensal</option>
+              <option value="advance">Adiantamento</option>
+              <option value="monthly">Fechamento mensal</option>
             </select>
           </label>
           <button

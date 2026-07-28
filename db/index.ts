@@ -224,6 +224,11 @@ export function ensureDatabase() {
           union_discount_frequency: "TEXT NOT NULL DEFAULT 'monthly'",
           employment_condition: "TEXT NOT NULL DEFAULT 'first_job'",
           contract_type: "TEXT NOT NULL DEFAULT 'harvest'",
+          cbo_code: "TEXT",
+          weekly_hours: "INTEGER NOT NULL DEFAULT 44",
+          employment_link_code: "TEXT",
+          employment_link_description: "TEXT",
+          contract_term: "TEXT NOT NULL DEFAULT 'indefinite'",
           family_dependents: "INTEGER NOT NULL DEFAULT 0",
           irrf_dependents: "INTEGER NOT NULL DEFAULT 0",
         };

@@ -50,6 +50,11 @@ export async function GET(request: Request) {
           admissionDate: employmentContracts.admissionDate,
           terminationDate: employmentContracts.terminationDate,
           role: employmentContracts.role,
+          cboCode: employmentContracts.cboCode,
+          weeklyHours: employmentContracts.weeklyHours,
+          employmentLinkCode: employmentContracts.employmentLinkCode,
+          employmentLinkDescription: employmentContracts.employmentLinkDescription,
+          contractTerm: employmentContracts.contractTerm,
           employmentCondition: employmentContracts.employmentCondition,
           contractType: employmentContracts.contractType,
           paymentType: employmentContracts.paymentType,
@@ -361,6 +366,13 @@ export async function PUT(request: Request) {
       .set({
         admissionDate: admissionDate || null,
         role: String(body.role || "").trim() || null,
+        cboCode: String(body.cboCode || "").replace(/\D/g, "") || null,
+        weeklyHours: Math.min(44, Math.max(1, Number(body.weeklyHours) || 44)),
+        employmentLinkCode: String(body.employmentLinkCode || "").trim() || null,
+        employmentLinkDescription:
+          String(body.employmentLinkDescription || "").trim() || null,
+        contractTerm:
+          body.contractTerm === "determined" ? "determined" : "indefinite",
         seasonSourceId: body.seasonSourceId
           ? Number(body.seasonSourceId)
           : null,
@@ -830,6 +842,14 @@ export async function POST(request: Request) {
           registrationNumber,
           admissionDate: admission,
           role: String(body.role || "").trim() || null,
+          cboCode: String(body.cboCode || "").replace(/\D/g, "") || null,
+          weeklyHours: Math.min(44, Math.max(1, Number(body.weeklyHours) || 44)),
+          employmentLinkCode:
+            String(body.employmentLinkCode || "").trim() || null,
+          employmentLinkDescription:
+            String(body.employmentLinkDescription || "").trim() || null,
+          contractTerm:
+            body.contractTerm === "determined" ? "determined" : "indefinite",
           status: "active",
           paymentType:
             body.paymentType === "monthly" ? "monthly" : "production",
@@ -1022,6 +1042,13 @@ export async function POST(request: Request) {
         admissionDate: body.admissionDate!,
         terminationDate: null,
         role: body.role?.trim() || null,
+        cboCode: String(body.cboCode || "").replace(/\D/g, "") || null,
+        weeklyHours: Math.min(44, Math.max(1, Number(body.weeklyHours) || 44)),
+        employmentLinkCode: body.employmentLinkCode?.trim() || null,
+        employmentLinkDescription:
+          body.employmentLinkDescription?.trim() || null,
+        contractTerm:
+          body.contractTerm === "determined" ? "determined" : "indefinite",
         seasonSourceId: body.seasonSourceId || null,
         status: "active",
         paymentType: body.paymentType === "monthly" ? "monthly" : "production",
