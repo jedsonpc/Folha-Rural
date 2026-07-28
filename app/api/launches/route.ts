@@ -1,6 +1,11 @@
 import { and, asc, eq, gte, lt } from "drizzle-orm";
 import { ensureDatabase, getDb } from "../../../db";
 import { authorizeCloud } from "../../auth-cloud";
+import { getSupabaseConfig } from "../../../db/supabase";
+import {
+  cloudLaunchesGet,
+  cloudLaunchesPost,
+} from "./cloud";
 import {
   dailyEntries,
   employmentContracts,
@@ -17,6 +22,7 @@ const monthEnd = (m: string) => {
 export async function GET(request: Request) {
   const access = await authorizeCloud(request, "Apontamentos");
   if (access.response) return access.response;
+  if (getSupabaseConfig()) return cloudLaunchesGet(request);
   try {
     await ensureDatabase();
     const db = getDb(),
@@ -115,6 +121,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const access = await authorizeCloud(request, "Apontamentos");
   if (access.response) return access.response;
+  if (getSupabaseConfig()) return cloudLaunchesPost(request);
   try {
     await ensureDatabase();
     const db = getDb(),

@@ -92,9 +92,14 @@ exposto em componentes do navegador ou arquivos versionados.
   fórmula, DSR, unidade, grupo e proteção contra exclusão com lançamentos;
 - migração aditiva `202607280007` aplicada para os campos completos de
   Serviços;
+- Apontamentos convertidos para leitura no Supabase e gravação transacional,
+  incluindo lançamento individual, lançamento em lote, exclusão, feriados e
+  clonagem de dia;
+- função transacional `folha_save_launches` instalada pela migração
+  `202607280008`, com validação da empresa, contrato e serviço;
 - convites preparados para usar a URL da Vercel em vez de endereço fixo.
 
 ## Próximo marco
 
-Converter Apontamentos e depois Fechamento. A Preview da Vercel só será
-liberada quando todas as rotas operacionais deixarem de depender do D1.
+Converter Fechamento. A Preview da Vercel só será liberada quando todas as
+rotas operacionais deixarem de depender do D1.
