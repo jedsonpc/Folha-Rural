@@ -1,0 +1,304 @@
+import type { CloudUser } from "../../auth-cloud";
+import { cleanCpf, isValidCpf } from "../../cpf";
+import {
+  getSupabaseConfig,
+  supabaseAdmin,
+} from "../../../db/supabase";
+
+type Row = Record<string, any>;
+const value = (row: Row, key: string) => row[key] ?? null;
+const allowedFilter = (user: CloudUser | null) =>
+  user?.companyIds == null
+    ? ""
+    : `&companies.legacy_id=in.(${user.companyIds.join(",") || "0"})`;
+
+const personFields = (person: Row) => ({
+  personId: person.id,
+  name: person.full_name,
+  cpf: person.cpf,
+  pis: person.pis,
+  birthDate: person.birth_date,
+  identityNumber: person.identity_number,
+  identityIssuer: person.identity_issuer,
+  identityState: person.identity_state,
+  identityIssueDate: person.identity_issue_date,
+  ctpsNumber: person.ctps_number,
+  ctpsSeries: person.ctps_series,
+  ctpsState: person.ctps_state,
+  ctpsIssueDate: person.ctps_issue_date,
+  voterTitleNumber: person.voter_title_number,
+  voterZone: person.voter_zone,
+  voterSection: person.voter_section,
+  cnhNumber: person.cnh_number,
+  cnhCategory: person.cnh_category,
+  cnhExpirationDate: person.cnh_expiration_date,
+  cnhFirstIssueDate: person.cnh_first_issue_date,
+  militaryCertificate: person.military_certificate,
+  phone: person.phone,
+  motherName: person.mother_name,
+  birthState: person.birth_state,
+  birthCity: person.birth_city,
+  photoDataUrl: person.photo_data_url,
+  email: person.email,
+  sex: person.sex,
+  education: person.education,
+  maritalStatus: person.marital_status,
+  raceColor: person.race_color,
+  address: person.address,
+  addressNumber: person.address_number,
+  district: person.district,
+  city: person.city,
+  state: person.state,
+  postalCode: person.postal_code,
+  needsReview: person.needs_review,
+});
+
+const contractResponse = (row: Row) => ({
+  id: row.id,
+  companySourceId: Number(row.companies?.legacy_id),
+  registrationNumber: row.registration_number,
+  legacyCode: row.legacy_code,
+  sourceRegistration: row.legacy_registration,
+  admissionDate: row.admission_date,
+  terminationDate: row.termination_date,
+  role: row.role_name,
+  cboCode: row.cbo_code,
+  weeklyHours: row.weekly_hours,
+  employmentLinkCode: row.employment_link_code,
+  employmentLinkDescription: row.employment_link_description,
+  contractTerm: row.contract_term,
+  employmentCondition: row.employment_condition,
+  contractType: row.contract_type,
+  paymentType: row.payment_type,
+  unionMember: row.union_member,
+  unionDiscountCents: row.union_discount_cents,
+  unionId: row.union_id,
+  unionDiscountFrequency: row.union_discount_frequency,
+  familyDependents: row.family_dependents,
+  irrfDependents: row.irrf_dependents,
+  status: row.status,
+  ...personFields(row.people || {}),
+});
+
+export async function cloudDataGet(user: CloudUser | null) {
+  const config = getSupabaseConfig()!;
+  try {
+    const filter = allowedFilter(user);
+    const [companyRows, contractRows, dependentRows, unionRows, imports] =
+      await Promise.all([
+        supabaseAdmin.get<Row[]>(
+          `/rest/v1/companies?select=*&organization_id=eq.${config.organizationId}${user?.companyIds == null ? "" : `&legacy_id=in.(${user.companyIds.join(",") || "0"})`}&order=name.asc`,
+        ),
+        supabaseAdmin.get<Row[]>(
+          `/rest/v1/employment_contracts?select=*,people(*),companies!inner(legacy_id)&organization_id=eq.${config.organizationId}${filter}&order=created_at.desc`,
+        ),
+        supabaseAdmin.get<Row[]>(
+          `/rest/v1/dependents?select=*&organization_id=eq.${config.organizationId}&order=name.asc`,
+        ),
+        supabaseAdmin.get<Row[]>(
+          `/rest/v1/unions?select=*&organization_id=eq.${config.organizationId}&order=description.asc`,
+        ),
+        user?.companyIds == null
+          ? supabaseAdmin.get<Row[]>(
+              `/rest/v1/import_runs?select=*&organization_id=eq.${config.organizationId}&order=created_at.desc&limit=5`,
+            )
+          : Promise.resolve([]),
+      ]);
+    const contracts = contractRows.map(contractResponse);
+    const visiblePeople = new Set(contracts.map((row) => row.personId));
+    return Response.json(
+      {
+        companies: companyRows.map((row) => ({
+          id: row.id,
+          sourceId: Number(row.legacy_id),
+          name: row.name,
+          active: row.active,
+        })),
+        contracts,
+        counts: {
+          people: visiblePeople.size,
+          contracts: contracts.length,
+          active: contracts.filter((row) => row.status === "active").length,
+          review: new Set(
+            contracts
+              .filter((row) => row.needsReview)
+              .map((row) => row.personId),
+          ).size,
+        },
+        imports,
+        dependents: dependentRows
+          .filter((row) => visiblePeople.has(row.person_id))
+          .map((row) => ({
+            id: row.id,
+            personId: row.person_id,
+            dependentType: row.dependent_type,
+            name: row.name,
+            cpf: String(row.cpf || "").startsWith("LEGACY-DEP:")
+              ? ""
+              : row.cpf,
+            birthDate: row.birth_date,
+            disabled: row.disabled,
+            birthCertificate: row.birth_certificate,
+            vaccinationProof: row.vaccination_proof,
+            schoolProof: row.school_proof,
+            salaryFamilyEligible: row.salary_family_eligible,
+            irrfDependent: row.irrf_dependent,
+          })),
+        unions: unionRows.map((row) => ({
+          id: row.id,
+          code: row.code,
+          description: row.description,
+          contributionCents: row.contribution_cents,
+          active: row.active,
+        })),
+        dataSource: "supabase",
+      },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  } catch (error) {
+    return Response.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Não foi possível consultar os colaboradores no Supabase.",
+      },
+      { status: 500 },
+    );
+  }
+}
+
+const validPersonPayload = (body: Row) => {
+  const email = String(body.email || "").trim().toLowerCase();
+  const photo = String(body.photoDataUrl || "");
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    return "Informe um e-mail válido.";
+  if (
+    photo &&
+    (!/^data:image\/(jpeg|png|webp);base64,/.test(photo) ||
+      photo.length > 1500000)
+  )
+    return "A foto deve ser JPG, PNG ou WebP e ter tamanho reduzido.";
+  const cpf = cleanCpf(body.cpf);
+  if (!isValidCpf(cpf)) return "Informe um CPF válido para o colaborador.";
+  if (String(body.name || "").trim().length < 3)
+    return "Informe o nome completo do colaborador.";
+  return null;
+};
+
+async function callWorkerRpc(body: Row, user: CloudUser | null) {
+  const config = getSupabaseConfig()!;
+  const companySourceId = Number(body.companySourceId || 0);
+  if (
+    companySourceId &&
+    user?.companyIds != null &&
+    !user.companyIds.includes(companySourceId)
+  )
+    return Response.json({ error: "Empresa não autorizada." }, { status: 403 });
+  const result = await supabaseAdmin.post<
+    Array<{ ok: boolean; message: string; contract_id?: string }>
+  >("/rest/v1/rpc/folha_save_worker", {
+    p_organization_id: config.organizationId,
+    p_payload: body,
+  });
+  return Response.json(result[0] || { ok: true });
+}
+
+export async function cloudDataPut(
+  request: Request,
+  user: CloudUser | null,
+) {
+  try {
+    const body = (await request.json()) as Row;
+    if (body.action !== "terminate") {
+      const validation = validPersonPayload(body);
+      if (validation)
+        return Response.json({ error: validation }, { status: 400 });
+    }
+    return await callWorkerRpc({ ...body, operation: "update" }, user);
+  } catch (error) {
+    return Response.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Não foi possível atualizar o colaborador.",
+      },
+      { status: 500 },
+    );
+  }
+}
+
+export async function cloudDataPost(
+  request: Request,
+  user: CloudUser | null,
+) {
+  const config = getSupabaseConfig()!;
+  try {
+    const body = (await request.json()) as Row;
+    if (body.action === "saveDependent") {
+      const cpf = cleanCpf(body.cpf);
+      if (!isValidCpf(cpf))
+        return Response.json(
+          { error: "Informe um CPF válido para o dependente." },
+          { status: 400 },
+        );
+      const payload = {
+        organization_id: config.organizationId,
+        person_id: body.personId,
+        dependent_type: String(body.dependentType || ""),
+        name: String(body.name || "").trim(),
+        cpf,
+        birth_date: body.birthDate || null,
+        disabled: Boolean(body.disabled),
+        birth_certificate: String(body.birthCertificate || "").trim() || null,
+        vaccination_proof: Boolean(body.vaccinationProof),
+        school_proof: Boolean(body.schoolProof),
+        salary_family_eligible: Boolean(body.salaryFamilyEligible),
+        irrf_dependent: Boolean(body.irrfDependent),
+      };
+      if (body.id)
+        await supabaseAdmin.patch(
+          `/rest/v1/dependents?id=eq.${body.id}&organization_id=eq.${config.organizationId}&person_id=eq.${body.personId}`,
+          payload,
+          { prefer: "return=minimal" },
+        );
+      else
+        await supabaseAdmin.post("/rest/v1/dependents", payload, {
+          prefer: "return=minimal",
+        });
+      return Response.json({
+        ok: true,
+        message: "Dependente salvo com sucesso.",
+      });
+    }
+    if (body.action === "deleteDependent") {
+      await supabaseAdmin.delete(
+        `/rest/v1/dependents?id=eq.${body.id}&organization_id=eq.${config.organizationId}&person_id=eq.${body.personId}`,
+      );
+      return Response.json({ ok: true, message: "Dependente excluído." });
+    }
+    if (body.action === "create") {
+      const validation = validPersonPayload(body);
+      if (validation)
+        return Response.json({ error: validation }, { status: 400 });
+    }
+    return await callWorkerRpc(
+      {
+        ...body,
+        operation: body.action === "create" ? "create" : "new_contract",
+      },
+      user,
+    );
+  } catch (error) {
+    return Response.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Não foi possível salvar o colaborador.",
+      },
+      { status: 500 },
+    );
+  }
+}

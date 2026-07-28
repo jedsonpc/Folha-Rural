@@ -82,11 +82,14 @@ exposto em componentes do navegador ou arquivos versionados.
   proteção de histórico;
 - migração aditiva `202607280005` aplicada na homologação para os campos
   completos de Empresas;
+- módulo Colaboradores convertido para leitura no Supabase e gravação
+  transacional de pessoa, contrato, matrícula, mapa legado e dependentes;
+- função transacional `folha_save_worker` instalada pela migração
+  `202607280006`, com permissão exclusiva do servidor;
 - convites preparados para usar a URL da Vercel em vez de endereço fixo.
 
 ## Próximo marco
 
-Converter Colaboradores como uma operação transacional, reunindo pessoa,
-contrato, salário e dependentes sem risco de gravação parcial. Depois serão
-convertidos Funções/Serviços, Apontamentos e Fechamento. A Preview da Vercel só
-será liberada quando todas as rotas operacionais deixarem de depender do D1.
+Converter Funções/Serviços, depois Apontamentos e Fechamento. A Preview da
+Vercel só será liberada quando todas as rotas operacionais deixarem de depender
+do D1.

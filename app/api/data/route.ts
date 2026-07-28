@@ -11,6 +11,12 @@ import {
   unions,
 } from "../../../db/schema";
 import { cleanCpf, isValidCpf } from "../../cpf";
+import { getSupabaseConfig } from "../../../db/supabase";
+import {
+  cloudDataGet,
+  cloudDataPost,
+  cloudDataPut,
+} from "./cloud";
 
 const tenant = (request: Request) =>
   request.headers.get("oai-authenticated-user-email")?.toLowerCase() ||
@@ -25,6 +31,7 @@ const photoValid = (value: string) =>
 export async function GET(request: Request) {
   const access = await authorizeCloud(request, "Colaboradores");
   if (access.response) return access.response;
+  if (getSupabaseConfig()) return cloudDataGet(access.user);
   try {
     await ensureDatabase();
     const db = getDb();
@@ -209,6 +216,7 @@ export async function GET(request: Request) {
 export async function PUT(request: Request) {
   const access = await authorizeCloud(request, "Colaboradores");
   if (access.response) return access.response;
+  if (getSupabaseConfig()) return cloudDataPut(request, access.user);
   try {
     await ensureDatabase();
     const db = getDb();
@@ -453,6 +461,7 @@ export async function PUT(request: Request) {
 export async function POST(request: Request) {
   const access = await authorizeCloud(request, "Colaboradores");
   if (access.response) return access.response;
+  if (getSupabaseConfig()) return cloudDataPost(request, access.user);
   try {
     await ensureDatabase();
     const db = getDb();
