@@ -1,5 +1,10 @@
 import { ensureDatabase, getRuntimeDatabase } from "../../../db";
 import { authorizeCloud } from "../../auth-cloud";
+import type { CloudUser } from "../../auth-cloud";
+import {
+  getSupabaseConfig,
+  supabaseAdmin,
+} from "../../../db/supabase";
 
 const tenant = (r: Request) =>
   r.headers.get("oai-authenticated-user-email")?.toLowerCase() || "local-owner";
@@ -10,6 +15,7 @@ const validDate = (v: unknown) => /^\d{4}-\d{2}-\d{2}$/.test(String(v || ""));
 export async function GET(r: Request) {
   const access = await authorizeCloud(r, "Cadastros");
   if (access.response) return access.response;
+  if (getSupabaseConfig()) return cloudFunctionsGet(access.user);
   try {
     await ensureDatabase();
     const db = getRuntimeDatabase(), t = tenant(r), url = new URL(r.url);
@@ -39,6 +45,7 @@ export async function GET(r: Request) {
 export async function POST(r: Request) {
   const access = await authorizeCloud(r, "Cadastros");
   if (access.response) return access.response;
+  if (getSupabaseConfig()) return cloudFunctionsPost(r);
   try {
     await ensureDatabase();
     const db = getRuntimeDatabase(), t = tenant(r), b = await r.json() as Record<string, unknown>;
@@ -99,5 +106,138 @@ export async function POST(r: Request) {
     return Response.json({ok:true,message:"Registro salvo com sucesso."});
   } catch (e) {
     return Response.json({error:e instanceof Error?e.message:"Falha ao salvar."},{status:500});
+  }
+}
+
+type CloudRow = Record<string, any>;
+
+async function cloudFunctionsGet(user: CloudUser | null) {
+  const config = getSupabaseConfig()!;
+  try {
+    const companyFilter =
+      user?.companyIds == null
+        ? ""
+        : `&companies.legacy_id=in.(${user.companyIds.join(",") || "0"})`;
+    const [functions, contracts] = await Promise.all([
+      supabaseAdmin.get<CloudRow[]>(
+        `/rest/v1/job_functions?select=*&organization_id=eq.${config.organizationId}&order=official_description.asc`,
+      ),
+      supabaseAdmin.get<CloudRow[]>(
+        `/rest/v1/employment_contracts?select=role_name,companies!inner(legacy_id)&organization_id=eq.${config.organizationId}${companyFilter}`,
+      ),
+    ]);
+    const usage = new Map<string, number>();
+    for (const contract of contracts) {
+      const role = String(contract.role_name || "").trim();
+      if (role) usage.set(role, (usage.get(role) || 0) + 1);
+    }
+    return Response.json({
+      functions: functions.map((row) => ({
+        ...row,
+        usage_count:
+          usage.get(
+            String(row.local_description || row.official_description),
+          ) || 0,
+      })),
+      centers: [],
+      references: [],
+      items: [],
+      issues: [],
+      workers: [],
+      dataSource: "supabase",
+      conversionScope: "functions",
+    });
+  } catch (error) {
+    return Response.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Falha ao consultar Funções no Supabase.",
+      },
+      { status: 500 },
+    );
+  }
+}
+
+async function cloudFunctionsPost(request: Request) {
+  const config = getSupabaseConfig()!;
+  try {
+    const body = (await request.json()) as Record<string, unknown>;
+    const action = String(body.action || "");
+    if (action === "saveFunction") {
+      const cboCode = String(body.cboCode || "").replace(/\D/g, "");
+      const officialDescription = String(
+        body.officialDescription || "",
+      ).trim();
+      if (!cboCode || !officialDescription)
+        return Response.json(
+          { error: "Informe o CBO e a descrição oficial." },
+          { status: 400 },
+        );
+      const values = {
+        organization_id: config.organizationId,
+        cbo_code: cboCode,
+        official_description: officialDescription,
+        local_description:
+          String(body.localDescription || "").trim() || null,
+        active: body.active !== false,
+      };
+      if (body.id)
+        await supabaseAdmin.patch(
+          `/rest/v1/job_functions?id=eq.${body.id}&organization_id=eq.${config.organizationId}`,
+          values,
+          { prefer: "return=minimal" },
+        );
+      else
+        await supabaseAdmin.post(
+          "/rest/v1/job_functions?on_conflict=organization_id,cbo_code",
+          values,
+          { prefer: "resolution=merge-duplicates,return=minimal" },
+        );
+      return Response.json({
+        ok: true,
+        message: "Função salva com sucesso.",
+      });
+    }
+    if (action === "delete" && body.entity === "function") {
+      const rows = await supabaseAdmin.get<CloudRow[]>(
+        `/rest/v1/job_functions?select=official_description,local_description&organization_id=eq.${config.organizationId}&id=eq.${body.id}&limit=1`,
+      );
+      const role = String(
+        rows[0]?.local_description || rows[0]?.official_description || "",
+      );
+      const used = role
+        ? await supabaseAdmin.get<Array<{ id: string }>>(
+            `/rest/v1/employment_contracts?select=id&organization_id=eq.${config.organizationId}&role_name=eq.${encodeURIComponent(role)}&limit=1`,
+          )
+        : [];
+      if (used.length)
+        return Response.json(
+          {
+            error:
+              "A função possui vínculos e não pode ser excluída. Desative-a.",
+          },
+          { status: 409 },
+        );
+      await supabaseAdmin.delete(
+        `/rest/v1/job_functions?id=eq.${body.id}&organization_id=eq.${config.organizationId}`,
+      );
+      return Response.json({ ok: true, message: "Função excluída." });
+    }
+    return Response.json(
+      { error: "Este cadastro será convertido em uma etapa própria." },
+      { status: 503 },
+    );
+  } catch (error) {
+    return Response.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Falha ao salvar função no Supabase.",
+      },
+      { status: 500 },
+    );
   }
 }

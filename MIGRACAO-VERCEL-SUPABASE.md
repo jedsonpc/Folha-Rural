@@ -86,10 +86,15 @@ exposto em componentes do navegador ou arquivos versionados.
   transacional de pessoa, contrato, matrícula, mapa legado e dependentes;
 - função transacional `folha_save_worker` instalada pela migração
   `202607280006`, com permissão exclusiva do servidor;
+- Funções/CBO convertidas para Supabase com contagem de vínculos limitada às
+  empresas autorizadas do usuário;
+- Serviços convertidos para Supabase, incluindo incidências, natureza,
+  fórmula, DSR, unidade, grupo e proteção contra exclusão com lançamentos;
+- migração aditiva `202607280007` aplicada para os campos completos de
+  Serviços;
 - convites preparados para usar a URL da Vercel em vez de endereço fixo.
 
 ## Próximo marco
 
-Converter Funções/Serviços, depois Apontamentos e Fechamento. A Preview da
-Vercel só será liberada quando todas as rotas operacionais deixarem de depender
-do D1.
+Converter Apontamentos e depois Fechamento. A Preview da Vercel só será
+liberada quando todas as rotas operacionais deixarem de depender do D1.
