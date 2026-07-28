@@ -180,6 +180,9 @@ create table if not exists public.dependents (
   unique (organization_id, cpf)
 );
 
+-- Registros importados do legado podem não possuir nascimento informado.
+alter table public.dependents alter column birth_date drop not null;
+
 create table if not exists public.worker_payroll_profiles (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations(id) on delete cascade,
@@ -325,3 +328,14 @@ create index if not exists salary_history_contract_date_idx
   on public.salary_history (contract_id, effective_date desc);
 create index if not exists vacation_periods_deadline_idx
   on public.vacation_periods (organization_id, concession_deadline);
+
+-- The server-side importer and future Vercel API use the service role.
+-- RLS remains enabled for authenticated browser access.
+grant usage on schema public to service_role;
+grant select, insert, update, delete on all tables in schema public to service_role;
+grant usage, select, update on all sequences in schema public to service_role;
+
+alter default privileges in schema public
+  grant select, insert, update, delete on tables to service_role;
+alter default privileges in schema public
+  grant usage, select, update on sequences to service_role;
