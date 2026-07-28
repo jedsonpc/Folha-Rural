@@ -48,8 +48,8 @@ export default function AcceptInvitePage() {
           <>
             <h1>Senha definida</h1>
             <p>
-              Seu acesso administrativo foi confirmado. A próxima versão de
-              homologação usará este e-mail para entrar no sistema.
+              Seu acesso foi confirmado. Use o e-mail convidado e a nova senha
+              para entrar no Folha Rural.
             </p>
             <a className="primary auth-link" href="/">
               Voltar ao Folha Rural
@@ -59,8 +59,7 @@ export default function AcceptInvitePage() {
           <>
             <h1>Definir sua senha</h1>
             <p>
-              Crie a senha do administrador para concluir o convite enviado
-              pelo Supabase.
+              Crie sua senha para concluir o convite de acesso ao Folha Rural.
             </p>
             <form onSubmit={submit}>
               <label>
@@ -101,4 +100,3 @@ export default function AcceptInvitePage() {
     </main>
   );
 }
-

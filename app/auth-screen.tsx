@@ -10,9 +10,11 @@ type User = {
 };
 export default function AuthScreen({
   setupRequired,
+  cloudMode,
   onAuthenticated,
 }: {
   setupRequired: boolean;
+  cloudMode: boolean;
   onAuthenticated: (u: User) => void;
 }) {
   const [form, setForm] = useState({
@@ -49,7 +51,9 @@ export default function AuthScreen({
           <span>FR</span>
           <div>
             <b>Folha Rural</b>
-            <small>ACESSO LOCAL SEGURO</small>
+            <small>
+              {cloudMode ? "ACESSO SUPABASE SEGURO" : "ACESSO LOCAL SEGURO"}
+            </small>
           </div>
         </div>
         <h1>
@@ -57,8 +61,8 @@ export default function AuthScreen({
         </h1>
         <p>
           {setupRequired
-            ? "Este é o primeiro acesso. Crie o usuário responsável pela administração local."
-            : "Informe seu usuário e sua senha para continuar."}
+            ? "Este é o primeiro acesso. Crie o usuário responsável pela administração."
+            : `Informe seu ${cloudMode ? "e-mail" : "usuário"} e sua senha para continuar.`}
         </p>
         <form onSubmit={submit}>
           {setupRequired && (
@@ -72,7 +76,7 @@ export default function AuthScreen({
             </label>
           )}
           <label>
-            Usuário
+            {cloudMode ? "E-mail" : "Usuário"}
             <input
               required
               autoComplete="username"

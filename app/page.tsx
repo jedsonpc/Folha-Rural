@@ -68,7 +68,7 @@ const navGroups = [
       items: [["IA", "Importar Access"]],
     },
   ],
-  SYSTEM_VERSION = "1.3.41",
+  SYSTEM_VERSION = "1.3.42",
   LAST_UPDATE = "28/07/2026";
 type Company = { sourceId: number; name: string };
 type LocalUser = {
@@ -89,12 +89,14 @@ export default function Home() {
     [localUser, setLocalUser] = useState<LocalUser | null | undefined>(
       undefined,
     ),
-    [setupRequired, setSetupRequired] = useState(false);
+    [setupRequired, setSetupRequired] = useState(false),
+    [cloudMode, setCloudMode] = useState(false);
   useEffect(() => {
     fetch("/api/auth")
       .then((r) => r.json())
       .then((b) => {
         setSetupRequired(Boolean(b.setupRequired));
+        setCloudMode(b.authMode === "cloud");
         setLocalUser(b.user || null);
       })
       .catch(() => setLocalUser(null));
@@ -159,7 +161,7 @@ export default function Home() {
       window.setTimeout(() => {
         fetch("/__local/shutdown", { method: "POST" }).catch(() => undefined);
       }, 450);
-    } else location.href = "/signout-with-chatgpt?return_to=/";
+    } else location.href = "/";
   }
   if (localUser === undefined)
     return (
@@ -174,6 +176,7 @@ export default function Home() {
     return (
       <AuthScreen
         setupRequired={setupRequired}
+        cloudMode={cloudMode}
         onAuthenticated={(u) => setLocalUser(u)}
       />
     );
