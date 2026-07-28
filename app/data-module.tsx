@@ -457,7 +457,7 @@ export default function DataModule({
         state: address.uf || current.state,
       };
       if (kind === "create") setCreateForm(next as typeof createForm);
-      else setForm(next);
+      else setForm(next as Record<string, string>);
       setCepStatus("Endereço preenchido. Confira o número e o complemento.");
     } catch (error) {
       setCepStatus(

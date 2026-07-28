@@ -1085,9 +1085,10 @@ export async function POST(request: Request) {
         role: body.role?.trim() || null,
         cboCode: String(body.cboCode || "").replace(/\D/g, "") || null,
         weeklyHours: Math.min(44, Math.max(1, Number(body.weeklyHours) || 44)),
-        employmentLinkCode: body.employmentLinkCode?.trim() || null,
+        employmentLinkCode:
+          String(body.employmentLinkCode || "").trim() || null,
         employmentLinkDescription:
-          body.employmentLinkDescription?.trim() || null,
+          String(body.employmentLinkDescription || "").trim() || null,
         contractTerm:
           body.contractTerm === "determined" ? "determined" : "indefinite",
         seasonSourceId: body.seasonSourceId || null,

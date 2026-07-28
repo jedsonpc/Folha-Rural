@@ -1,0 +1,15 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "buildCommand": "npm run build:vercel",
+  "installCommand": "npm ci",
+  "regions": ["gru1"],
+  "functions": {
+    "app/api/import-history/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/inspect-access/route.ts": {
+      "maxDuration": 300
+    }
+  }
+}

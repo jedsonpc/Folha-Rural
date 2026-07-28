@@ -225,7 +225,14 @@ export async function POST(request: Request) {
     for (const group of chunks(companyRows))
       await db
         .insert(companies)
-        .values(group.map((r) => ({ ...r, tenantId, name: r.name.trim() })))
+        .values(
+          group.map((r) => ({
+            ...r,
+            tenantId,
+            name: r.name.trim(),
+            documentType: r.documentType || "cnpj",
+          })),
+        )
         .onConflictDoUpdate({
           target: [companies.tenantId, companies.sourceId],
           set: {

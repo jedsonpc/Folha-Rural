@@ -1,6 +1,6 @@
 {
   "name": "folha-rural",
-  "version": "1.3.40",
+  "version": "1.3.41",
   "private": true,
   "engines": {
     "node": ">=22.13.0"
@@ -9,6 +9,7 @@
     "install:ci": "bash scripts/install-ci.sh",
     "dev": "vite",
     "build": "bash scripts/build-verified.sh",
+    "build:vercel": "next build",
     "start": "vinext start",
     "test": "npm run build && node --test tests/rendered-html.test.mjs",
     "validate:artifact": "bash scripts/validate-artifact.sh",
