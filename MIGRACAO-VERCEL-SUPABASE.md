@@ -70,7 +70,17 @@ exposto em componentes do navegador ou arquivos versionados.
 
 ## Estado atual
 
-- esquema Supabase inicial preservado;
-- migração operacional aditiva preparada;
+- esquema Supabase de homologação criado e preservado;
+- dados do D1 importados e conferidos nas 22 tabelas;
+- camada segura de conexão do servidor preparada;
+- perfis de usuário, permissões e RLS do Supabase Auth aplicados;
+- rota `/api/migration-status` preparada para a futura Preview da Vercel;
 - versão Cloudflare/Sites continua sendo a produção segura;
 - nenhuma alteração destrutiva foi aplicada ao D1 ou ao Supabase.
+
+## Próximo marco
+
+Criar o primeiro administrador no Supabase Auth, vinculá-lo como `owner` da
+organização de homologação e ativar gradualmente os repositórios PostgreSQL das
+rotas da aplicação. A Preview da Vercel só será liberada quando as rotas
+operacionais deixarem de depender do D1.
