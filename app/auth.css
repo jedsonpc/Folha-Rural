@@ -84,3 +84,13 @@
   height: 46px;
   margin-top: 6px;
 }
+.auth-link {
+  display: grid;
+  place-items: center;
+  min-height: 46px;
+  margin-top: 22px;
+  border-radius: 8px;
+  color: #fff;
+  text-decoration: none;
+  font-weight: 800;
+}
