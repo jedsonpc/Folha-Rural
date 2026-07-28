@@ -124,7 +124,7 @@ export default function AccessImporter() {
         <label className="dropzone">
           <strong>Selecione o banco Access</strong>
           <p>
-            Arquivo .mdb · A leitura acontece no servidor local do Folha Rural.
+            Arquivo .mdb · A leitura acontece com segurança no Folha Rural.
           </p>
           <input
             type="file"

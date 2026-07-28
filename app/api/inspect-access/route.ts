@@ -1,5 +1,7 @@
 import { Buffer } from "node:buffer";
 import MDBReader from "mdb-reader";
+import { requireCloudAdmin } from "../../auth-cloud";
+import { getSupabaseConfig } from "../../../db/supabase";
 
 type Row = Record<string, unknown>;
 const num = (value: unknown) =>
@@ -60,6 +62,11 @@ const dependentType = (value: number) =>
 
 export async function POST(request: Request) {
   try {
+    if (getSupabaseConfig() && !(await requireCloudAdmin(request)))
+      return Response.json(
+        { error: "A importação do Access é exclusiva de administradores." },
+        { status: 403 },
+      );
     const bytes = await request.arrayBuffer();
     if (!bytes.byteLength || bytes.byteLength > 50 * 1024 * 1024) {
       return Response.json(

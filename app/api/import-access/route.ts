@@ -9,6 +9,12 @@ import {
   services,
   dependents,
 } from "../../../db/schema";
+import { requireCloudAdmin } from "../../auth-cloud";
+import { getSupabaseConfig } from "../../../db/supabase";
+import {
+  cloudImportAccessGet,
+  cloudImportAccessPost,
+} from "./cloud";
 
 type CompanyInput = {
   sourceId: number;
@@ -102,6 +108,14 @@ const legacyCode = (company: number, registration: number) =>
 
 export async function GET(request: Request) {
   try {
+    if (getSupabaseConfig()) {
+      if (!(await requireCloudAdmin(request)))
+        return Response.json(
+          { error: "A importação do Access é exclusiva de administradores." },
+          { status: 403 },
+        );
+      return cloudImportAccessGet();
+    }
     const db = getDb(),
       tenantId = tenant(request);
     const [personTotal] = await db
@@ -148,6 +162,14 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    if (getSupabaseConfig()) {
+      if (!(await requireCloudAdmin(request)))
+        return Response.json(
+          { error: "A importação do Access é exclusiva de administradores." },
+          { status: 403 },
+        );
+      return cloudImportAccessPost(request);
+    }
     await ensureDatabase();
     const tenantId = tenant(request),
       payload = (await request.json()) as {

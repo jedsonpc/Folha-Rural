@@ -3,6 +3,8 @@ import MDBReader from "mdb-reader";
 import { eq } from "drizzle-orm";
 import { ensureDatabase, getDb, getRuntimeDatabase } from "../../../db";
 import { employmentContracts, services } from "../../../db/schema";
+import { requireCloudAdmin } from "../../auth-cloud";
+import { getSupabaseConfig, supabaseAdmin } from "../../../db/supabase";
 type Row = Record<string, unknown>;
 const num = (v: unknown) => (typeof v === "number" ? v : Number(v) || 0);
 const tenant = (r: Request) =>
@@ -13,13 +15,18 @@ const isoDate = (v: unknown) => {
 };
 export async function POST(request: Request) {
   try {
+    const cloud = getSupabaseConfig();
+    if (cloud && !(await requireCloudAdmin(request)))
+      return Response.json(
+        { error: "A importação do Access é exclusiva de administradores." },
+        { status: 403 },
+      );
     const bytes = await request.arrayBuffer();
     if (!bytes.byteLength || bytes.byteLength > 50 * 1024 * 1024)
       return Response.json(
         { error: "Arquivo Access inválido ou maior que 50 MB." },
         { status: 400 },
       );
-    await ensureDatabase();
     const tenantId = tenant(request),
       reader = new MDBReader(Buffer.from(bytes)),
       names = reader.getTableNames({
@@ -45,6 +52,52 @@ export async function POST(request: Request) {
           { company: num(r.CodDaEmpresa), date: isoDate(r.Data) },
         ]),
       );
+    if (cloud) {
+      let imported = 0,
+        skipped = 0;
+      const entries: Array<Record<string, unknown>> = [];
+      const flushCloud = async () => {
+        if (!entries.length) return;
+        imported += await supabaseAdmin.post<number>(
+          "/rest/v1/rpc/folha_import_access_history",
+          {
+            p_organization_id: cloud.organizationId,
+            p_entries: entries.splice(0, entries.length),
+          },
+        );
+      };
+      for (const row of details) {
+        const head = headerMap.get(num(row.Sequencia));
+        if (!head?.date) {
+          skipped++;
+          continue;
+        }
+        const quantity = num(row.Producao),
+          unitPriceCents = Math.round(num(row.Preco) * 100);
+        entries.push({
+          companySourceId: head.company,
+          entryDate: head.date,
+          sourceRegistration: num(row.Matricula),
+          serviceSourceId: num(row.CodServico),
+          quantity,
+          unitPriceCents,
+          amountCents: Math.round(quantity * unitPriceCents),
+          discountCents: Math.round(num(row.Desconto) * 100),
+          sourceSequence: num(row.Sequencia),
+        });
+        if (entries.length >= 500) await flushCloud();
+      }
+      await flushCloud();
+      return Response.json({
+        ok: true,
+        imported,
+        skipped,
+        unmatched: details.length - skipped - imported,
+        launchDays: headers.length,
+        totalDetails: details.length,
+      });
+    }
+    await ensureDatabase();
     const db = getDb(),
       contracts = await db
         .select({
