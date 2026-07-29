@@ -85,8 +85,9 @@ type LocalUser = {
 };
 export default function Home() {
   const [active, setActive] = useState("Visão geral"),
-    [company, setCompany] = useState("all"),
+    [company, setCompany] = useState(""),
     [companies, setCompanies] = useState<Company[]>([]),
+    [companiesLoaded, setCompaniesLoaded] = useState(false),
     [menu, setMenu] = useState(false),
     [openGroup, setOpenGroup] = useState<string | null>(null),
     [closed, setClosed] = useState(false),
@@ -111,16 +112,33 @@ export default function Home() {
       .then((r) => r.json())
       .then((b) => {
         const rows = (b.companies || []) as Company[];
-        setCompanies(
+        const visible =
           localUser?.companyIds == null
             ? rows
-            : rows.filter((row) => localUser.companyIds?.includes(row.sourceId)),
-        );
+            : rows.filter((row) =>
+                localUser.companyIds?.includes(row.sourceId),
+              );
+        setCompanies(visible);
+        setCompany((current) => {
+          if (visible.length === 1) return String(visible[0].sourceId);
+          return visible.some((row) => String(row.sourceId) === current)
+            ? current
+            : "";
+        });
+        setCompaniesLoaded(true);
       })
-      .catch(() => undefined);
+      .catch(() => {
+        setCompanies([]);
+        setCompany("");
+        setCompaniesLoaded(true);
+      });
   }, [localUser]);
   useEffect(() => {
-    if (localUser) loadCompanies();
+    if (localUser) {
+      setCompaniesLoaded(false);
+      setCompany("");
+      loadCompanies();
+    }
   }, [loadCompanies, localUser]);
   useEffect(() => {
     const closeOutside = (event: PointerEvent) => {
@@ -193,6 +211,66 @@ export default function Home() {
           <h1>Folha Rural encerrado</h1>
           <p>O servidor local foi finalizado com segurança.</p>
         </div>
+      </main>
+    );
+  if (!companiesLoaded)
+    return (
+      <main className="company-choice-screen">
+        <section className="company-choice-card loading">
+          <img src="/folha-rural-512.png" alt="" />
+          <span className="spinner" />
+          <h1>Preparando suas empresas…</h1>
+        </section>
+      </main>
+    );
+  if (!companies.length)
+    return (
+      <main className="company-choice-screen">
+        <section className="company-choice-card">
+          <img src="/folha-rural-512.png" alt="Folha Rural" />
+          <small>ACESSO ÀS EMPRESAS</small>
+          <h1>Nenhuma empresa disponível</h1>
+          <p>
+            Seu perfil ainda não possui autorização para trabalhar em uma
+            empresa. Solicite o acesso ao administrador.
+          </p>
+          <button className="secondary" onClick={exitApp}>
+            Sair
+          </button>
+        </section>
+      </main>
+    );
+  if (!company)
+    return (
+      <main className="company-choice-screen">
+        <section className="company-choice-card">
+          <img src="/folha-rural-512.png" alt="Folha Rural" />
+          <small>SELECIONE O CONTEXTO DE TRABALHO</small>
+          <h1>Em qual empresa deseja entrar?</h1>
+          <p>
+            Olá, {localUser.name}. Você poderá trocar de empresa pelo seletor
+            superior dentro do sistema.
+          </p>
+          <div className="company-choice-list">
+            {companies.map((item) => (
+              <button
+                key={item.sourceId}
+                type="button"
+                onClick={() => {
+                  setCompany(String(item.sourceId));
+                  setActive("Visão geral");
+                }}
+              >
+                <span>{item.name.slice(0, 1).toUpperCase()}</span>
+                <b>{item.name}</b>
+                <i aria-hidden="true">›</i>
+              </button>
+            ))}
+          </div>
+          <button className="company-choice-exit" onClick={exitApp}>
+            Sair deste usuário
+          </button>
+        </section>
       </main>
     );
   return (
@@ -292,8 +370,8 @@ export default function Home() {
             <select
               value={company}
               onChange={(e) => setCompany(e.target.value)}
+              aria-label="Trocar empresa"
             >
-              <option value="all">Todas as empresas</option>
               {companies.map((x) => (
                 <option value={x.sourceId} key={x.sourceId}>
                   {x.name}
