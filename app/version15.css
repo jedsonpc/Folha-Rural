@@ -166,6 +166,35 @@
   }
 }
 
+/* Identidade visual fixa em todas as áreas internas. */
+.workspace {
+  position: relative;
+  isolation: isolate;
+  background: linear-gradient(135deg, #fbf6ee 0%, #f2e7d7 100%);
+}
+.workspace::before {
+  content: "";
+  position: fixed;
+  z-index: 0;
+  inset: 0 0 0 235px;
+  pointer-events: none;
+  background: url("/folha-rural-512.png") center 56% / min(540px, 48vw)
+    auto no-repeat;
+  opacity: 0.1;
+  filter: saturate(0.84);
+}
+.workspace > * {
+  position: relative;
+  z-index: 1;
+}
+@media (max-width: 760px) {
+  .workspace::before {
+    inset: 0;
+    background-size: min(420px, 76vw) auto;
+    opacity: 0.08;
+  }
+}
+
 /* Menu vertical 1.3.24: grupos inspirados em menus clássicos de folha. */
 .terra-sidebar .menu-groups {
   display: grid;

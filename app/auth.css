@@ -22,20 +22,23 @@
   text-shadow: 0 2px 12px rgba(7, 27, 17, 0.72);
 }
 .auth-brand-logo {
-  width: 132px;
-  height: 132px;
-  position: relative;
-  margin-bottom: 28px;
+  width: min(190px, 52vw);
+  display: grid;
+  justify-items: center;
+  justify-self: center;
+  margin: 0 auto 38px;
+}
+.auth-brand-logo img {
+  display: block;
+  width: 100%;
+  height: auto;
   border-radius: 22px;
-  background: url("/empresa-ivaldo-manoel.png") 93.5% 88% / 635% auto
-    no-repeat;
   box-shadow: 0 8px 24px rgba(7, 27, 17, 0.28);
 }
 .auth-brand-logo span {
-  position: absolute;
-  left: 0;
-  top: calc(100% + 8px);
+  margin-top: 9px;
   width: max-content;
+  text-align: center;
   color: rgba(255, 255, 255, 0.82);
   font-weight: 800;
   font-size: 9px;
@@ -135,5 +138,9 @@
   }
   .auth-card {
     padding: 26px 22px;
+  }
+  .auth-brand-logo {
+    width: min(158px, 48vw);
+    margin-bottom: 32px;
   }
 }
