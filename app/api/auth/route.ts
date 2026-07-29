@@ -143,6 +143,44 @@ async function cloudAuth(request: Request) {
       clearAuthCookies().forEach((cookie) => headers.append("Set-Cookie", cookie));
       return json({ ok: true }, 200, headers);
     }
+    if (action === "reset-password") {
+      const email = String(body.username || "").trim().toLowerCase();
+      if (!email.includes("@"))
+        return json({ error: "Informe o e-mail do usuário." }, 400);
+      const appUrl =
+        process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
+        new URL(request.url).origin;
+      const recovery = await fetch(
+        `${config.url}/auth/v1/recover?redirect_to=${encodeURIComponent(`${appUrl}/accept-invite`)}`,
+        {
+          method: "POST",
+          headers: {
+            apikey: config.publicKey,
+            authorization: `Bearer ${config.publicKey}`,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({ email }),
+          cache: "no-store",
+        },
+      );
+      if (!recovery.ok) {
+        const detail = await recovery.text();
+        if (recovery.status === 429)
+          return json(
+            {
+              error:
+                "O limite temporário de e-mails do Supabase foi atingido. Aguarde alguns minutos e tente novamente.",
+            },
+            429,
+          );
+        throw new Error(`Supabase ${recovery.status}: ${detail}`);
+      }
+      return json({
+        ok: true,
+        message:
+          "Se o e-mail estiver cadastrado, você receberá um link para criar uma nova senha.",
+      });
+    }
     if (action !== "login")
       return json(
         { error: "O administrador inicial já foi criado no Supabase." },

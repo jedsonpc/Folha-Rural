@@ -44,6 +44,28 @@ export default function AuthScreen({
     if (!r.ok) return setMessage(b.error);
     onAuthenticated(b.user);
   };
+  const resetPassword = async () => {
+    const email = form.username.trim();
+    if (!email.includes("@"))
+      return setMessage("Informe seu e-mail antes de solicitar a redefinição.");
+    setBusy(true);
+    setMessage("");
+    const response = await fetch("/api/auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "reset-password",
+        username: email,
+      }),
+    });
+    const body = await response.json();
+    setBusy(false);
+    setMessage(
+      response.ok
+        ? body.message
+        : body.error || "Não foi possível enviar o link de redefinição.",
+    );
+  };
   return (
     <main className="auth-screen">
       <section className="auth-card">
@@ -123,6 +145,16 @@ export default function AuthScreen({
                 ? "Criar administrador e entrar"
                 : "Entrar"}
           </button>
+          {cloudMode && !setupRequired && (
+            <button
+              className="password-reset-link"
+              type="button"
+              disabled={busy}
+              onClick={resetPassword}
+            >
+              Esqueci minha senha
+            </button>
+          )}
         </form>
       </section>
     </main>

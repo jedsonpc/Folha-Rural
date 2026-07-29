@@ -91,6 +91,18 @@
   height: 46px;
   margin-top: 6px;
 }
+.password-reset-link {
+  border: 0;
+  background: transparent;
+  color: var(--olive);
+  font-weight: 800;
+  cursor: pointer;
+  padding: 6px;
+}
+.password-reset-link:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
 .auth-link {
   display: grid;
   place-items: center;
