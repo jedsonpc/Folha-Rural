@@ -177,11 +177,16 @@
   padding-bottom: 18px;
 }
 .operational-workspace .title-row {
-  margin: 15px 0 12px;
+  display: none;
 }
 .operational-workspace .company-brand-hero {
   min-height: 138px;
+  margin-top: 12px;
   margin-bottom: 12px;
+}
+.operational-workspace > .panel.data-state {
+  min-height: 180px;
+  margin-top: 12px;
 }
 .operational-workspace .company-brand-hero div {
   padding: 31px 34px;
