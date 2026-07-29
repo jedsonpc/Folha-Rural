@@ -106,6 +106,7 @@ export default function Home() {
     [openGroup, setOpenGroup] = useState<string | null>(null),
     [closed, setClosed] = useState(false),
     [qrOpen, setQrOpen] = useState(false),
+    [qrUrlCopied, setQrUrlCopied] = useState(false),
     [localUser, setLocalUser] = useState<LocalUser | null | undefined>(
       undefined,
     ),
@@ -186,6 +187,11 @@ export default function Home() {
     setCompany(v);
     setActive("Colaboradores");
   };
+  async function copySystemUrl() {
+    await navigator.clipboard.writeText(window.location.origin);
+    setQrUrlCopied(true);
+    window.setTimeout(() => setQrUrlCopied(false), 2500);
+  }
   async function exitApp() {
     await fetch("/api/auth", {
       method: "POST",
@@ -406,7 +412,10 @@ export default function Home() {
           <button
             className="qr-access-button"
             type="button"
-            onClick={() => setQrOpen(true)}
+            onClick={() => {
+              setQrUrlCopied(false);
+              setQrOpen(true);
+            }}
           >
             <span aria-hidden="true">▦</span>
             Gerar QR Code
@@ -537,9 +546,24 @@ export default function Home() {
               )}`}
               alt={`QR Code para acessar ${window.location.origin}`}
             />
-            <a href={window.location.origin} target="_blank" rel="noreferrer">
-              Abrir endereço do sistema
-            </a>
+            <div className="qr-system-url">
+              <label htmlFor="qr-system-address">Endereço do sistema</label>
+              <div>
+                <input
+                  id="qr-system-address"
+                  value={window.location.origin}
+                  readOnly
+                  onFocus={(event) => event.currentTarget.select()}
+                />
+                <button type="button" onClick={copySystemUrl}>
+                  {qrUrlCopied ? "Copiado!" : "Copiar endereço"}
+                </button>
+              </div>
+              <small>
+                Copie esta URL para acessar ou instalar o sistema em outro
+                computador.
+              </small>
+            </div>
           </section>
         </div>
       )}

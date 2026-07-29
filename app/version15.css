@@ -512,10 +512,54 @@
   border-radius: 14px;
   background: #fff;
 }
-.qr-modal a {
+.qr-system-url {
+  width: 100%;
   margin-top: 16px;
+  display: grid;
+  gap: 7px;
+  text-align: left;
+}
+.qr-system-url > label {
   color: #315342;
+  font-size: 12px;
+  font-weight: 850;
+}
+.qr-system-url > div {
+  display: flex;
+  gap: 8px;
+}
+.qr-system-url input {
+  min-width: 0;
+  flex: 1;
+  height: 42px;
+  border: 1px solid #ccd8cf;
+  border-radius: 9px;
+  padding: 0 11px;
+  background: #f7faf7;
+  color: #243b2f;
+  font: 600 12px/1.2 monospace;
+}
+.qr-system-url button {
+  min-height: 42px;
+  border: 0;
+  border-radius: 9px;
+  padding: 0 13px;
+  background: #315342;
+  color: #fff;
   font-weight: 800;
+  cursor: pointer;
+}
+.qr-system-url > small {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.35;
+}
+@media (max-width: 480px) {
+  .qr-system-url > div {
+    flex-direction: column;
+  }
 }
 .menu-group:nth-child(3) {
   --menu-accent: #ea580c;
