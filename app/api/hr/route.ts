@@ -164,7 +164,7 @@ async function cloudHrGet(request: Request, user: CloudUser | null) {
         `/rest/v1/cost_centers?select=*&organization_id=eq.${config.organizationId}&order=description.asc`,
       ),
       supabaseAdmin.get<CloudRow[]>(
-        `/rest/v1/services?select=group_legacy_id&organization_id=eq.${config.organizationId}&not.group_legacy_id=is.null`,
+        `/rest/v1/services?select=group_legacy_id&organization_id=eq.${config.organizationId}&group_legacy_id=not.is.null`,
       ),
       supabaseAdmin.get<CloudRow[]>(
         `/rest/v1/safety_items?select=*&organization_id=eq.${config.organizationId}&order=item_type.asc,description.asc`,
