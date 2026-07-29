@@ -8,6 +8,12 @@ type Company = {
   sourceId: number;
   name: string;
   document: string | null;
+  documentType: string | null;
+  postalCode: string | null;
+  address: string | null;
+  addressNumber: string | null;
+  addressComplement: string | null;
+  district: string | null;
   city: string | null;
   state: string | null;
 };
@@ -41,9 +47,13 @@ const money = (c: number) =>
       currency: "BRL",
     }).format(c / 100),
   nowMonth = () => new Date().toISOString().slice(0, 7);
-export default function ReportsModule() {
+export default function ReportsModule({
+  selectedCompany,
+}: {
+  selectedCompany?: string;
+}) {
   const [companies, setCompanies] = useState<Company[]>([]),
-    [company, setCompany] = useState("all"),
+    [company, setCompany] = useState(selectedCompany || "all"),
     [month, setMonth] = useState(nowMonth()),
     [period, setPeriod] = useState("full"),
     [status, setStatus] = useState("all"),
@@ -52,7 +62,12 @@ export default function ReportsModule() {
     [packs, setPacks] = useState<Pack[]>([]),
     [selected, setSelected] = useState<Set<string>>(new Set()),
     [busy, setBusy] = useState(false),
-    [notice, setNotice] = useState("");
+    [notice, setNotice] = useState(""),
+    [copyChoiceOpen, setCopyChoiceOpen] = useState(false),
+    [printCopies, setPrintCopies] = useState<1 | 2>(1);
+  useEffect(() => {
+    if (selectedCompany) setCompany(selectedCompany);
+  }, [selectedCompany]);
   useEffect(() => {
     fetch("/api/data")
       .then((r) => r.json())
@@ -141,7 +156,22 @@ export default function ReportsModule() {
         ),
     [packs, status, order],
   );
-  const chosen = workers.filter((x) => selected.has(x.c.id));
+  const chosen = workers.filter((x) => selected.has(x.c.id)),
+    receiptCopies = chosen.flatMap((item) =>
+      Array.from({ length: printCopies }, (_, copyIndex) => ({
+        ...item,
+        copyIndex,
+      })),
+    ),
+    receiptSheets = Array.from(
+      { length: Math.ceil(receiptCopies.length / 2) },
+      (_, index) => receiptCopies.slice(index * 2, index * 2 + 2),
+    );
+  const printWithCopies = (copies: 1 | 2) => {
+    setPrintCopies(copies);
+    setCopyChoiceOpen(false);
+    window.setTimeout(() => window.print(), 80);
+  };
   const toggleAll = () =>
     setSelected(
       selected.size === workers.length
@@ -282,12 +312,49 @@ export default function ReportsModule() {
           <button
             className="primary"
             disabled={!chosen.length}
-            onClick={() => window.print()}
+            onClick={() =>
+              type === "receipts"
+                ? setCopyChoiceOpen(true)
+                : window.print()
+            }
           >
             Imprimir selecionados
           </button>
         </div>
       </div>
+      {copyChoiceOpen && (
+        <div
+          className="print-copy-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="print-copy-title"
+        >
+          <section>
+            <small>IMPRESSÃO DE RECIBOS</small>
+            <h3 id="print-copy-title">Quantas cópias deseja imprimir?</h3>
+            <p>
+              Os recibos serão organizados dois por página. Em duas cópias, as
+              duas vias do mesmo colaborador sairão em sequência.
+            </p>
+            <div>
+              <button onClick={() => printWithCopies(1)}>
+                <b>1 cópia</b>
+                <span>Uma via por colaborador</span>
+              </button>
+              <button onClick={() => printWithCopies(2)}>
+                <b>2 cópias</b>
+                <span>Duas vias consecutivas</span>
+              </button>
+            </div>
+            <button
+              className="print-copy-cancel"
+              onClick={() => setCopyChoiceOpen(false)}
+            >
+              Cancelar
+            </button>
+          </section>
+        </div>
+      )}
       <div className="print-area">
         {!packs.length || !workers.length ? (
           <div className="module report-empty">
@@ -302,13 +369,18 @@ export default function ReportsModule() {
             </p>
           </div>
         ) : type === "receipts" ? (
-          chosen.map((x) => (
-            <Receipt
-              key={`${x.p.company.sourceId}-${x.c.id}`}
-              {...x}
-              month={month}
-              period={period}
-            />
+          receiptSheets.map((sheet, sheetIndex) => (
+            <section className="receipt-sheet print-page" key={sheetIndex}>
+              {sheet.map((x) => (
+                <Receipt
+                  key={`${x.p.company.sourceId}-${x.c.id}-${x.copyIndex}`}
+                  c={x.c}
+                  p={x.p}
+                  month={month}
+                  period={period}
+                />
+              ))}
+            </section>
           ))
         ) : type === "detailed" ? (
           <Detailed chosen={chosen} month={month} period={period} />
@@ -367,22 +439,56 @@ function Header({
   title: string;
   period: string;
 }) {
+  const documentLabel =
+      company.documentType?.toLowerCase() === "caepf" ? "CAEPF" : "CNPJ",
+    address = companyAddress(company);
   return (
     <header className="print-head">
       <div>
         <h1>{company.name}</h1>
         <p>
           <strong>
-            {company.document || "Documento não informado"} ·{" "}
-            {company.city || ""}/{company.state || ""}
+            {documentLabel}: {formatCompanyDocument(company.document)}
           </strong>
         </p>
+        <p>{address}</p>
       </div>
       <div>
         <b>{title}</b>
         <span className="pay-period">{periodLabel(month, period)}</span>
       </div>
     </header>
+  );
+}
+function formatCompanyDocument(document: string | null) {
+  const value = String(document || "").replace(/\D/g, "");
+  if (!value) return "não informado";
+  return value.length === 14
+    ? value.replace(
+        /^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,
+        "$1.$2.$3/$4-$5",
+      )
+    : document || value;
+}
+function companyAddress(company: Company) {
+  const street = [
+      company.address,
+      company.addressNumber,
+      company.addressComplement,
+    ]
+      .filter(Boolean)
+      .join(", "),
+    location = [company.district, company.city, company.state]
+      .filter(Boolean)
+      .join(" · "),
+    postalCode = String(company.postalCode || "").replace(/\D/g, ""),
+    cep =
+      postalCode.length === 8
+        ? `CEP ${postalCode.slice(0, 5)}-${postalCode.slice(5)}`
+        : "";
+  return (
+    [street, location, cep].filter(Boolean).join(" — ") ||
+    "Endereço não informado"
   );
 }
 function Receipt({
@@ -398,7 +504,7 @@ function Receipt({
 }) {
   const t = totals(p, c.id);
   return (
-    <article className="receipt print-page">
+    <article className="receipt">
       <Header
         company={p.company}
         month={month}
@@ -544,7 +650,7 @@ function Detailed({
   );
 }
 function Summary({
-  packs,
+  packs: _packs,
   chosen,
   month,
   period,
@@ -554,6 +660,11 @@ function Summary({
   month: string;
   period: string;
 }) {
+  const companies = [
+    ...new Map(
+      chosen.map((item) => [item.p.company.sourceId, item.p.company]),
+    ).values(),
+  ];
   const rows = new Map<
     string,
     { quantity: number; gross: number; discount: number }
@@ -579,8 +690,17 @@ function Summary({
       new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 3 }).format(n);
   return (
     <article className="summary-report">
-      <h1>Folha resumida</h1>
-      <h2 className="report-period">{periodLabel(month, period)}</h2>
+      <div className="summary-company-heads">
+        {companies.map((company) => (
+          <Header
+            key={company.sourceId}
+            company={company}
+            month={month}
+            period={period}
+            title="FOLHA RESUMIDA"
+          />
+        ))}
+      </div>
       <table className="pay-table summary-events">
         <thead>
           <tr>

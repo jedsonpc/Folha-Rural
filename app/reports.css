@@ -105,6 +105,15 @@
   display: grid;
   gap: 16px;
 }
+.receipt-sheet {
+  display: grid;
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  background: #fff;
+}
+.receipt-sheet .receipt {
+  min-height: 0;
+}
 .receipt,
 .detail-block,
 .summary-report {
@@ -195,6 +204,69 @@
   text-align: center;
   margin-top: 15px;
 }
+.print-copy-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(13, 31, 20, 0.62);
+  backdrop-filter: blur(5px);
+}
+.print-copy-dialog > section {
+  width: min(520px, 100%);
+  padding: 28px;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(5, 20, 12, 0.35);
+  text-align: center;
+}
+.print-copy-dialog small {
+  color: #56705e;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+.print-copy-dialog h3 {
+  margin: 8px 0;
+  font-size: 22px;
+}
+.print-copy-dialog p {
+  color: var(--muted);
+  line-height: 1.5;
+}
+.print-copy-dialog > section > div {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 20px;
+}
+.print-copy-dialog > section > div button {
+  display: grid;
+  gap: 5px;
+  padding: 17px 12px;
+  border: 1px solid #cbd9ce;
+  border-radius: 12px;
+  background: #f3f8f4;
+  color: #274331;
+  cursor: pointer;
+}
+.print-copy-dialog > section > div button:hover {
+  border-color: #577961;
+  background: #e9f3eb;
+}
+.print-copy-dialog > section > div span {
+  color: #647269;
+  font-size: 11px;
+}
+.print-copy-cancel {
+  margin-top: 16px;
+  border: 0;
+  background: transparent;
+  color: #68736c;
+  font-weight: 700;
+  cursor: pointer;
+}
 .detail-block footer {
   padding: 10px;
   text-align: right;
@@ -205,6 +277,11 @@
 }
 .summary-report h1 {
   font-size: 20px;
+}
+.summary-company-heads {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 15px;
 }
 .report-empty {
   text-align: center;
@@ -225,6 +302,9 @@
   .receipt {
     padding: 15px;
   }
+  .print-copy-dialog > section > div {
+    grid-template-columns: 1fr;
+  }
 }
 @media print {
   body {
@@ -234,6 +314,9 @@
   .workspace > header,
   .title-row,
   .report-controls {
+    display: none !important;
+  }
+  .print-copy-dialog {
     display: none !important;
   }
   .workspace {
@@ -251,6 +334,47 @@
     box-shadow: none;
     padding: 12mm;
     margin: 0;
+  }
+  .receipt-sheet {
+    display: grid;
+    grid-template-rows: repeat(2, 1fr);
+    gap: 3mm;
+    height: 277mm;
+  }
+  .receipt-sheet .receipt {
+    box-sizing: border-box;
+    height: 137mm;
+    padding: 5mm 7mm;
+    overflow: hidden;
+    border-bottom: 1px dashed #888;
+  }
+  .receipt-sheet .receipt:last-child {
+    border-bottom: 0;
+  }
+  .receipt-sheet .print-head {
+    padding-bottom: 2mm;
+  }
+  .receipt-sheet .worker-line {
+    padding: 2mm 0;
+  }
+  .receipt-sheet .pay-table th,
+  .receipt-sheet .pay-table td {
+    padding: 1.5mm;
+  }
+  .receipt-sheet .receipt-totals {
+    margin-top: 2mm;
+  }
+  .receipt-sheet .receipt-totals div {
+    padding: 2mm;
+  }
+  .receipt-sheet .receipt-text {
+    margin: 3mm 0 0;
+  }
+  .receipt-sheet .signatures {
+    margin-top: 8mm;
+  }
+  .receipt-sheet .copy-note {
+    margin-top: 2mm;
   }
   .print-page {
     break-after: page;

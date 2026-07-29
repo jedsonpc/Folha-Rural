@@ -2,6 +2,7 @@
 import {
   lazy,
   Suspense,
+  type CSSProperties,
   useCallback,
   useEffect,
   useMemo,
@@ -11,6 +12,7 @@ import "./version15.css";
 import "./version-badge.css";
 import ProductionDashboard from "./production-dashboard";
 import AuthScreen from "./auth-screen";
+import { companyBrandImage } from "./company-branding";
 
 const AccessImporter = lazy(() => import("./access-importer"));
 const DataModule = lazy(() => import("./data-module"));
@@ -159,6 +161,7 @@ export default function Home() {
     };
   }, []);
   const selected = companies.find((x) => String(x.sourceId) === company),
+    sidebarImage = selected ? companyBrandImage(selected.name) : null,
     title = useMemo(
       () => (active === "Visão geral" ? "Painel operacional" : active),
       [active],
@@ -275,13 +278,15 @@ export default function Home() {
     );
   return (
     <main className="app-shell">
-      <aside className={`sidebar terra-sidebar ${menu ? "open" : ""}`}>
+      <aside
+        className={`sidebar terra-sidebar ${menu ? "open" : ""} ${sidebarImage ? "company-branded-sidebar" : ""}`}
+        style={
+          sidebarImage
+            ? ({ "--sidebar-company-image": `url("${sidebarImage}")` } as CSSProperties)
+            : undefined
+        }
+      >
         <div className="brand terra-brand">
-          <img
-            className="sidebar-brand-image"
-            src="/folha-rural-512.png"
-            alt="Folha Rural"
-          />
           <span>
             <strong>Folha</strong>
             <b>Rural</b>
@@ -344,9 +349,6 @@ export default function Home() {
             );
           })}
         </nav>
-        <div className="sidebar-farm-identity" aria-label="Identidade Folha Rural">
-          <img src="/folha-rural-512.png" alt="Fazenda Folha Rural" />
-        </div>
         <button className="exit-button" onClick={exitApp}>
           <i>↪</i>Sair e encerrar
         </button>
@@ -436,7 +438,7 @@ export default function Home() {
           ) : active === "Fechamento" ? (
             <ClosingModule company={company} />
           ) : active === "Relatórios" ? (
-            <ReportsModule />
+            <ReportsModule selectedCompany={company} />
           ) : active === "Empresas" ? (
             <CompaniesModule onChanged={loadCompanies} />
           ) : [
