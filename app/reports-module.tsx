@@ -12,17 +12,18 @@ type Company = {
   state: string | null;
 };
 type Contract = {
-  id: number;
+  id: string;
   name: string;
   registrationNumber: number | null;
   legacyCode: string | null;
   status: string;
 };
-type Service = { id: number; description: string };
+type Service = { id: string; description: string };
 type Entry = {
-  id: number;
-  contractId: number;
-  serviceId: number;
+  id: string;
+  entryDate: string;
+  contractId: string;
+  serviceId: string;
   quantity: string;
   unitPriceCents: number;
   amountCents: number;
@@ -44,13 +45,14 @@ export default function ReportsModule() {
   const [companies, setCompanies] = useState<Company[]>([]),
     [company, setCompany] = useState("all"),
     [month, setMonth] = useState(nowMonth()),
-    [period, setPeriod] = useState("advance"),
-    [status, setStatus] = useState("active"),
+    [period, setPeriod] = useState("full"),
+    [status, setStatus] = useState("all"),
     [order, setOrder] = useState("registration"),
     [type, setType] = useState("receipts"),
     [packs, setPacks] = useState<Pack[]>([]),
-    [selected, setSelected] = useState<Set<number>>(new Set()),
-    [busy, setBusy] = useState(false);
+    [selected, setSelected] = useState<Set<string>>(new Set()),
+    [busy, setBusy] = useState(false),
+    [notice, setNotice] = useState("");
   useEffect(() => {
     fetch("/api/data")
       .then((r) => r.json())
@@ -58,39 +60,66 @@ export default function ReportsModule() {
   }, []);
   async function load() {
     setBusy(true);
-    const targets =
-        company === "all"
-          ? companies
-          : companies.filter((c) => String(c.sourceId) === company),
-      loaded: Pack[] = [];
-    for (const c of targets) {
-      const r = await fetch(
+    setNotice("");
+    try {
+      const targets =
+          company === "all"
+            ? companies
+            : companies.filter((c) => String(c.sourceId) === company),
+        loaded: Pack[] = [];
+      if (!targets.length) {
+        setPacks([]);
+        setSelected(new Set());
+        setNotice("Nenhuma empresa disponível para gerar os relatórios.");
+        return;
+      }
+      for (const c of targets) {
+        const r = await fetch(
           `/api/launches?company=${c.sourceId}&month=${month}`,
-        ),
-        b = await r.json();
-      if (r.ok)
+          ),
+          b = await r.json();
+        if (!r.ok)
+          throw new Error(
+            b.error || `Não foi possível consultar os dados de ${c.name}.`,
+          );
         loaded.push({
           company: c,
           contracts: b.contracts || [],
           services: b.services || [],
-          entries: (b.entries || []).filter((entry: { entryDate: string }) =>
+          entries: (b.entries || []).filter((entry: Entry) =>
             entryMatchesPeriod(entry.entryDate, period),
           ),
         });
+      }
+      setPacks(loaded);
+      const ids = new Set<string>();
+      loaded.forEach((p) =>
+        p.contracts
+          .filter(
+            (c) =>
+              matchesStatus(c, status) &&
+              p.entries.some((e) => e.contractId === c.id),
+          )
+          .forEach((c) => ids.add(c.id)),
+      );
+      setSelected(ids);
+      const entryCount = loaded.reduce((sum, pack) => sum + pack.entries.length, 0);
+      setNotice(
+        entryCount
+          ? `${entryCount} lançamento(s) encontrado(s) para ${periodLabel(month, period).toLowerCase()}.`
+          : `Nenhum lançamento encontrado para ${periodLabel(month, period).toLowerCase()}. Confira a competência ou registre os apontamentos antes de gerar a folha.`,
+      );
+    } catch (error) {
+      setPacks([]);
+      setSelected(new Set());
+      setNotice(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível gerar os relatórios.",
+      );
+    } finally {
+      setBusy(false);
     }
-    setPacks(loaded);
-    const ids = new Set<number>();
-    loaded.forEach((p) =>
-      p.contracts
-        .filter(
-          (c) =>
-            matchesStatus(c, status) &&
-            p.entries.some((e) => e.contractId === c.id),
-        )
-        .forEach((c) => ids.add(c.id)),
-    );
-    setSelected(ids);
-    setBusy(false);
   }
   const workers = useMemo(
     () =>
@@ -148,6 +177,7 @@ export default function ReportsModule() {
                 setPacks([]);
               }}
             >
+              <option value="full">Folha mensal — mês completo</option>
               <option value="advance">Adiantamento — dias 01 a 15</option>
               <option value="balance">Saldo mensal — dia 16 ao final</option>
             </select>
@@ -169,9 +199,9 @@ export default function ReportsModule() {
           <label>
             Situação
             <select value={status} onChange={(e) => setStatus(e.target.value)}>
+              <option value="all">Todos com lançamentos</option>
               <option value="active">Ativos</option>
               <option value="terminated">Demitidos</option>
-              <option value="all">Todos</option>
             </select>
           </label>
           <label>
@@ -185,6 +215,11 @@ export default function ReportsModule() {
             {busy ? "Carregando…" : "Gerar prévia"}
           </button>
         </div>
+        {notice && (
+          <div className={`report-notice ${workers.length ? "success" : ""}`}>
+            {notice}
+          </div>
+        )}
         <div className="report-types">
           {[
             ["receipts", "Recibos de pagamento"],
@@ -254,10 +289,17 @@ export default function ReportsModule() {
         </div>
       </div>
       <div className="print-area">
-        {!packs.length ? (
+        {!packs.length || !workers.length ? (
           <div className="module report-empty">
-            <h3>Escolha os filtros e gere a prévia</h3>
-            <p>Nenhum documento será criado com dados de demonstração.</p>
+            <h3>
+              {!packs.length
+                ? "Escolha os filtros e gere a prévia"
+                : "Nenhum documento disponível para os filtros selecionados"}
+            </h3>
+            <p>
+              {notice ||
+                "Nenhum documento será criado com dados de demonstração."}
+            </p>
           </div>
         ) : type === "receipts" ? (
           chosen.map((x) => (
@@ -293,17 +335,20 @@ function matchesStatus(c: Contract, status: string) {
   return status === "all" || c.status === status;
 }
 function entryMatchesPeriod(entryDate: string, period: string) {
+  if (period === "full") return true;
   const day = Number(entryDate.slice(8, 10));
   return period === "advance" ? day >= 1 && day <= 15 : day >= 16;
 }
 function periodLabel(month: string, period: string) {
   const [year, monthNumber] = month.split("-").map(Number);
   const lastDay = new Date(year, monthNumber, 0).getDate();
-  return period === "advance"
+  return period === "full"
+    ? `Competência ${String(monthNumber).padStart(2, "0")}/${year} — mês completo`
+    : period === "advance"
     ? `Período de 01 a 15/${String(monthNumber).padStart(2, "0")}/${year} — Adiantamento`
     : `Período de 16 a ${lastDay}/${String(monthNumber).padStart(2, "0")}/${year} — Saldo Mensal`;
 }
-function totals(p: Pack, id: number) {
+function totals(p: Pack, id: string) {
   const es = p.entries.filter((e) => e.contractId === id);
   return {
     es,
@@ -408,7 +453,7 @@ function EventTable({
   services: Service[];
 }) {
   const grouped = new Map<
-    number,
+    string,
     { q: number; gross: number; discount: number }
   >();
   entries.forEach((e) => {

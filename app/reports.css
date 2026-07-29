@@ -29,9 +29,9 @@
 }
 .report-types {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 16px;
-  overflow: auto;
 }
 .report-types button {
   border: 1px solid var(--line);
@@ -65,8 +65,23 @@
   grid-template-columns: repeat(3, 1fr);
   gap: 5px;
   margin-top: 10px;
-  max-height: 150px;
-  overflow: auto;
+  max-height: none;
+  overflow: visible;
+}
+.report-notice {
+  margin-top: 14px;
+  padding: 11px 13px;
+  border: 1px solid #d9b7a6;
+  border-radius: 9px;
+  background: #fff4ee;
+  color: #7c3f2a;
+  font-size: 12px;
+  font-weight: 700;
+}
+.report-notice.success {
+  border-color: #b9cebe;
+  background: #edf5ef;
+  color: #315b3e;
 }
 .selection-grid label {
   display: flex;
