@@ -69,14 +69,14 @@ export default function AuthScreen({
   return (
     <main className="auth-screen">
       <section className="auth-card">
-        <div className="auth-brand">
-          <img src="/folha-rural-128.png" alt="" />
-          <div>
-            <b>Folha Rural</b>
-            <small>
-              {cloudMode ? "ACESSO SUPABASE SEGURO" : "ACESSO LOCAL SEGURO"}
-            </small>
-          </div>
+        <div
+          className="auth-brand-logo"
+          role="img"
+          aria-label="Folha Rural Pagamentos"
+        >
+          <span>
+            {cloudMode ? "ACESSO SUPABASE SEGURO" : "ACESSO LOCAL SEGURO"}
+          </span>
         </div>
         <h1>
           {setupRequired ? "Cadastrar administrador" : "Entrar no sistema"}

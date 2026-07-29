@@ -21,37 +21,21 @@
   color: #fff;
   text-shadow: 0 2px 12px rgba(7, 27, 17, 0.72);
 }
-.auth-brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.auth-brand-logo {
+  width: 132px;
+  height: 132px;
+  position: relative;
   margin-bottom: 28px;
+  border-radius: 22px;
+  background: url("/empresa-ivaldo-manoel.png") 93.5% 88% / 635% auto
+    no-repeat;
+  box-shadow: 0 8px 24px rgba(7, 27, 17, 0.28);
 }
-.auth-brand > span,
-.auth-brand > img {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
-}
-.auth-brand > span {
-  display: grid;
-  place-items: center;
-  background: var(--olive);
-  color: #fff;
-  font-weight: 900;
-}
-.auth-brand > img {
-  object-fit: cover;
-  box-shadow: 0 4px 12px rgba(32, 58, 46, 0.22);
-}
-.auth-brand div {
-  display: grid;
-}
-.auth-brand b {
-  font-size: 20px;
-  color: #fff;
-}
-.auth-brand small {
+.auth-brand-logo span {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 8px);
+  width: max-content;
   color: rgba(255, 255, 255, 0.82);
   font-weight: 800;
   font-size: 9px;

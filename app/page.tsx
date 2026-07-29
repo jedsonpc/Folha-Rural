@@ -90,6 +90,7 @@ export default function Home() {
     [menu, setMenu] = useState(false),
     [openGroup, setOpenGroup] = useState<string | null>(null),
     [closed, setClosed] = useState(false),
+    [qrOpen, setQrOpen] = useState(false),
     [localUser, setLocalUser] = useState<LocalUser | null | undefined>(
       undefined,
     ),
@@ -198,10 +199,11 @@ export default function Home() {
     <main className="app-shell">
       <aside className={`sidebar terra-sidebar ${menu ? "open" : ""}`}>
         <div className="brand terra-brand">
-          <span className="brand-mark terra-logo">
-            <i />
-            <b />
-          </span>
+          <img
+            className="sidebar-brand-image"
+            src="/folha-rural-512.png"
+            alt="Folha Rural"
+          />
           <span>
             <strong>Folha</strong>
             <b>Rural</b>
@@ -300,6 +302,14 @@ export default function Home() {
             <small>CONTEXTO ATUAL</small>
             <b>{selected?.name || "Visão consolidada"}</b>
           </div>
+          <button
+            className="qr-access-button"
+            type="button"
+            onClick={() => setQrOpen(true)}
+          >
+            <span aria-hidden="true">▦</span>
+            Gerar QR Code
+          </button>
           <button className="primary" onClick={() => setActive("Apontamentos")}>
             <b>＋</b> Novo apontamento
           </button>
@@ -368,6 +378,52 @@ export default function Home() {
           )}
         </Suspense>
       </section>
+      {qrOpen && (
+        <div
+          className="qr-modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setQrOpen(false);
+          }}
+        >
+          <section
+            className="qr-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="qr-modal-title"
+          >
+            <button
+              className="qr-modal-close"
+              type="button"
+              aria-label="Fechar"
+              onClick={() => setQrOpen(false)}
+            >
+              ×
+            </button>
+            <img
+              className="qr-modal-brand"
+              src="/folha-rural-512.png"
+              alt=""
+            />
+            <small>ACESSO PELO CELULAR</small>
+            <h2 id="qr-modal-title">QR Code de acesso ao sistema</h2>
+            <p>
+              Aponte a câmera do celular para o código abaixo e abra o Folha
+              Rural.
+            </p>
+            <img
+              className="qr-code-image"
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent(
+                window.location.origin,
+              )}`}
+              alt={`QR Code para acessar ${window.location.origin}`}
+            />
+            <a href={window.location.origin} target="_blank" rel="noreferrer">
+              Abrir endereço do sistema
+            </a>
+          </section>
+        </div>
+      )}
     </main>
   );
 }
