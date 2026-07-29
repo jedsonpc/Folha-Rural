@@ -4,23 +4,22 @@
   place-items: center;
   background:
     linear-gradient(
-      90deg,
-      rgba(13, 42, 27, 0.18) 0%,
-      rgba(13, 42, 27, 0.06) 48%,
-      rgba(13, 42, 27, 0.42) 100%
+      180deg,
+      rgba(7, 27, 17, 0.2) 0%,
+      rgba(7, 27, 17, 0.38) 100%
     ),
     url("/empresa-ivaldo-manoel.png") center / cover no-repeat fixed;
   padding: 20px;
 }
 .auth-card {
   width: min(440px, 100%);
-  background: rgba(255, 255, 255, 0.94);
-  border: 1px solid rgba(255, 255, 255, 0.62);
-  border-radius: 18px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
   padding: 32px;
-  box-shadow: 0 28px 80px rgba(15, 37, 25, 0.34);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  box-shadow: none;
+  color: #fff;
+  text-shadow: 0 2px 12px rgba(7, 27, 17, 0.72);
 }
 .auth-brand {
   display: flex;
@@ -50,9 +49,10 @@
 }
 .auth-brand b {
   font-size: 20px;
+  color: #fff;
 }
 .auth-brand small {
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.82);
   font-weight: 800;
   font-size: 9px;
   letter-spacing: 0.12em;
@@ -61,7 +61,7 @@
   margin: 0 0 8px;
 }
 .auth-card > p {
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.88);
   line-height: 1.5;
 }
 .auth-card form {
@@ -74,13 +74,26 @@
   gap: 6px;
   font-size: 11px;
   font-weight: 800;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.92);
 }
 .auth-card input {
   height: 44px;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(255, 255, 255, 0.82);
   border-radius: 8px;
   padding: 0 11px;
+  background: rgba(7, 27, 17, 0.08);
+  color: #fff;
+  outline: none;
+  text-shadow: none;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+.auth-card input:focus {
+  border-color: #fff;
+  background: rgba(7, 27, 17, 0.18);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.18);
 }
 .auth-card .show-password {
   display: flex;
@@ -88,7 +101,7 @@
   gap: 8px;
   width: max-content;
   cursor: pointer;
-  color: var(--olive);
+  color: rgba(255, 255, 255, 0.92);
 }
 .auth-card .show-password input {
   width: 16px;
@@ -99,14 +112,23 @@
 .auth-card form .primary {
   height: 46px;
   margin-top: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  background: rgba(7, 27, 17, 0.18);
+  color: #fff;
+  box-shadow: none;
+  backdrop-filter: blur(3px);
+}
+.auth-card form .primary:hover {
+  background: rgba(17, 73, 43, 0.64);
 }
 .password-reset-link {
   border: 0;
   background: transparent;
-  color: var(--olive);
+  color: #fff;
   font-weight: 800;
   cursor: pointer;
   padding: 6px;
+  text-shadow: 0 2px 10px rgba(7, 27, 17, 0.8);
 }
 .password-reset-link:disabled {
   cursor: wait;
@@ -121,13 +143,6 @@
   color: #fff;
   text-decoration: none;
   font-weight: 800;
-}
-
-@media (min-width: 900px) {
-  .auth-screen {
-    place-items: center end;
-    padding-right: clamp(36px, 8vw, 140px);
-  }
 }
 
 @media (max-width: 560px) {
