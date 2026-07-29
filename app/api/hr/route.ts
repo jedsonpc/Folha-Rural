@@ -261,21 +261,28 @@ async function cloudHrPost(request: Request, user: CloudUser | null) {
           String(body.localDescription || "").trim() || null,
         active: body.active !== false,
       };
+      let savedRows: CloudRow[];
       if (body.id)
-        await supabaseAdmin.patch(
+        savedRows = await supabaseAdmin.patch<CloudRow[]>(
           `/rest/v1/job_functions?id=eq.${body.id}&organization_id=eq.${config.organizationId}`,
           values,
-          { prefer: "return=minimal" },
+          { prefer: "return=representation" },
         );
       else
-        await supabaseAdmin.post(
+        savedRows = await supabaseAdmin.post<CloudRow[]>(
           "/rest/v1/job_functions?on_conflict=organization_id,cbo_code",
           values,
-          { prefer: "resolution=merge-duplicates,return=minimal" },
+          { prefer: "resolution=merge-duplicates,return=representation" },
+        );
+      if (!savedRows?.length)
+        return Response.json(
+          { error: "O Supabase não confirmou a gravação da função." },
+          { status: 502 },
         );
       return Response.json({
         ok: true,
         message: "Função salva com sucesso.",
+        function: savedRows[0],
       });
     }
     if (action === "delete" && body.entity === "function") {
