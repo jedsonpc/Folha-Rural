@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { companyBrandImage } from "./company-branding";
 
 type Payload = {
   companies: Array<{ sourceId: number; name: string }>;
@@ -51,12 +50,6 @@ export default function ProductionDashboard({
   const people = new Set(rows.map((r) => r.personId)).size,
     active = rows.filter((r) => r.status === "active").length,
     ended = rows.filter((r) => r.status !== "active").length,
-    selectedCompanyRecord = data.companies.find(
-      (company) => String(company.sourceId) === selectedCompany,
-    ),
-    brandImage = selectedCompanyRecord
-      ? companyBrandImage(selectedCompanyRecord.name)
-      : null,
     recent = [...rows]
       .sort((a, b) =>
         (b.admissionDate || "").localeCompare(a.admissionDate || ""),
@@ -64,16 +57,6 @@ export default function ProductionDashboard({
       .slice(0, 3);
   return (
     <>
-      {brandImage && selectedCompanyRecord && (
-        <section className="company-brand-hero">
-          <img src={brandImage} alt="" />
-          <div>
-            <small>IDENTIDADE DA EMPRESA</small>
-            <h2>{selectedCompanyRecord.name}</h2>
-            <p>Gestão rural integrada ao Folha Rural</p>
-          </div>
-        </section>
-      )}
       <section className="kpis production-kpis">
         <article>
           <span className="ico terra">♙</span>

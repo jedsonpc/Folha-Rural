@@ -171,6 +171,26 @@
   background: linear-gradient(135deg, #fbf6ee 0%, #f2e7d7 100%);
 }
 
+/* Identidade e dados da empresa acompanham todas as abas. */
+.company-tab-brand {
+  min-height: 138px;
+  margin-top: 12px;
+  margin-bottom: 14px;
+}
+.company-tab-brand div {
+  max-width: 760px;
+  padding: 24px 34px;
+}
+.company-tab-brand h2 {
+  margin: 5px 0 7px;
+  font-size: clamp(20px, 2.2vw, 30px);
+}
+.company-tab-brand p {
+  margin-top: 3px;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 /* A visão inicial cabe na área útil sem empurrar o painel para baixo. */
 .operational-workspace {
   min-height: 100dvh;
@@ -179,20 +199,9 @@
 .operational-workspace .title-row {
   display: none;
 }
-.operational-workspace .company-brand-hero {
-  min-height: 138px;
-  margin-top: 12px;
-  margin-bottom: 12px;
-}
 .operational-workspace > .panel.data-state {
   min-height: 180px;
   margin-top: 12px;
-}
-.operational-workspace .company-brand-hero div {
-  padding: 31px 34px;
-}
-.operational-workspace .company-brand-hero h2 {
-  font-size: clamp(22px, 2.4vw, 32px);
 }
 .operational-workspace .production-kpis {
   gap: 12px;
@@ -229,8 +238,11 @@
   .operational-workspace {
     min-height: 100dvh;
   }
-  .operational-workspace .company-brand-hero {
+  .company-tab-brand {
     min-height: 125px;
+  }
+  .company-tab-brand div {
+    padding: 20px 22px;
   }
 }
 

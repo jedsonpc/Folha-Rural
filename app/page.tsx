@@ -76,7 +76,19 @@ const navGroups = [
   ],
   SYSTEM_VERSION = "1.3.50",
   LAST_UPDATE = "29/07/2026";
-type Company = { sourceId: number; name: string };
+type Company = {
+  sourceId: number;
+  name: string;
+  document: string | null;
+  documentType: string;
+  postalCode: string | null;
+  address: string | null;
+  addressNumber: string | null;
+  addressComplement: string | null;
+  district: string | null;
+  city: string | null;
+  state: string | null;
+};
 type LocalUser = {
   id: number | string;
   name: string;
@@ -166,6 +178,10 @@ export default function Home() {
       () => (active === "Visão geral" ? "Painel operacional" : active),
       [active],
     );
+  const selectedDocument = selected
+      ? formatCompanyDocument(selected.document)
+      : "",
+    selectedAddress = selected ? companyAddress(selected) : "";
   const openCompany = (v: string) => {
     setCompany(v);
     setActive("Colaboradores");
@@ -412,6 +428,24 @@ export default function Home() {
             <span>Atualizado em {LAST_UPDATE}</span>
           </div>
         </div>
+        {selected && sidebarImage && (
+          <section className="company-brand-hero company-tab-brand">
+            <img src={sidebarImage} alt="" />
+            <div>
+              <small>EMPRESA EM USO</small>
+              <h2>{selected.name}</h2>
+              <p>
+                <strong>
+                  {selected.documentType?.toLowerCase() === "caepf"
+                    ? "CAEPF"
+                    : "CNPJ"}
+                  : {selectedDocument}
+                </strong>
+              </p>
+              <p>{selectedAddress}</p>
+            </div>
+          </section>
+        )}
         <Suspense
           fallback={
             <section className="panel data-state">
@@ -512,6 +546,40 @@ export default function Home() {
     </main>
   );
 }
+
+function formatCompanyDocument(document: string | null) {
+  const value = String(document || "").replace(/\D/g, "");
+  if (!value) return "não informado";
+  return value.length === 14
+    ? value.replace(
+        /^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,
+        "$1.$2.$3/$4-$5",
+      )
+    : document || value;
+}
+
+function companyAddress(company: Company) {
+  const street = [
+      company.address,
+      company.addressNumber,
+      company.addressComplement,
+    ]
+      .filter(Boolean)
+      .join(", "),
+    location = [company.district, company.city, company.state]
+      .filter(Boolean)
+      .join(" · "),
+    postalCode = String(company.postalCode || "").replace(/\D/g, ""),
+    cep =
+      postalCode.length === 8
+        ? `CEP ${postalCode.slice(0, 5)}-${postalCode.slice(5)}`
+        : "";
+  return (
+    [street, location, cep].filter(Boolean).join(" — ") ||
+    "Endereço não informado"
+  );
+}
+
 function ModuleInfo({ active }: { active: string }) {
   const copy: Record<string, [string, string, string]> = {
     Relatórios: [
