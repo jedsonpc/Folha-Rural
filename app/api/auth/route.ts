@@ -13,7 +13,6 @@ import {
   authCookies,
   clearAuthCookies,
   getSupabaseConfig,
-  supabaseRequest,
 } from "../../../db/supabase";
 const json = (body: object, status = 200, headers?: HeadersInit) =>
   Response.json(body, { status, headers });
@@ -190,15 +189,49 @@ async function cloudAuth(request: Request) {
     const password = String(body.password || "");
     if (!email.includes("@") || password.length < 8)
       return json({ error: "Informe seu e-mail e sua senha." }, 400);
-    const session = await supabaseRequest<{
+    const loginResponse = await fetch(
+      `${config.url}/auth/v1/token?grant_type=password`,
+      {
+        method: "POST",
+        headers: {
+          apikey: config.publicKey,
+          authorization: `Bearer ${config.publicKey}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+        cache: "no-store",
+      },
+    );
+    if (!loginResponse.ok) {
+      const detail = (await loginResponse.json().catch(() => ({}))) as {
+        error_code?: string;
+      };
+      const code = detail.error_code || "";
+      if (code === "email_not_confirmed")
+        return json(
+          { error: "O e-mail existe no Supabase, mas ainda não foi confirmado." },
+          403,
+        );
+      if (code === "invalid_credentials")
+        return json(
+          {
+            error:
+              "O Supabase rejeitou a combinação deste e-mail com esta senha.",
+          },
+          401,
+        );
+      return json(
+        {
+          error: `O Supabase recusou o login (${code || loginResponse.status}).`,
+        },
+        loginResponse.status,
+      );
+    }
+    const session = (await loginResponse.json()) as {
       access_token: string;
       refresh_token: string;
       expires_in: number;
-    }>("/auth/v1/token?grant_type=password", {
-      method: "POST",
-      headers: { apikey: config.publicKey },
-      body: JSON.stringify({ email, password }),
-    }, config.publicKey);
+    };
     const headers = new Headers();
     authCookies(
       session.access_token,
@@ -219,7 +252,10 @@ async function cloudAuth(request: Request) {
       );
     return json({ ok: true, user }, 200, headers);
   } catch {
-    return json({ error: "E-mail ou senha inválidos." }, 401);
+    return json(
+      { error: "Não foi possível consultar o Supabase neste momento." },
+      502,
+    );
   }
 }
 async function login(
