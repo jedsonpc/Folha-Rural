@@ -2,15 +2,15 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-test("packages the installable app metadata and update worker", async () => {
+test("keeps the installable app metadata and update worker", async () => {
   const manifest = JSON.parse(
     await readFile(
-      new URL("../dist/client/manifest.webmanifest", import.meta.url),
+      new URL("../public/manifest.webmanifest", import.meta.url),
       "utf8",
     ),
   );
   const serviceWorker = await readFile(
-    new URL("../dist/client/sw.js", import.meta.url),
+    new URL("../public/sw.js", import.meta.url),
     "utf8",
   );
 
@@ -18,5 +18,5 @@ test("packages the installable app metadata and update worker", async () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
   assert.match(serviceWorker, /SKIP_WAITING/);
-  assert.match(serviceWorker, /folha-rural-shell-v1/);
+  assert.match(serviceWorker, /folha-rural-shell-v2/);
 });

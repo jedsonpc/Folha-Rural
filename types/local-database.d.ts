@@ -1,6 +1,6 @@
 /**
- * Tipos mínimos da camada local Cloudflare. A implantação Vercel usa Supabase,
- * mas estas declarações mantêm a edição local D1 compilável pelo Next.js.
+ * Tipos mínimos do adaptador de banco local mantido apenas para compatibilidade
+ * de desenvolvimento. A produção usa Supabase.
  */
 interface D1Result<T = Record<string, unknown>> {
   results: T[];

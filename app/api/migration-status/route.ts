@@ -13,7 +13,7 @@ export async function GET() {
   const config = getSupabaseConfig();
   if (!config)
     return Response.json({
-      mode: "cloudflare-d1",
+      mode: "local-compatibility",
       ready: true,
       message: "Versão atual preservada.",
     });
