@@ -266,6 +266,9 @@ export default function Home() {
             );
           })}
         </nav>
+        <div className="sidebar-farm-identity" aria-label="Identidade Folha Rural">
+          <img src="/folha-rural-512.png" alt="Fazenda Folha Rural" />
+        </div>
         <button className="exit-button" onClick={exitApp}>
           <i>↪</i>Sair e encerrar
         </button>
