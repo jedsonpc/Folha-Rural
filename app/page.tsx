@@ -29,7 +29,6 @@ const navGroups = [
       icon: "CO",
       items: [
         ["VG", "Visão geral"],
-        ["RL", "Relatórios"],
       ],
     },
     {
@@ -63,13 +62,18 @@ const navGroups = [
       items: [["TB", "Tabelas oficiais"]],
     },
     {
+      label: "Relatórios",
+      icon: "RL",
+      items: [["RL", "Relatórios"]],
+    },
+    {
       label: "Integrações",
       icon: "IN",
       items: [["IA", "Importar Access"]],
     },
   ],
-  SYSTEM_VERSION = "1.3.48",
-  LAST_UPDATE = "28/07/2026";
+  SYSTEM_VERSION = "1.3.49",
+  LAST_UPDATE = "29/07/2026";
 type Company = { sourceId: number; name: string };
 type LocalUser = {
   id: number | string;
