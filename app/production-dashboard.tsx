@@ -61,7 +61,7 @@ export default function ProductionDashboard({
       .sort((a, b) =>
         (b.admissionDate || "").localeCompare(a.admissionDate || ""),
       )
-      .slice(0, 6);
+      .slice(0, 3);
   return (
     <>
       {brandImage && selectedCompanyRecord && (

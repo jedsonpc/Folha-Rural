@@ -1,5 +1,7 @@
 .auth-screen {
-  min-height: 100vh;
+  width: 100%;
+  height: 100dvh;
+  min-height: 0;
   display: grid;
   place-items: center;
   background:
@@ -9,24 +11,26 @@
       rgba(7, 27, 17, 0.38) 100%
     ),
     url("/empresa-ivaldo-manoel-sem-logo.png") center / cover no-repeat fixed;
-  padding: 20px;
+  padding: clamp(8px, 2vh, 20px);
+  overflow: hidden;
 }
 .auth-card {
   width: min(440px, 100%);
   background: transparent;
   border: 0;
   border-radius: 0;
-  padding: 32px;
+  max-height: 100%;
+  padding: clamp(16px, 3vh, 32px);
   box-shadow: none;
   color: #fff;
   text-shadow: 0 2px 12px rgba(7, 27, 17, 0.72);
 }
 .auth-brand-logo {
-  width: min(190px, 52vw);
+  width: min(190px, 24vh, 52vw);
   display: grid;
   justify-items: center;
   justify-self: center;
-  margin: 0 auto 38px;
+  margin: 0 auto clamp(16px, 4vh, 38px);
 }
 .auth-brand-logo img {
   display: block;
@@ -53,8 +57,8 @@
 }
 .auth-card form {
   display: grid;
-  gap: 14px;
-  margin-top: 22px;
+  gap: clamp(8px, 1.5vh, 14px);
+  margin-top: clamp(12px, 2.2vh, 22px);
 }
 .auth-card label {
   display: grid;
@@ -130,6 +134,30 @@
   color: #fff;
   text-decoration: none;
   font-weight: 800;
+}
+
+@media (max-height: 700px) {
+  .auth-brand-logo {
+    width: min(132px, 42vw);
+    margin-bottom: 13px;
+  }
+  .auth-brand-logo span {
+    margin-top: 5px;
+  }
+  .auth-card h1 {
+    font-size: 22px;
+  }
+  .auth-card > p {
+    margin: 5px 0;
+    font-size: 13px;
+  }
+  .auth-card input {
+    height: 40px;
+  }
+  .auth-card form .primary {
+    height: 42px;
+    margin-top: 2px;
+  }
 }
 
 @media (max-width: 560px) {

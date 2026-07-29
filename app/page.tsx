@@ -362,7 +362,9 @@ export default function Home() {
           </div>
         </div>
       </aside>
-      <section className="workspace">
+      <section
+        className={`workspace ${active === "Visão geral" ? "operational-workspace" : ""}`}
+      >
         <header>
           <button className="mobile-menu" onClick={() => setMenu(!menu)}>
             ☰
