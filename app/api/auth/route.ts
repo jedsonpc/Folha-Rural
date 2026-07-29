@@ -238,9 +238,9 @@ async function cloudAuth(request: Request) {
       session.refresh_token,
       session.expires_in,
     ).forEach((cookie) => headers.append("Set-Cookie", cookie));
-    const authenticatedRequest = new Request(request, {
+    const authenticatedRequest = new Request(request.url, {
+      method: "GET",
       headers: new Headers({
-        ...Object.fromEntries(request.headers),
         cookie: `fr_access_token=${encodeURIComponent(session.access_token)}`,
       }),
     });
