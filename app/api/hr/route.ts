@@ -97,7 +97,7 @@ export async function POST(r: Request) {
     } else if (action === "delete") {
       const table = {function:"job_functions",center:"cost_centers",item:"safety_items",reference:"salary_references"}[String(b.entity)];
       if (!table) return Response.json({error:"Cadastro inválido."},{status:400});
-      const usage = table==="job_functions" ? await db.prepare("SELECT 1 FROM employment_contracts c JOIN job_functions f ON f.tenant_id=c.tenant_id AND c.role=COALESCE(NULLIF(f.local_description,''),f.official_description) WHERE f.tenant_id=? AND f.id=? LIMIT 1").bind(t,Number(b.id)).first()
+      const usage = table==="job_functions" ? await db.prepare("SELECT 1 FROM daily_entries d JOIN employment_contracts c ON c.id=d.contract_id JOIN job_functions f ON f.tenant_id=c.tenant_id AND c.role=COALESCE(NULLIF(f.local_description,''),f.official_description) WHERE f.tenant_id=? AND f.id=? LIMIT 1").bind(t,Number(b.id)).first()
         : table==="cost_centers" ? await db.prepare("SELECT 1 FROM services WHERE tenant_id=? AND group_source_id=? LIMIT 1").bind(t,Number(b.id)).first()
         : table==="safety_items" ? await db.prepare("SELECT 1 FROM item_issues WHERE tenant_id=? AND item_id=? LIMIT 1").bind(t,Number(b.id)).first() : null;
       if (usage) return Response.json({error:"O registro possui vínculos e não pode ser excluído."},{status:409});
@@ -292,16 +292,21 @@ async function cloudHrPost(request: Request, user: CloudUser | null) {
       const role = String(
         rows[0]?.local_description || rows[0]?.official_description || "",
       );
-      const used = role
+      const linkedContracts = role
         ? await supabaseAdmin.get<Array<{ id: string }>>(
-            `/rest/v1/employment_contracts?select=id&organization_id=eq.${config.organizationId}&role_name=eq.${encodeURIComponent(role)}&limit=1`,
+            `/rest/v1/employment_contracts?select=id&organization_id=eq.${config.organizationId}&role_name=eq.${encodeURIComponent(role)}`,
           )
         : [];
-      if (used.length)
+      const launched = linkedContracts.length
+        ? await supabaseAdmin.get<Array<{ id: string }>>(
+            `/rest/v1/daily_entries?select=id&organization_id=eq.${config.organizationId}&contract_id=in.(${linkedContracts.map((contract) => contract.id).join(",")})&limit=1`,
+          )
+        : [];
+      if (launched.length)
         return Response.json(
           {
             error:
-              "A função possui vínculos e não pode ser excluída. Desative-a.",
+              "A função está vinculada a colaborador com lançamentos e não pode ser excluída.",
           },
           { status: 409 },
         );
