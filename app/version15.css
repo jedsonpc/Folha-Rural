@@ -278,7 +278,7 @@
 }
 
 .company-branded-sidebar {
-  position: relative;
+  position: fixed;
   isolation: isolate;
   background: #173927;
 }
