@@ -198,7 +198,7 @@ async function cloudAuth(request: Request) {
       method: "POST",
       headers: { apikey: config.publicKey },
       body: JSON.stringify({ email, password }),
-    });
+    }, config.publicKey);
     const headers = new Headers();
     authCookies(
       session.access_token,
