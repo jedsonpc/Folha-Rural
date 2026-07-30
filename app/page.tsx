@@ -55,6 +55,9 @@ const navGroups = [
       icon: "PR",
       items: [
         ["AP", "Apontamentos"],
+        ["FE", "Férias"],
+        ["13", "13º Salário"],
+        ["RE", "Rescisão"],
         ["FC", "Fechamento"],
       ],
     },
@@ -66,7 +69,10 @@ const navGroups = [
     {
       label: "Relatórios",
       icon: "RL",
-      items: [["RL", "Relatórios"]],
+      items: [
+        ["RA", "Relatórios Analíticos"],
+        ["RR", "Relatórios Resumo"],
+      ],
     },
     {
       label: "Integrações",
@@ -74,8 +80,8 @@ const navGroups = [
       items: [["IA", "Importar Access"]],
     },
   ],
-  SYSTEM_VERSION = "1.3.50",
-  LAST_UPDATE = "29/07/2026";
+  SYSTEM_VERSION = "1.3.51",
+  LAST_UPDATE = "30/07/2026";
 type Company = {
   sourceId: number;
   name: string;
@@ -329,6 +335,7 @@ export default function Home() {
               ([, label]) =>
                 localUser?.role === "admin" ||
                 localUser?.permissions.includes(label) ||
+                localUser?.permissions.includes(group.label) ||
                 (registrationItems.includes(label) &&
                   localUser?.permissions.includes("Cadastros")),
             );
@@ -482,8 +489,10 @@ export default function Home() {
             <LaunchesModule company={company} />
           ) : active === "Fechamento" ? (
             <ClosingModule company={company} />
-          ) : active === "Relatórios" ? (
-            <ReportsModule selectedCompany={company} />
+          ) : active === "Relatórios Analíticos" ? (
+            <ReportsModule selectedCompany={company} category="analytical" />
+          ) : active === "Relatórios Resumo" ? (
+            <ReportsModule selectedCompany={company} category="summary" />
           ) : active === "Empresas" ? (
             <CompaniesModule onChanged={loadCompanies} />
           ) : [
@@ -606,6 +615,21 @@ function companyAddress(company: Company) {
 
 function ModuleInfo({ active }: { active: string }) {
   const copy: Record<string, [string, string, string]> = {
+    Férias: [
+      "Apontamento de férias",
+      "Área reservada para registrar períodos aquisitivos, gozo e abono.",
+      "A fórmula e as regras de cálculo serão vinculadas quando forem definidas.",
+    ],
+    "13º Salário": [
+      "Apontamento de 13º Salário",
+      "Área reservada para registrar adiantamento e parcela final do 13º.",
+      "A fórmula e as regras de cálculo serão vinculadas quando forem definidas.",
+    ],
+    Rescisão: [
+      "Apontamento de rescisão",
+      "Área reservada para registrar desligamento e verbas rescisórias.",
+      "A fórmula e as regras de cálculo serão vinculadas quando forem definidas.",
+    ],
     Relatórios: [
       "Central de relatórios",
       "Os relatórios serão gerados somente com dados reais.",

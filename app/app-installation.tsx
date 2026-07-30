@@ -29,9 +29,12 @@ export default function AppInstallation() {
       setInstallPrompt(null);
     });
 
+    let cleanupUpdateChecks = () => undefined;
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").then((registration) => {
-        if (registration.waiting) setUpdateReady(registration.waiting);
+        if (registration.waiting) {
+          registration.waiting.postMessage({ type: "SKIP_WAITING" });
+        }
         registration.addEventListener("updatefound", () => {
           const worker = registration.installing;
           worker?.addEventListener("statechange", () => {
@@ -42,6 +45,23 @@ export default function AppInstallation() {
               setUpdateReady(worker);
           });
         });
+
+        const checkForUpdate = () => registration.update().catch(() => undefined);
+        const checkWhenVisible = () => {
+          if (document.visibilityState === "visible") checkForUpdate();
+        };
+        const interval = window.setInterval(checkForUpdate, 15 * 60 * 1000);
+        window.addEventListener("focus", checkForUpdate);
+        window.addEventListener("online", checkForUpdate);
+        document.addEventListener("visibilitychange", checkWhenVisible);
+        checkForUpdate();
+
+        cleanupUpdateChecks = () => {
+          window.clearInterval(interval);
+          window.removeEventListener("focus", checkForUpdate);
+          window.removeEventListener("online", checkForUpdate);
+          document.removeEventListener("visibilitychange", checkWhenVisible);
+        };
       });
 
       let refreshing = false;
@@ -52,8 +72,10 @@ export default function AppInstallation() {
       });
     }
 
-    return () =>
+    return () => {
+      cleanupUpdateChecks();
       window.removeEventListener("beforeinstallprompt", captureInstall);
+    };
   }, []);
 
   async function install() {

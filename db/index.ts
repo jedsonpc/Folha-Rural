@@ -173,6 +173,7 @@ export function ensureDatabase() {
           group_name: "TEXT",
           unit_name: "TEXT",
           affects_dsr: "INTEGER NOT NULL DEFAULT 0",
+          composes_production_average: "INTEGER NOT NULL DEFAULT 0",
           active: "INTEGER NOT NULL DEFAULT 1",
         };
         const serviceMissing = Object.entries(serviceAdds).filter(

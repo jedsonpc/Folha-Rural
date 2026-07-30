@@ -16,6 +16,7 @@ type S = {
   irrf: boolean;
   rais: boolean;
   affectsDsr: boolean;
+  composesProductionAverage: boolean;
   active: boolean;
   usageCount: number;
   [k: string]: unknown;
@@ -42,6 +43,7 @@ const empty = {
   irrf: false,
   rais: false,
   affectsDsr: true,
+  composesProductionAverage: false,
   active: true,
 };
 export default function ServicesModule() {
@@ -108,6 +110,7 @@ export default function ServicesModule() {
     ["irrf", "IRRF mensal"],
     ["rais", "Informar na RAIS"],
     ["affectsDsr", "Compõe média do DSR"],
+    ["composesProductionAverage", "Compõe média de produção"],
     ["active", "Serviço ativo"],
   ];
   return (
@@ -198,7 +201,7 @@ export default function ServicesModule() {
                 <td>
                   <div className="incidences">
                     {flags
-                      .slice(0, 7)
+                      .slice(0, 8)
                       .filter(([k]) => s[k])
                       .map(([, l]) => (
                         <i key={l}>{l}</i>

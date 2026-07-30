@@ -69,6 +69,7 @@ export async function cloudLaunchesGet(request: Request) {
         description: row.description,
         unitName: row.unit_name,
         affectsDsr: row.affects_dsr,
+        composesProductionAverage: row.composes_production_average,
         active: row.active,
       })),
       entries: entries.map((row) => ({

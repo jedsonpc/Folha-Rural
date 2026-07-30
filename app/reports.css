@@ -33,6 +33,28 @@
   gap: 8px;
   margin-top: 16px;
 }
+.report-category-types {
+  margin-bottom: 18px;
+}
+.launch-event-table td:nth-child(2),
+.launch-event-table td:nth-child(3) {
+  text-align: left;
+}
+.financial-report {
+  background: #fff;
+  padding: 22px;
+  margin-bottom: 22px;
+}
+@media print {
+  .employee-print-page {
+    break-after: page;
+    page-break-after: always;
+  }
+  .employee-print-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+}
 .report-types button {
   border: 1px solid var(--line);
   background: #fff;

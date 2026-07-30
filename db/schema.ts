@@ -227,6 +227,11 @@ export const services = sqliteTable(
     affectsDsr: integer("affects_dsr", { mode: "boolean" })
       .notNull()
       .default(false),
+    composesProductionAverage: integer("composes_production_average", {
+      mode: "boolean",
+    })
+      .notNull()
+      .default(false),
     active: integer("active", { mode: "boolean" }).notNull().default(true),
     createdAt: text("created_at")
       .notNull()

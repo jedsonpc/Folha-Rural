@@ -113,6 +113,7 @@ export async function POST(r: Request) {
       groupName: String(b.groupName || "").trim() || null,
       unitName: String(b.unitName || "").trim() || null,
       affectsDsr: !!b.affectsDsr,
+      composesProductionAverage: !!b.composesProductionAverage,
       active: b.active !== false,
     };
     const id = Number(b.id);
@@ -156,6 +157,7 @@ type CloudService = {
   group_name: string | null;
   unit_name: string | null;
   affects_dsr: boolean;
+  composes_production_average: boolean;
   active: boolean;
   daily_entries?: Array<{ count: number }>;
 };
@@ -178,6 +180,7 @@ const serviceResponse = (row: CloudService) => ({
   groupName: row.group_name,
   unitName: row.unit_name,
   affectsDsr: row.affects_dsr,
+  composesProductionAverage: row.composes_production_average,
   active: row.active,
   usageCount: Number(row.daily_entries?.[0]?.count || 0),
 });
@@ -258,6 +261,7 @@ async function cloudServicesPost(request: Request) {
       group_name: String(body.groupName || "").trim() || null,
       unit_name: String(body.unitName || "").trim() || null,
       affects_dsr: Boolean(body.affectsDsr),
+      composes_production_average: Boolean(body.composesProductionAverage),
       active: body.active !== false,
     };
     if (id)

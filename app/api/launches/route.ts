@@ -72,6 +72,7 @@ export async function GET(request: Request) {
         description: services.description,
         unitName: services.unitName,
         affectsDsr: services.affectsDsr,
+        composesProductionAverage: services.composesProductionAverage,
         active: services.active,
       })
       .from(services)

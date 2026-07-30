@@ -24,7 +24,7 @@ type Contract = {
   legacyCode: string | null;
   status: string;
 };
-type Service = { id: string; description: string };
+type Service = { id: string; sourceId?: number; description: string };
 type Entry = {
   id: string;
   entryDate: string;
@@ -49,16 +49,24 @@ const money = (c: number) =>
   nowMonth = () => new Date().toISOString().slice(0, 7);
 export default function ReportsModule({
   selectedCompany,
+  category,
 }: {
   selectedCompany?: string;
+  category: "analytical" | "summary";
 }) {
+  const currentYear = new Date().getFullYear();
   const [companies, setCompanies] = useState<Company[]>([]),
+    [reportServices, setReportServices] = useState<Service[]>([]),
     [company, setCompany] = useState(selectedCompany || "all"),
     [month, setMonth] = useState(nowMonth()),
     [period, setPeriod] = useState("full"),
     [status, setStatus] = useState("all"),
     [order, setOrder] = useState("registration"),
     [type, setType] = useState("receipts"),
+    [rangeMode, setRangeMode] = useState<"annual" | "custom">("annual"),
+    [dateStart, setDateStart] = useState(`${currentYear}-01-01`),
+    [dateEnd, setDateEnd] = useState(`${currentYear}-12-31`),
+    [eventId, setEventId] = useState("all"),
     [packs, setPacks] = useState<Pack[]>([]),
     [selected, setSelected] = useState<Set<string>>(new Set()),
     [busy, setBusy] = useState(false),
@@ -66,12 +74,21 @@ export default function ReportsModule({
     [copyChoiceOpen, setCopyChoiceOpen] = useState(false),
     [printCopies, setPrintCopies] = useState<1 | 2>(1);
   useEffect(() => {
+    setType(category === "summary" ? "summary" : "receipts");
+    setPacks([]);
+    setSelected(new Set());
+    setNotice("");
+  }, [category]);
+  useEffect(() => {
     if (selectedCompany) setCompany(selectedCompany);
   }, [selectedCompany]);
   useEffect(() => {
     fetch("/api/data")
       .then((r) => r.json())
       .then((b) => setCompanies(b.companies || []));
+    fetch("/api/services")
+      .then((r) => r.json())
+      .then((b) => setReportServices(b.services || []));
   }, []);
   async function load() {
     setBusy(true);
@@ -88,23 +105,34 @@ export default function ReportsModule({
         setNotice("Nenhuma empresa disponível para gerar os relatórios.");
         return;
       }
+      const usesRange = type === "events" || type === "financial";
+      const start = usesRange ? dateStart : `${month}-01`;
+      const end = usesRange ? dateEnd : `${month}-31`;
       for (const c of targets) {
-        const r = await fetch(
-          `/api/launches?company=${c.sourceId}&month=${month}`,
-          ),
-          b = await r.json();
-        if (!r.ok)
-          throw new Error(
-            b.error || `Não foi possível consultar os dados de ${c.name}.`,
+        let contracts: Contract[] = [];
+        let services: Service[] = [];
+        const entries: Entry[] = [];
+        for (const targetMonth of monthsBetween(start, end)) {
+          const r = await fetch(
+              `/api/launches?company=${c.sourceId}&month=${targetMonth}`,
+            ),
+            b = await r.json();
+          if (!r.ok)
+            throw new Error(
+              b.error || `Não foi possível consultar os dados de ${c.name}.`,
+            );
+          contracts = b.contracts || contracts;
+          services = b.services || services;
+          entries.push(
+            ...(b.entries || []).filter(
+              (entry: Entry) =>
+                entry.entryDate >= start &&
+                entry.entryDate <= end &&
+                (usesRange || entryMatchesPeriod(entry.entryDate, period)),
+            ),
           );
-        loaded.push({
-          company: c,
-          contracts: b.contracts || [],
-          services: b.services || [],
-          entries: (b.entries || []).filter((entry: Entry) =>
-            entryMatchesPeriod(entry.entryDate, period),
-          ),
-        });
+        }
+        loaded.push({ company: c, contracts, services, entries });
       }
       setPacks(loaded);
       const ids = new Set<string>();
@@ -121,8 +149,8 @@ export default function ReportsModule({
       const entryCount = loaded.reduce((sum, pack) => sum + pack.entries.length, 0);
       setNotice(
         entryCount
-          ? `${entryCount} lançamento(s) encontrado(s) para ${periodLabel(month, period).toLowerCase()}.`
-          : `Nenhum lançamento encontrado para ${periodLabel(month, period).toLowerCase()}. Confira a competência ou registre os apontamentos antes de gerar a folha.`,
+          ? `${entryCount} lançamento(s) encontrado(s) no período selecionado.`
+          : "Nenhum lançamento encontrado no período selecionado. Confira os filtros ou registre os apontamentos antes de gerar o relatório.",
       );
     } catch (error) {
       setPacks([]);
@@ -157,6 +185,14 @@ export default function ReportsModule({
     [packs, status, order],
   );
   const chosen = workers.filter((x) => selected.has(x.c.id)),
+    availableServices = [
+      ...new Map(
+        [...reportServices, ...packs.flatMap((p) => p.services)].map((s) => [
+          s.id,
+          s,
+        ]),
+      ).values(),
+    ].sort((a, b) => a.description.localeCompare(b.description, "pt-BR")),
     receiptCopies = chosen.flatMap((item) =>
       Array.from({ length: printCopies }, (_, copyIndex) => ({
         ...item,
@@ -185,11 +221,96 @@ export default function ReportsModule({
           <span>▥</span>
           <div>
             <small>CENTRAL DE DOCUMENTOS</small>
-            <h2>Relatórios e recibos</h2>
-            <p>Documentos gerados a partir dos eventos reais da competência.</p>
+            <h2>
+              {category === "analytical"
+                ? "Relatórios Analíticos"
+                : "Relatórios Resumo"}
+            </h2>
+            <p>Documentos gerados a partir dos lançamentos reais da empresa.</p>
           </div>
         </div>
+        <div className="report-types report-category-types">
+          {(category === "analytical"
+            ? [
+                ["receipts", "Recibos de pagamento"],
+                ["detailed", "Folha de pagamento"],
+                ["events", "Lançamentos por evento"],
+                ["financial", "Ficha financeira"],
+              ]
+            : [
+                ["summary", "Folha Resumida"],
+                ["management", "Folha Gerencial"],
+              ]
+          ).map(([k, l]) => (
+            <button
+              key={k}
+              className={type === k ? "active" : ""}
+              onClick={() => {
+                setType(k);
+                setPacks([]);
+              }}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
         <div className="report-filters">
+          {(type === "events" || type === "financial") ? (
+            <>
+              {type === "financial" && (
+                <label>
+                  Abrangência
+                  <select
+                    value={rangeMode}
+                    onChange={(e) => {
+                      const mode = e.target.value as "annual" | "custom";
+                      setRangeMode(mode);
+                      if (mode === "annual") {
+                        setDateStart(`${currentYear}-01-01`);
+                        setDateEnd(`${currentYear}-12-31`);
+                      }
+                    }}
+                  >
+                    <option value="annual">Ano vigente ({currentYear})</option>
+                    <option value="custom">Período definido</option>
+                  </select>
+                </label>
+              )}
+              <label>
+                Data inicial
+                <input
+                  type="date"
+                  value={dateStart}
+                  disabled={type === "financial" && rangeMode === "annual"}
+                  onChange={(e) => setDateStart(e.target.value)}
+                />
+              </label>
+              <label>
+                Data final
+                <input
+                  type="date"
+                  value={dateEnd}
+                  disabled={type === "financial" && rangeMode === "annual"}
+                  onChange={(e) => setDateEnd(e.target.value)}
+                />
+              </label>
+              {type === "events" && (
+                <label>
+                  Evento
+                  <select value={eventId} onChange={(e) => setEventId(e.target.value)}>
+                    <option value="all">Todos os eventos</option>
+                    {availableServices.map((service) => (
+                      <option key={service.id} value={service.id}>
+                        {service.sourceId ? `${service.sourceId} — ` : ""}
+                        {service.description}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+            </>
+          ) : (
+            <>
           <label>
             Competência
             <input
@@ -198,20 +319,24 @@ export default function ReportsModule({
               onChange={(e) => setMonth(e.target.value)}
             />
           </label>
-          <label>
-            Período da folha
-            <select
-              value={period}
-              onChange={(e) => {
-                setPeriod(e.target.value);
-                setPacks([]);
-              }}
-            >
-              <option value="full">Folha mensal — mês completo</option>
-              <option value="advance">Adiantamento — dias 01 a 15</option>
-              <option value="balance">Saldo mensal — dia 16 ao final</option>
-            </select>
-          </label>
+            </>
+          )}
+          {type !== "events" && type !== "financial" && (
+            <label>
+              Período da folha
+              <select
+                value={period}
+                onChange={(e) => {
+                  setPeriod(e.target.value);
+                  setPacks([]);
+                }}
+              >
+                <option value="full">Folha mensal — mês completo</option>
+                <option value="advance">Adiantamento — dias 01 a 15</option>
+                <option value="balance">Saldo mensal — dia 16 ao final</option>
+              </select>
+            </label>
+          )}
           <label>
             Empresa
             <select
@@ -250,22 +375,6 @@ export default function ReportsModule({
             {notice}
           </div>
         )}
-        <div className="report-types">
-          {[
-            ["receipts", "Recibos de pagamento"],
-            ["detailed", "Folha detalhada"],
-            ["summary", "Folha resumida"],
-            ["management", "Resumo gerencial"],
-          ].map(([k, l]) => (
-            <button
-              key={k}
-              className={type === k ? "active" : ""}
-              onClick={() => setType(k)}
-            >
-              {l}
-            </button>
-          ))}
-        </div>
         {workers.length > 0 && (
           <div className="employee-selection">
             <div>
@@ -384,6 +493,20 @@ export default function ReportsModule({
           ))
         ) : type === "detailed" ? (
           <Detailed chosen={chosen} month={month} period={period} />
+        ) : type === "events" ? (
+          <EventLaunchReport
+            packs={packs}
+            chosen={chosen}
+            eventId={eventId}
+            dateStart={dateStart}
+            dateEnd={dateEnd}
+          />
+        ) : type === "financial" ? (
+          <FinancialReport
+            chosen={chosen}
+            dateStart={dateStart}
+            dateEnd={dateEnd}
+          />
         ) : type === "summary" ? (
           <Summary
             packs={packs}
@@ -410,6 +533,23 @@ function entryMatchesPeriod(entryDate: string, period: string) {
   if (period === "full") return true;
   const day = Number(entryDate.slice(8, 10));
   return period === "advance" ? day >= 1 && day <= 15 : day >= 16;
+}
+function monthsBetween(start: string, end: string) {
+  if (!start || !end || start > end) return [];
+  const [startYear, startMonth] = start.split("-").map(Number);
+  const [endYear, endMonth] = end.split("-").map(Number);
+  const result: string[] = [];
+  let year = startYear;
+  let month = startMonth;
+  while (year < endYear || (year === endYear && month <= endMonth)) {
+    result.push(`${year}-${String(month).padStart(2, "0")}`);
+    month += 1;
+    if (month === 13) {
+      month = 1;
+      year += 1;
+    }
+  }
+  return result;
 }
 function periodLabel(month: string, period: string) {
   const [year, monthNumber] = month.split("-").map(Number);
@@ -593,6 +733,206 @@ function EventTable({
       </tbody>
     </table>
   );
+}
+function RangeHeader({
+  company,
+  title,
+  dateStart,
+  dateEnd,
+}: {
+  company: Company;
+  title: string;
+  dateStart: string;
+  dateEnd: string;
+}) {
+  return (
+    <header className="print-head">
+      <div>
+        <h1>{company.name}</h1>
+        <p>
+          <strong>
+            {company.documentType?.toLowerCase() === "caepf" ? "CAEPF" : "CNPJ"}:{" "}
+            {formatCompanyDocument(company.document)}
+          </strong>
+        </p>
+        <p>{companyAddress(company)}</p>
+      </div>
+      <div>
+        <b>{title}</b>
+        <span className="pay-period">
+          {formatDate(dateStart)} a {formatDate(dateEnd)}
+        </span>
+      </div>
+    </header>
+  );
+}
+function EventLaunchReport({
+  packs,
+  chosen,
+  eventId,
+  dateStart,
+  dateEnd,
+}: {
+  packs: Pack[];
+  chosen: { c: Contract; p: Pack }[];
+  eventId: string;
+  dateStart: string;
+  dateEnd: string;
+}) {
+  return (
+    <>
+      {packs.map((pack) => {
+        const workerIds = new Set(
+          chosen
+            .filter((item) => item.p.company.sourceId === pack.company.sourceId)
+            .map((item) => item.c.id),
+        );
+        const rows = pack.entries
+          .filter(
+            (entry) =>
+              workerIds.has(entry.contractId) &&
+              (eventId === "all" || entry.serviceId === eventId),
+          )
+          .sort((a, b) => a.entryDate.localeCompare(b.entryDate));
+        return (
+          <article className="detailed-report print-page" key={pack.company.sourceId}>
+            <RangeHeader
+              company={pack.company}
+              title="RELATÓRIO DE LANÇAMENTOS POR EVENTO"
+              dateStart={dateStart}
+              dateEnd={dateEnd}
+            />
+            <table className="pay-table launch-event-table">
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Colaborador</th>
+                  <th>Evento</th>
+                  <th>Quantidade</th>
+                  <th>Valor</th>
+                  <th>Desconto</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((entry) => (
+                  <tr key={entry.id}>
+                    <td>{formatDate(entry.entryDate)}</td>
+                    <td>
+                      {pack.contracts.find((c) => c.id === entry.contractId)?.name ||
+                        entry.contractId}
+                    </td>
+                    <td>
+                      {pack.services.find((s) => s.id === entry.serviceId)
+                        ?.description || entry.serviceId}
+                    </td>
+                    <td>{entry.quantity}</td>
+                    <td>{money(entry.amountCents)}</td>
+                    <td>{entry.discountCents ? money(entry.discountCents) : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <th colSpan={4}>TOTAL DO PERÍODO</th>
+                  <th>{money(rows.reduce((sum, row) => sum + row.amountCents, 0))}</th>
+                  <th>
+                    {money(rows.reduce((sum, row) => sum + row.discountCents, 0))}
+                  </th>
+                </tr>
+              </tfoot>
+            </table>
+          </article>
+        );
+      })}
+    </>
+  );
+}
+function FinancialReport({
+  chosen,
+  dateStart,
+  dateEnd,
+}: {
+  chosen: { c: Contract; p: Pack }[];
+  dateStart: string;
+  dateEnd: string;
+}) {
+  return (
+    <>
+      {chosen.map(({ c, p }) => {
+        const entries = p.entries
+          .filter((entry) => entry.contractId === c.id)
+          .sort((a, b) => a.entryDate.localeCompare(b.entryDate));
+        const gross = entries.reduce((sum, entry) => sum + entry.amountCents, 0);
+        const discount = entries.reduce(
+          (sum, entry) => sum + entry.discountCents,
+          0,
+        );
+        return (
+          <article
+            className="financial-report print-page employee-print-page"
+            key={`${p.company.sourceId}-${c.id}`}
+          >
+            <RangeHeader
+              company={p.company}
+              title="FICHA FINANCEIRA"
+              dateStart={dateStart}
+              dateEnd={dateEnd}
+            />
+            <section className="worker-line">
+              <div>
+                <small>COLABORADOR</small>
+                <b>{c.name}</b>
+              </div>
+              <div>
+                <small>MATRÍCULA</small>
+                <b>{c.registrationNumber || c.legacyCode}</b>
+              </div>
+            </section>
+            <table className="pay-table">
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Evento</th>
+                  <th>Referência</th>
+                  <th>Proventos</th>
+                  <th>Descontos</th>
+                </tr>
+              </thead>
+              <tbody>
+                {entries.map((entry) => (
+                  <tr key={entry.id}>
+                    <td>{formatDate(entry.entryDate)}</td>
+                    <td>
+                      {p.services.find((service) => service.id === entry.serviceId)
+                        ?.description || entry.serviceId}
+                    </td>
+                    <td>{entry.quantity}</td>
+                    <td>{entry.amountCents ? money(entry.amountCents) : "—"}</td>
+                    <td>{entry.discountCents ? money(entry.discountCents) : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <th colSpan={3}>TOTAIS</th>
+                  <th>{money(gross)}</th>
+                  <th>{money(discount)}</th>
+                </tr>
+                <tr>
+                  <th colSpan={4}>LÍQUIDO DO PERÍODO</th>
+                  <th>{money(gross - discount)}</th>
+                </tr>
+              </tfoot>
+            </table>
+          </article>
+        );
+      })}
+    </>
+  );
+}
+function formatDate(value: string) {
+  const [year, month, day] = value.split("-");
+  return year && month && day ? `${day}/${month}/${year}` : value;
 }
 function Detailed({
   chosen,
