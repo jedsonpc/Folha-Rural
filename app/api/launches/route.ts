@@ -48,6 +48,10 @@ export async function GET(request: Request) {
       .select({
         id: employmentContracts.id,
         name: people.name,
+        cpf: people.cpf,
+        pis: people.pis,
+        birthDate: people.birthDate,
+        identityNumber: people.identityNumber,
         registrationNumber: employmentContracts.registrationNumber,
         legacyCode: employmentContracts.legacyCode,
         status: employmentContracts.status,

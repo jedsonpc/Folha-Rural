@@ -20,9 +20,17 @@ type Company = {
 type Contract = {
   id: string;
   name: string;
+  cpf?: string | null;
+  pis?: string | null;
+  birthDate?: string | null;
+  identityNumber?: string | null;
   registrationNumber: number | null;
   legacyCode: string | null;
   status: string;
+  admissionDate?: string | null;
+  terminationDate?: string | null;
+  role?: string | null;
+  paymentType?: string | null;
 };
 type Service = { id: string; sourceId?: number; description: string };
 type Entry = {
@@ -63,7 +71,10 @@ export default function ReportsModule({
     [status, setStatus] = useState("all"),
     [order, setOrder] = useState("registration"),
     [type, setType] = useState("receipts"),
-    [rangeMode, setRangeMode] = useState<"annual" | "custom">("annual"),
+    [rangeMode, setRangeMode] = useState<"annual" | "year" | "custom">(
+      "annual",
+    ),
+    [financialYear, setFinancialYear] = useState(String(currentYear)),
     [dateStart, setDateStart] = useState(`${currentYear}-01-01`),
     [dateEnd, setDateEnd] = useState(`${currentYear}-12-31`),
     [eventId, setEventId] = useState("all"),
@@ -263,16 +274,46 @@ export default function ReportsModule({
                   <select
                     value={rangeMode}
                     onChange={(e) => {
-                      const mode = e.target.value as "annual" | "custom";
+                      const mode = e.target.value as
+                        | "annual"
+                        | "year"
+                        | "custom";
                       setRangeMode(mode);
                       if (mode === "annual") {
+                        setFinancialYear(String(currentYear));
                         setDateStart(`${currentYear}-01-01`);
                         setDateEnd(`${currentYear}-12-31`);
+                      } else if (mode === "year") {
+                        setDateStart(`${financialYear}-01-01`);
+                        setDateEnd(`${financialYear}-12-31`);
                       }
                     }}
                   >
                     <option value="annual">Ano vigente ({currentYear})</option>
+                    <option value="year">Selecionar o ano</option>
                     <option value="custom">Período definido</option>
+                  </select>
+                </label>
+              )}
+              {type === "financial" && rangeMode === "year" && (
+                <label>
+                  Ano
+                  <select
+                    value={financialYear}
+                    onChange={(e) => {
+                      const year = e.target.value;
+                      setFinancialYear(year);
+                      setDateStart(`${year}-01-01`);
+                      setDateEnd(`${year}-12-31`);
+                    }}
+                  >
+                    {Array.from({ length: 21 }, (_, index) =>
+                      String(currentYear + 1 - index),
+                    ).map((year) => (
+                      <option key={year} value={year}>
+                        {year}
+                      </option>
+                    ))}
                   </select>
                 </label>
               )}
@@ -281,7 +322,7 @@ export default function ReportsModule({
                 <input
                   type="date"
                   value={dateStart}
-                  disabled={type === "financial" && rangeMode === "annual"}
+                  disabled={type === "financial" && rangeMode !== "custom"}
                   onChange={(e) => setDateStart(e.target.value)}
                 />
               </label>
@@ -290,7 +331,7 @@ export default function ReportsModule({
                 <input
                   type="date"
                   value={dateEnd}
-                  disabled={type === "financial" && rangeMode === "annual"}
+                  disabled={type === "financial" && rangeMode !== "custom"}
                   onChange={(e) => setDateEnd(e.target.value)}
                 />
               </label>
@@ -856,20 +897,63 @@ function FinancialReport({
   dateStart: string;
   dateEnd: string;
 }) {
+  const monthKeys = monthsBetween(dateStart, dateEnd);
+  const monthFormatter = new Intl.DateTimeFormat("pt-BR", { month: "short" });
+  const monthLabel = (key: string) => {
+    const [year, month] = key.split("-").map(Number);
+    const label = monthFormatter
+      .format(new Date(year, month - 1, 1))
+      .replace(".", "");
+    return `${label.slice(0, 1).toUpperCase()}${label.slice(1)}`;
+  };
   return (
     <>
       {chosen.map(({ c, p }) => {
         const entries = p.entries
           .filter((entry) => entry.contractId === c.id)
           .sort((a, b) => a.entryDate.localeCompare(b.entryDate));
-        const gross = entries.reduce((sum, entry) => sum + entry.amountCents, 0);
-        const discount = entries.reduce(
-          (sum, entry) => sum + entry.discountCents,
-          0,
+        const serviceRows = [
+          ...new Set(entries.map((entry) => entry.serviceId)),
+        ]
+          .map((serviceId) => {
+            const service = p.services.find((item) => item.id === serviceId);
+            const monthly = monthKeys.map((monthKey) =>
+              entries
+                .filter(
+                  (entry) =>
+                    entry.serviceId === serviceId &&
+                    entry.entryDate.slice(0, 7) === monthKey,
+                )
+                .reduce(
+                  (sum, entry) =>
+                    sum + entry.amountCents - (entry.discountCents || 0),
+                  0,
+                ),
+            );
+            return {
+              serviceId,
+              code: service?.sourceId,
+              description: service?.description || `Serviço ${serviceId}`,
+              monthly,
+              total: monthly.reduce((sum, value) => sum + value, 0),
+            };
+          })
+          .sort(
+            (a, b) =>
+              Number(a.code || Number.MAX_SAFE_INTEGER) -
+                Number(b.code || Number.MAX_SAFE_INTEGER) ||
+              a.description.localeCompare(b.description, "pt-BR"),
+          );
+        const columnTotals = monthKeys.map((_, monthIndex) =>
+          serviceRows.reduce(
+            (sum, service) => sum + service.monthly[monthIndex],
+            0,
+          ),
         );
+        const grandTotal = columnTotals.reduce((sum, value) => sum + value, 0);
         return (
           <article
-            className="financial-report print-page employee-print-page"
+            className="financial-report financial-grid-report print-page employee-print-page"
             key={`${p.company.sourceId}-${c.id}`}
           >
             <RangeHeader
@@ -878,49 +962,74 @@ function FinancialReport({
               dateStart={dateStart}
               dateEnd={dateEnd}
             />
-            <section className="worker-line">
-              <div>
+            <section className="financial-worker-data">
+              <div className="financial-worker-name">
                 <small>COLABORADOR</small>
                 <b>{c.name}</b>
               </div>
               <div>
                 <small>MATRÍCULA</small>
-                <b>{c.registrationNumber || c.legacyCode}</b>
+                <b>{c.registrationNumber || c.legacyCode || "—"}</b>
+              </div>
+              <div>
+                <small>CPF</small>
+                <b>{formatCpf(c.cpf)}</b>
+              </div>
+              <div>
+                <small>PIS/PASEP</small>
+                <b>{c.pis || "—"}</b>
+              </div>
+              <div>
+                <small>NASCIMENTO</small>
+                <b>{c.birthDate ? formatDate(c.birthDate) : "—"}</b>
+              </div>
+              <div>
+                <small>IDENTIDADE</small>
+                <b>{c.identityNumber || "—"}</b>
+              </div>
+              <div>
+                <small>ADMISSÃO</small>
+                <b>{c.admissionDate ? formatDate(c.admissionDate) : "—"}</b>
+              </div>
+              <div>
+                <small>FUNÇÃO</small>
+                <b>{c.role || "—"}</b>
               </div>
             </section>
-            <table className="pay-table">
+            <table className="pay-table financial-grid">
               <thead>
                 <tr>
-                  <th>Data</th>
-                  <th>Evento</th>
-                  <th>Referência</th>
-                  <th>Proventos</th>
-                  <th>Descontos</th>
+                  <th>Cód. Serviço</th>
+                  <th>Descrição Produção</th>
+                  {monthKeys.map((monthKey) => (
+                    <th key={monthKey}>{monthLabel(monthKey)}</th>
+                  ))}
+                  <th>Total</th>
                 </tr>
               </thead>
               <tbody>
-                {entries.map((entry) => (
-                  <tr key={entry.id}>
-                    <td>{formatDate(entry.entryDate)}</td>
-                    <td>
-                      {p.services.find((service) => service.id === entry.serviceId)
-                        ?.description || entry.serviceId}
-                    </td>
-                    <td>{entry.quantity}</td>
-                    <td>{entry.amountCents ? money(entry.amountCents) : "—"}</td>
-                    <td>{entry.discountCents ? money(entry.discountCents) : "—"}</td>
+                {serviceRows.map((row) => (
+                  <tr key={row.serviceId}>
+                    <td>{row.code || "—"}</td>
+                    <td>{row.description}</td>
+                    {row.monthly.map((value, monthIndex) => (
+                      <td key={`${row.serviceId}-${monthKeys[monthIndex]}`}>
+                        {value ? money(value) : "—"}
+                      </td>
+                    ))}
+                    <td>{money(row.total)}</td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
                 <tr>
-                  <th colSpan={3}>TOTAIS</th>
-                  <th>{money(gross)}</th>
-                  <th>{money(discount)}</th>
-                </tr>
-                <tr>
-                  <th colSpan={4}>LÍQUIDO DO PERÍODO</th>
-                  <th>{money(gross - discount)}</th>
+                  <th colSpan={2}>TOTAL</th>
+                  {columnTotals.map((value, monthIndex) => (
+                    <th key={`total-${monthKeys[monthIndex]}`}>
+                      {money(value)}
+                    </th>
+                  ))}
+                  <th>{money(grandTotal)}</th>
                 </tr>
               </tfoot>
             </table>
@@ -933,6 +1042,12 @@ function FinancialReport({
 function formatDate(value: string) {
   const [year, month, day] = value.split("-");
   return year && month && day ? `${day}/${month}/${year}` : value;
+}
+function formatCpf(value?: string | null) {
+  const digits = String(value || "").replace(/\D/g, "");
+  return digits.length === 11
+    ? digits.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4")
+    : value || "—";
 }
 function Detailed({
   chosen,

@@ -45,6 +45,64 @@
   padding: 22px;
   margin-bottom: 22px;
 }
+.financial-worker-data {
+  display: grid;
+  grid-template-columns: 2fr repeat(3, minmax(110px, 1fr));
+  gap: 1px;
+  margin: 12px 0 16px;
+  border: 1px solid var(--line);
+  background: var(--line);
+}
+.financial-worker-data > div {
+  display: grid;
+  gap: 3px;
+  padding: 8px 10px;
+  background: #fff;
+}
+.financial-worker-data small {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .06em;
+}
+.financial-worker-data b {
+  font-size: 12px;
+}
+.financial-worker-name {
+  grid-column: span 2;
+}
+.financial-grid {
+  width: 100%;
+  table-layout: fixed;
+  font-size: 9px;
+}
+.financial-grid th:first-child,
+.financial-grid td:first-child {
+  width: 62px;
+  text-align: center;
+}
+.financial-grid th:nth-child(2),
+.financial-grid td:nth-child(2) {
+  width: 180px;
+  text-align: left;
+}
+.financial-grid th:not(:nth-child(-n + 2)),
+.financial-grid td:not(:nth-child(-n + 2)) {
+  text-align: right;
+  white-space: nowrap;
+}
+.financial-grid th,
+.financial-grid td {
+  padding: 5px 4px;
+}
+.financial-grid tfoot tr {
+  border-top: 2px dashed #536450;
+}
+.financial-grid tfoot th {
+  padding-top: 9px;
+  font-weight: 900;
+  background: #eef2e9;
+}
 @media print {
   .employee-print-page {
     break-after: page;
@@ -53,6 +111,23 @@
   .employee-print-page:last-child {
     break-after: auto;
     page-break-after: auto;
+  }
+  .financial-grid-report {
+    page: financial-landscape;
+    width: 100%;
+    padding: 0;
+  }
+  .financial-grid-report .print-head {
+    margin-bottom: 8px;
+  }
+  @page financial-landscape {
+    size: A4 landscape;
+    margin: 7mm;
+  }
+}
+@media (max-width: 760px) {
+  .financial-worker-data {
+    grid-template-columns: 1fr 1fr;
   }
 }
 .report-types button {

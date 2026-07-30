@@ -38,7 +38,7 @@ export async function cloudLaunchesGet(request: Request) {
     const end = nextMonth(month);
     const [contracts, services, entries, holidays] = await Promise.all([
       supabaseAdmin.get<Row[]>(
-        `/rest/v1/employment_contracts?select=*,people(full_name)&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&order=created_at.asc`,
+        `/rest/v1/employment_contracts?select=*,people(full_name,cpf,pis,birth_date,identity_number)&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&order=created_at.asc`,
       ),
       supabaseAdmin.get<Row[]>(
         `/rest/v1/services?select=*&organization_id=eq.${config.organizationId}&order=description.asc`,
@@ -55,6 +55,10 @@ export async function cloudLaunchesGet(request: Request) {
       contracts: contracts.map((row) => ({
         id: row.id,
         name: row.people?.full_name,
+        cpf: row.people?.cpf,
+        pis: row.people?.pis,
+        birthDate: row.people?.birth_date,
+        identityNumber: row.people?.identity_number,
         registrationNumber: row.registration_number,
         legacyCode: row.legacy_code,
         status: row.status,
