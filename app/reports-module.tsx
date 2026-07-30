@@ -54,6 +54,11 @@ const money = (c: number) =>
       style: "currency",
       currency: "BRL",
     }).format(c / 100),
+  financialMoney = (c: number) =>
+    new Intl.NumberFormat("pt-BR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(c / 100),
   nowMonth = () => new Date().toISOString().slice(0, 7);
 export default function ReportsModule({
   selectedCompany,
@@ -999,8 +1004,7 @@ function FinancialReport({
             <table className="pay-table financial-grid">
               <thead>
                 <tr>
-                  <th>Cód. Serviço</th>
-                  <th>Descrição Produção</th>
+                  <th>Cód. Descrição</th>
                   {monthKeys.map((monthKey) => (
                     <th key={monthKey}>{monthLabel(monthKey)}</th>
                   ))}
@@ -1010,26 +1014,28 @@ function FinancialReport({
               <tbody>
                 {serviceRows.map((row) => (
                   <tr key={row.serviceId}>
-                    <td>{row.code || "—"}</td>
-                    <td>{row.description}</td>
+                    <td>
+                      <b className="financial-service-code">{row.code || "—"}</b>
+                      <span>{row.description}</span>
+                    </td>
                     {row.monthly.map((value, monthIndex) => (
                       <td key={`${row.serviceId}-${monthKeys[monthIndex]}`}>
-                        {value ? money(value) : "—"}
+                        {value ? financialMoney(value) : "—"}
                       </td>
                     ))}
-                    <td>{money(row.total)}</td>
+                    <td>{financialMoney(row.total)}</td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
                 <tr>
-                  <th colSpan={2}>TOTAL</th>
+                  <th>TOTAL</th>
                   {columnTotals.map((value, monthIndex) => (
                     <th key={`total-${monthKeys[monthIndex]}`}>
-                      {money(value)}
+                      {financialMoney(value)}
                     </th>
                   ))}
-                  <th>{money(grandTotal)}</th>
+                  <th>{financialMoney(grandTotal)}</th>
                 </tr>
               </tfoot>
             </table>

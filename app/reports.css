@@ -46,6 +46,7 @@
   margin-bottom: 22px;
   max-width: 100%;
   overflow-x: auto;
+  overflow-y: hidden;
 }
 .financial-worker-data {
   display: grid;
@@ -75,29 +76,32 @@
 }
 .financial-grid {
   width: 100%;
-  min-width: 980px;
+  min-width: 1040px;
   table-layout: fixed;
   font-size: 9px;
 }
 .financial-grid th:first-child,
 .financial-grid td:first-child {
-  width: 62px;
-  text-align: center;
-}
-.financial-grid th:nth-child(2),
-.financial-grid td:nth-child(2) {
-  width: 180px;
+  width: 190px;
   text-align: left;
 }
-.financial-grid th:not(:nth-child(-n + 2)),
-.financial-grid td:not(:nth-child(-n + 2)) {
+.financial-grid th:not(:first-child),
+.financial-grid td:not(:first-child) {
   text-align: right;
-  white-space: normal;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow-wrap: normal;
   word-break: normal;
-  font-size: 8px;
+  font-size: 7.8px;
   font-variant-numeric: tabular-nums;
   line-height: 1.2;
+}
+.financial-grid td:first-child {
+  overflow-wrap: anywhere;
+}
+.financial-service-code {
+  margin-right: 5px;
+  color: #33452f;
+  font-variant-numeric: tabular-nums;
 }
 .financial-grid th,
 .financial-grid td {
@@ -135,15 +139,10 @@
   .financial-grid-report .financial-grid th,
   .financial-grid-report .financial-grid td {
     padding: 3px 2px;
-    overflow-wrap: anywhere;
   }
   .financial-grid-report .financial-grid th:first-child,
   .financial-grid-report .financial-grid td:first-child {
-    width: 44px;
-  }
-  .financial-grid-report .financial-grid th:nth-child(2),
-  .financial-grid-report .financial-grid td:nth-child(2) {
-    width: 132px;
+    width: 155px;
   }
   .financial-grid-report .print-head {
     margin-bottom: 8px;
