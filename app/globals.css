@@ -518,7 +518,8 @@ header .primary {
   font-size: 11px;
 }
 .total {
-  height: 48px;
+  min-height: 48px;
+  height: auto;
   margin-top: 13px;
   border: 1px solid #d8dbc9;
   background: #f1f1e6;
@@ -527,6 +528,7 @@ header .primary {
   align-items: center;
   padding: 0 13px;
   gap: 10px;
+  flex-wrap: wrap;
 }
 .total span {
   width: 28px;
@@ -539,10 +541,18 @@ header .primary {
 }
 .total p {
   font-size: 14px;
+  min-width: 0;
+  margin-right: auto;
 }
 .total b {
+  max-width: 100%;
   margin-left: auto;
   color: var(--olive);
+  text-align: right;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
 }
 .table {
   border: 1px solid #e7dfd3;
