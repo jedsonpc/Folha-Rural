@@ -179,14 +179,16 @@ export default function DataModule({
   mode,
   selectedCompany = "all",
   onSelectCompany,
+  reviewOnly = false,
 }: {
   mode: "Empresas" | "Colaboradores";
   selectedCompany?: string;
   onSelectCompany?: (v: string) => void;
+  reviewOnly?: boolean;
 }) {
   const [data, setData] = useState<Payload | null>(null),
     [search, setSearch] = useState(""),
-    [status, setStatus] = useState("all"),
+    [status, setStatus] = useState("active"),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [functions, setFunctions] = useState<JobFunction[]>([]);
@@ -322,6 +324,9 @@ export default function DataModule({
       .then((b) => setFunctions(Array.isArray(b.functions) ? b.functions : []))
       .catch(() => setFunctions([]));
   }, []);
+  useEffect(() => {
+    setStatus(reviewOnly ? "all" : "active");
+  }, [reviewOnly]);
   const companyName = (id: number) =>
     data?.companies.find((c) => c.sourceId === id)?.name || `Empresa ${id}`;
   const scoped = useMemo(
@@ -343,10 +348,11 @@ export default function DataModule({
         `${r.name} ${r.cpf || ""} ${r.registrationNumber || ""} ${r.legacyCode || ""} ${r.role || ""}`.toLowerCase();
       return (
         (status === "all" || r.status === status) &&
+        (!reviewOnly || r.needsReview) &&
         (!term || h.includes(term) || (digits && h.includes(digits)))
       );
     });
-  }, [scoped, search, status]);
+  }, [scoped, search, status, reviewOnly]);
   const openAdmission = (r: Contract) => {
     setAdmission(r);
     setNotice("");
@@ -675,6 +681,7 @@ export default function DataModule({
               : companyName(Number(selectedCompany))}
           </h2>
           <p>Edite a ficha para corrigir dados ou crie uma nova admissão.</p>
+          {reviewOnly && <p><b>Filtro ativo:</b> cadastros que precisam de revisão.</p>}
         </div>
         {notice && !admission && !editing && !creating && (
           <div className="inline-notice">{notice}</div>
@@ -763,12 +770,11 @@ export default function DataModule({
                       >
                         Editar ficha
                       </button>
-                      <button
-                        className="table-action"
-                        onClick={() => openAdmission(r)}
-                      >
-                        ⧉ Clonar cadastro / novo contrato
-                      </button>
+                      {r.status !== "active" && (
+                        <button className="table-action" onClick={() => openAdmission(r)}>
+                          ⧉ Clonar cadastro / novo contrato
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

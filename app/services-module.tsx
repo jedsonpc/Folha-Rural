@@ -7,8 +7,9 @@ type S = {
   description: string;
   groupName: string | null;
   unitName: string | null;
-  entryType: "earning" | "deduction";
-  nature?: "earning" | "deduction";
+  entryType: "earning" | "deduction" | "special";
+  nature?: "earning" | "deduction" | "special";
+  formulaCode?: string | null;
   fgts: boolean;
   fgts13: boolean;
   inss: boolean;
@@ -27,6 +28,7 @@ const natureOf = (service: Partial<S> & Record<string, unknown>) => {
   )
     .trim()
     .toLowerCase();
+  if (["special", "especial", "e", "3"].includes(raw)) return "special";
   return ["deduction", "desconto", "discount", "d", "2"].includes(raw)
     ? "deduction"
     : "earning";
@@ -35,6 +37,7 @@ const empty = {
   description: "",
   groupName: "",
   unitName: "",
+  formulaCode: "",
   entryType: "earning",
   fgts: false,
   fgts13: false,
@@ -51,12 +54,13 @@ export default function ServicesModule() {
     [centers, setCenters] = useState<any[]>([]),
     [q, setQ] = useState(""),
     [sortBy, setSortBy] = useState<"alpha" | "numeric">("numeric"),
-    [entryFilter, setEntryFilter] = useState<"all" | "earning" | "deduction">(
+    [entryFilter, setEntryFilter] = useState<"all" | "earning" | "deduction" | "special">(
       "all",
     ),
     [edit, setEdit] = useState<S | null | undefined>(),
     [form, setForm] = useState<any>(empty),
-    [msg, setMsg] = useState("");
+    [msg, setMsg] = useState(""),
+    [busy, setBusy] = useState(false);
   const load = () =>
     fetch("/api/services")
       .then((r) => r.json())
@@ -82,7 +86,10 @@ export default function ServicesModule() {
     );
   }, [rows, q, sortBy, entryFilter]);
   const save = async (action = "save") => {
-    const r = await fetch("/api/services", {
+    setBusy(true);
+    setMsg("");
+    try {
+      const r = await fetch("/api/services", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
@@ -95,12 +102,17 @@ export default function ServicesModule() {
                 id: edit?.id,
               },
         ),
-      }),
-      b = await r.json();
-    if (!r.ok) return setMsg(b.error);
-    setEdit(undefined);
-    setMsg("Serviço salvo.");
-    load();
+      });
+      const b = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(b.error || "Falha ao salvar o serviço.");
+      setEdit(undefined);
+      setMsg(action === "delete" ? "Serviço excluído." : "Serviço salvo.");
+      await load();
+    } catch (error) {
+      setMsg(error instanceof Error ? error.message : "Falha ao salvar o serviço.");
+    } finally {
+      setBusy(false);
+    }
   };
   const flags = [
     ["fgts", "FGTS mensal"],
@@ -163,6 +175,7 @@ export default function ServicesModule() {
             ["all", "Todos"],
             ["earning", "Proventos"],
             ["deduction", "Descontos"],
+            ["special", "Especiais"],
           ] as const
         ).map(([value, label]) => (
           <button
@@ -246,6 +259,10 @@ export default function ServicesModule() {
                 />
               </label>
               <label>
+                Código do serviço
+                <input value={edit?.sourceId || "Automático"} readOnly />
+              </label>
+              <label>
                 Centro de custo
                 <select value={form.groupSourceId || ""} onChange={(e) => {
                   const selected=centers.find((c:any)=>String(c.id)===e.target.value);
@@ -274,7 +291,17 @@ export default function ServicesModule() {
                 >
                   <option value="earning">Provento</option>
                   <option value="deduction">Desconto</option>
+                  <option value="special">Especial</option>
                 </select>
+              </label>
+              <label className="wide">
+                Fórmula
+                <input
+                  value={form.formulaCode || ""}
+                  placeholder="Ex.: quantidade * valor_unitario"
+                  onChange={(e) => setForm({ ...form, formulaCode: e.target.value })}
+                />
+                <small>A fórmula será exibida nos lançamentos e relatórios deste evento.</small>
               </label>
             </div>
             <div className="check-grid">
@@ -295,7 +322,7 @@ export default function ServicesModule() {
               {edit && (
                 <button
                   className="danger"
-                  disabled={edit.usageCount > 0}
+                  disabled={busy || edit.usageCount > 0}
                   onClick={() =>
                     confirm("Excluir este serviço?") && save("delete")
                   }
@@ -303,11 +330,11 @@ export default function ServicesModule() {
                   Excluir
                 </button>
               )}
-              <button className="secondary" onClick={() => setEdit(undefined)}>
+              <button className="secondary" disabled={busy} onClick={() => setEdit(undefined)}>
                 Cancelar
               </button>
-              <button className="primary" onClick={() => save()}>
-                Salvar
+              <button className="primary" disabled={busy} onClick={() => save()}>
+                {busy ? "Salvando…" : "Salvar"}
               </button>
             </div>
           </div>

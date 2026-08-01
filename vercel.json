@@ -4,6 +4,15 @@
   "buildCommand": "npm run build:vercel",
   "installCommand": "npm ci",
   "regions": ["gru1"],
+  "headers": [
+    {
+      "source": "/sw.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
+        { "key": "Service-Worker-Allowed", "value": "/" }
+      ]
+    }
+  ],
   "functions": {
     "app/api/import-history/route.ts": {
       "maxDuration": 300

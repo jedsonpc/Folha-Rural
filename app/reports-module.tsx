@@ -32,7 +32,13 @@ type Contract = {
   role?: string | null;
   paymentType?: string | null;
 };
-type Service = { id: string; sourceId?: number; description: string };
+type Service = {
+  id: string;
+  sourceId?: number;
+  description: string;
+  formulaCode?: string | null;
+  entryType?: "earning" | "deduction" | "special";
+};
 type Entry = {
   id: string;
   entryDate: string;
@@ -298,6 +304,9 @@ export default function ReportsModule({
                     <option value="year">Selecionar o ano</option>
                     <option value="custom">Período definido</option>
                   </select>
+                  {eventId !== "all" && availableServices.find((service) => String(service.id) === eventId)?.formulaCode && (
+                    <small>Fórmula: {availableServices.find((service) => String(service.id) === eventId)?.formulaCode}</small>
+                  )}
                 </label>
               )}
               {type === "financial" && rangeMode === "year" && (

@@ -190,6 +190,7 @@ export function ensureDatabase() {
             `UPDATE services
              SET entry_type = CASE
                WHEN lower(trim(entry_type)) IN ('deduction','desconto','discount','d','2') THEN 'deduction'
+               WHEN lower(trim(entry_type)) IN ('special','especial','e','3') THEN 'special'
                ELSE 'earning'
              END`,
           )

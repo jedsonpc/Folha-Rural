@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { flushOfflineApiQueue } from "./offline-api";
 
 type InstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -18,6 +19,7 @@ export default function AppInstallation() {
       window.matchMedia("(display-mode: standalone)").matches ||
       Boolean((navigator as Navigator & { standalone?: boolean }).standalone);
     setInstalled(standalone);
+    flushOfflineApiQueue().catch(() => undefined);
 
     const captureInstall = (event: Event) => {
       event.preventDefault();
@@ -41,8 +43,10 @@ export default function AppInstallation() {
             if (
               worker.state === "installed" &&
               navigator.serviceWorker.controller
-            )
+            ) {
               setUpdateReady(worker);
+              worker.postMessage({ type: "SKIP_WAITING" });
+            }
           });
         });
 
@@ -50,16 +54,22 @@ export default function AppInstallation() {
         const checkWhenVisible = () => {
           if (document.visibilityState === "visible") checkForUpdate();
         };
-        const interval = window.setInterval(checkForUpdate, 15 * 60 * 1000);
+        const interval = window.setInterval(checkForUpdate, 5 * 60 * 1000);
         window.addEventListener("focus", checkForUpdate);
-        window.addEventListener("online", checkForUpdate);
+        const handleOnline = () => {
+          checkForUpdate();
+          flushOfflineApiQueue().then(({ sent }) => {
+            if (sent) window.dispatchEvent(new CustomEvent("folha-offline-synced", { detail: { sent } }));
+          }).catch(() => undefined);
+        };
+        window.addEventListener("online", handleOnline);
         document.addEventListener("visibilitychange", checkWhenVisible);
         checkForUpdate();
 
         cleanupUpdateChecks = () => {
           window.clearInterval(interval);
           window.removeEventListener("focus", checkForUpdate);
-          window.removeEventListener("online", checkForUpdate);
+          window.removeEventListener("online", handleOnline);
           document.removeEventListener("visibilitychange", checkWhenVisible);
         };
       });

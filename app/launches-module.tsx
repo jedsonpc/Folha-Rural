@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import { cachedApiFetch, queueableLaunchFetch } from "./offline-api";
 import "./launches.css";
 type Contract = {
   id: number;
@@ -14,8 +15,11 @@ type Contract = {
 };
 type Service = {
   id: number;
+  sourceId: number;
   description: string;
   unitName: string | null;
+  formulaCode: string | null;
+  entryType: "earning" | "deduction" | "special";
   affectsDsr: boolean;
   active: boolean;
 };
@@ -79,7 +83,7 @@ export default function LaunchesModule({ company }: { company: string }) {
   const load = async () => {
     if (company === "all") return;
     try {
-      const r = await fetch(`/api/launches?company=${company}&month=${month}`),
+      const r = await cachedApiFetch(`/api/launches?company=${company}&month=${month}`),
         b = await r.json();
       if (!r.ok) throw new Error(b.error);
       setData(b);
@@ -95,10 +99,9 @@ export default function LaunchesModule({ company }: { company: string }) {
     setBusy(true);
     setNotice("");
     try {
-      const r = await fetch("/api/launches", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...body, companySourceId: Number(company) }),
+      const r = await queueableLaunchFetch("/api/launches", {
+          ...body,
+          companySourceId: Number(company),
         }),
         b = await r.json();
       if (!r.ok) throw new Error(b.error);
@@ -393,10 +396,13 @@ export default function LaunchesModule({ company }: { company: string }) {
                         <option value="">Selecione…</option>
                         {data.services.map((s) => (
                           <option key={s.id} value={s.id}>
-                            {s.id} · {s.description}
+                            {s.sourceId} · {s.description}
                           </option>
                         ))}
                       </select>
+                      {data.services.find((s) => String(s.id) === row.serviceId)?.formulaCode && (
+                        <small>Fórmula: {data.services.find((s) => String(s.id) === row.serviceId)?.formulaCode}</small>
+                      )}
                     </td>
                     <td>
                       <input
@@ -501,10 +507,13 @@ export default function LaunchesModule({ company }: { company: string }) {
                 <option value="">Selecione…</option>
                 {data.services.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.description}
+                    {s.sourceId} · {s.description}
                   </option>
                 ))}
               </select>
+              {data.services.find((s) => String(s.id) === form.serviceId)?.formulaCode && (
+                <small>Fórmula: {data.services.find((s) => String(s.id) === form.serviceId)?.formulaCode}</small>
+              )}
             </label>
             <label>
               Quantidade

@@ -27,7 +27,7 @@ const CompaniesModule = lazy(() => import("./companies-module"));
 const RegistrationsModule = lazy(() => import("./registrations-module"));
 const navGroups = [
     {
-      label: "Consultas",
+      label: "Visão geral",
       icon: "CO",
       items: [
         ["VG", "Visão geral"],
@@ -80,8 +80,8 @@ const navGroups = [
       items: [["IA", "Importar Access"]],
     },
   ],
-  SYSTEM_VERSION = "1.3.54",
-  LAST_UPDATE = "30/07/2026";
+  SYSTEM_VERSION = "1.3.56",
+  LAST_UPDATE = "01/08/2026";
 type Company = {
   sourceId: number;
   name: string;
@@ -117,7 +117,8 @@ export default function Home() {
       undefined,
     ),
     [setupRequired, setSetupRequired] = useState(false),
-    [cloudMode, setCloudMode] = useState(false);
+    [cloudMode, setCloudMode] = useState(false),
+    [reviewOnly, setReviewOnly] = useState(false);
   useEffect(() => {
     fetch("/api/auth")
       .then((r) => r.json())
@@ -342,6 +343,22 @@ export default function Home() {
             if (!items.length) return null;
             const selected = items.some(([, label]) => label === active);
             const expanded = openGroup === group.label;
+            if (items.length === 1 && items[0][1] === group.label)
+              return (
+                <div className="menu-group" key={group.label}>
+                  <button
+                    className={`menu-trigger ${selected ? "selected" : ""}`}
+                    onClick={() => {
+                      setActive(items[0][1]);
+                      setOpenGroup(null);
+                      setMenu(false);
+                    }}
+                  >
+                    <i>{items[0][0]}</i>
+                    <span>{group.label}</span>
+                  </button>
+                </div>
+              );
             return (
               <div
                 className={`menu-group ${expanded ? "expanded" : ""}`}
@@ -473,7 +490,8 @@ export default function Home() {
           {active === "Visão geral" ? (
             <ProductionDashboard
               selectedCompany={company}
-              onOpenWorkers={() => setActive("Colaboradores")}
+              onOpenWorkers={() => { setReviewOnly(false); setActive("Colaboradores"); }}
+              onOpenReviews={() => { setReviewOnly(true); setActive("Colaboradores"); }}
             />
           ) : active === "Importar Access" ? (
             <AccessImporter />
@@ -509,6 +527,7 @@ export default function Home() {
               mode={active}
               selectedCompany={company}
               onSelectCompany={openCompany}
+              reviewOnly={reviewOnly}
             />
           ) : (
             <ModuleInfo active={active} />

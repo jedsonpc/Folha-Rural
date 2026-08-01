@@ -71,6 +71,8 @@ export async function cloudLaunchesGet(request: Request) {
         id: row.id,
         sourceId: row.legacy_id,
         description: row.description,
+        formulaCode: row.formula_code,
+        entryType: row.entry_type,
         unitName: row.unit_name,
         affectsDsr: row.affects_dsr,
         composesProductionAverage: row.composes_production_average,

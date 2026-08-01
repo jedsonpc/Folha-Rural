@@ -13,15 +13,18 @@ type Payload = {
     status: string;
     registrationNumber: number | null;
     legacyCode: string | null;
+    needsReview: boolean;
   }>;
   counts: { people: number; contracts: number; active: number; review: number };
 };
 export default function ProductionDashboard({
   selectedCompany,
   onOpenWorkers,
+  onOpenReviews,
 }: {
   selectedCompany: string;
   onOpenWorkers: () => void;
+  onOpenReviews: () => void;
 }) {
   const [data, setData] = useState<Payload | null>(null);
   useEffect(() => {
@@ -50,6 +53,7 @@ export default function ProductionDashboard({
   const people = new Set(rows.map((r) => r.personId)).size,
     active = rows.filter((r) => r.status === "active").length,
     ended = rows.filter((r) => r.status !== "active").length,
+    reviews = rows.filter((r: any) => r.needsReview).length,
     recent = [...rows]
       .sort((a, b) =>
         (b.admissionDate || "").localeCompare(a.admissionDate || ""),
@@ -88,6 +92,17 @@ export default function ProductionDashboard({
             <p>empresas na consulta</p>
           </div>
         </article>
+      </section>
+      <section className="panel dashboard-review-link">
+        <div className="panel-title">
+          <div>
+            <small>QUALIDADE CADASTRAL</small>
+            <h2>{reviews} cadastros para revisar</h2>
+          </div>
+          <button className="primary" onClick={onOpenReviews}>
+            Abrir página de revisão →
+          </button>
+        </div>
       </section>
       <section className="panel dashboard-real">
         <div className="panel-title">

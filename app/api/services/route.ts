@@ -53,6 +53,7 @@ const normalizeNature = (value: unknown) => {
   const nature = String(value || "earning")
     .trim()
     .toLowerCase();
+  if (["special", "especial", "e", "3"].includes(nature)) return "special";
   return ["deduction", "desconto", "discount", "d", "2"].includes(nature)
     ? "deduction"
     : "earning";
