@@ -145,6 +145,13 @@ const formatCep = (v: string | null | undefined) =>
     .replace(/^(\d{5})(\d)/, "$1-$2");
 const showCpf = (v: string | null) => formatCpf(v) || "Não informado";
 const today = () => new Date().toISOString().slice(0, 10);
+const normalizedContractStatus = (contract: Pick<Contract, "status" | "terminationDate">) => {
+  const value = String(contract.status || "").trim().toLowerCase();
+  if (["active", "ativo", "a", "1"].includes(value)) return "active";
+  if (["terminated", "desligado", "inativo", "d", "0"].includes(value))
+    return "terminated";
+  return contract.terminationDate ? "terminated" : "active";
+};
 const states = [
   "AC",
   "AL",
@@ -347,7 +354,7 @@ export default function DataModule({
       const h =
         `${r.name} ${r.cpf || ""} ${r.registrationNumber || ""} ${r.legacyCode || ""} ${r.role || ""}`.toLowerCase();
       return (
-        (status === "all" || r.status === status) &&
+        (status === "all" || normalizedContractStatus(r) === status) &&
         (!reviewOnly || r.needsReview) &&
         (!term || h.includes(term) || (digits && h.includes(digits)))
       );
@@ -664,7 +671,7 @@ export default function DataModule({
           <span>contratos</span>
         </article>
         <article>
-          <strong>{scoped.filter((r) => r.status === "active").length}</strong>
+          <strong>{scoped.filter((r) => normalizedContractStatus(r) === "active").length}</strong>
           <span>contratos ativos</span>
         </article>
         <article>
@@ -758,8 +765,8 @@ export default function DataModule({
                   <td>{r.role || "—"}</td>
                   <td>{showDate(r.admissionDate)}</td>
                   <td>
-                    <span className={`status-chip ${r.status}`}>
-                      {r.status === "active" ? "Ativo" : "Desligado"}
+                    <span className={`status-chip ${normalizedContractStatus(r)}`}>
+                      {normalizedContractStatus(r) === "active" ? "Ativo" : "Desligado"}
                     </span>
                   </td>
                   <td>
@@ -770,7 +777,7 @@ export default function DataModule({
                       >
                         Editar ficha
                       </button>
-                      {r.status !== "active" && (
+                      {normalizedContractStatus(r) === "terminated" && (
                         <button className="table-action" onClick={() => openAdmission(r)}>
                           ⧉ Clonar cadastro / novo contrato
                         </button>

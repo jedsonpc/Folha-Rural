@@ -80,7 +80,7 @@ const navGroups = [
       items: [["IA", "Importar Access"]],
     },
   ],
-  SYSTEM_VERSION = "1.3.56",
+  SYSTEM_VERSION = "1.3.57",
   LAST_UPDATE = "01/08/2026";
 type Company = {
   sourceId: number;
@@ -381,6 +381,7 @@ export default function Home() {
                       key={label}
                       className={active === label ? "active" : ""}
                       onClick={() => {
+                        if (label === "Colaboradores") setReviewOnly(false);
                         setActive(label);
                         setOpenGroup(null);
                         setMenu(false);
