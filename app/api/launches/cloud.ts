@@ -41,7 +41,7 @@ export async function cloudLaunchesGet(request: Request) {
         `/rest/v1/employment_contracts?select=*,people(full_name,cpf,pis,birth_date,identity_number)&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&order=created_at.asc`,
       ),
       supabaseAdmin.get<Row[]>(
-        `/rest/v1/services?select=*&organization_id=eq.${config.organizationId}&order=description.asc`,
+        `/rest/v1/services?select=*&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&order=description.asc`,
       ),
       supabaseAdmin.get<Row[]>(
         `/rest/v1/daily_entries?select=*&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&entry_date=gte.${start}&entry_date=lt.${end}&order=entry_date.asc`,

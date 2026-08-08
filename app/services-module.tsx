@@ -49,7 +49,7 @@ const empty = {
   composesProductionAverage: false,
   active: true,
 };
-export default function ServicesModule() {
+export default function ServicesModule({ company }: { company: string }) {
   const [rows, setRows] = useState<S[]>([]),
     [centers, setCenters] = useState<any[]>([]),
     [q, setQ] = useState(""),
@@ -62,13 +62,13 @@ export default function ServicesModule() {
     [msg, setMsg] = useState(""),
     [busy, setBusy] = useState(false);
   const load = () =>
-    fetch("/api/services")
+    fetch(`/api/services?company=${company}`)
       .then((r) => r.json())
       .then((b) => setRows(b.services || []));
   useEffect(() => {
     load();
     fetch("/api/hr").then((r) => r.json()).then((b) => setCenters(b.centers || []));
-  }, []);
+  }, [company]);
   const shown = useMemo(() => {
     const filtered = rows.filter(
       (s) =>
@@ -94,12 +94,13 @@ export default function ServicesModule() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
           action === "delete"
-            ? { action, id: edit?.id }
+            ? { action, id: edit?.id, companySourceId: Number(company) }
             : {
                 ...form,
                 entryType: natureOf(form),
                 nature: natureOf(form),
                 id: edit?.id,
+                companySourceId: Number(company),
               },
         ),
       });

@@ -6,13 +6,26 @@ type ImportData = {
   companies: Row[];
   contracts: Row[];
   services: Row[];
+  inventory?: {
+    categories: Row[];
+    suppliers: Row[];
+    products: Row[];
+    purchases: Row[];
+    purchaseItems: Row[];
+  };
   dependents: Row[];
   peopleCount: number;
   activeCount: number;
   dependentsCount: number;
   detailsCount: number;
   launchesCount: number;
+  historyEntries?: Row[];
 };
+async function responseJson<T>(response: Response): Promise<T> {
+  const text = await response.text();
+  try { return JSON.parse(text) as T; }
+  catch { throw new Error(response.status === 413 ? "O arquivo excede o limite da hospedagem. Atualize o aplicativo e tente novamente." : `O servidor retornou uma resposta inválida (${response.status}).`); }
+}
 export default function AccessImporter() {
   const [stage, setStage] = useState<
       "idle" | "reading" | "ready" | "sending" | "done" | "error"
@@ -29,17 +42,10 @@ export default function AccessImporter() {
     setStage("reading");
     setMessage("");
     try {
-      const response = await fetch("/api/inspect-access", {
-          method: "POST",
-          headers: {
-            "content-type": "application/octet-stream",
-            "x-file-name": encodeURIComponent(f.name),
-          },
-          body: f,
-        }),
-        result = (await response.json()) as ImportData & { error?: string };
-      if (!response.ok)
-        throw new Error(result.error || "Não foi possível ler o arquivo.");
+      const { parseAccessInBrowser } = await import("./access-browser-parser");
+      const password = window.prompt("Digite a senha do arquivo Access:") || "";
+      if (!password) throw new Error("A senha do arquivo é obrigatória.");
+      const result = await parseAccessInBrowser(f,password) as ImportData & { error?: string };
       setData(result);
       setStage("ready");
     } catch (e) {
@@ -61,21 +67,18 @@ export default function AccessImporter() {
           headers: { "content-type": "application/json" },
           body: JSON.stringify(data),
         }),
-        result = (await response.json()) as { error?: string };
+        result = await responseJson<{ error?: string; companyCodeRemap?: Record<string,string|number> }>(response);
       if (!response.ok) throw new Error(result.error || "Falha na gravação");
-      response = await fetch("/api/import-history", {
-        method: "POST",
-        headers: { "content-type": "application/octet-stream" },
-        body: file,
-      });
-      const historical = (await response.json()) as {
-        error?: string;
-        imported: number;
-        launchDays: number;
-      };
-      if (!response.ok)
-        throw new Error(historical.error || "Falha ao importar apontamentos");
-      setHistory(historical);
+      const remap=result.companyCodeRemap||{}, entries=data.historyEntries||[];
+      let imported=0;
+      for(let i=0;i<entries.length;i+=500){
+        const batch=entries.slice(i,i+500).map(row=>({...row,companySourceId:Number(remap[String(row.companySourceId)]??row.companySourceId)}));
+        response=await fetch("/api/import-history",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({entries:batch})});
+        const part=await responseJson<{error?:string;imported:number}>(response);
+        if(!response.ok)throw new Error(part.error||"Falha ao importar apontamentos");
+        imported+=Number(part.imported||0);
+      }
+      setHistory({imported,launchDays:data.launchesCount});
       setStage("done");
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "Falha na importação");

@@ -11,7 +11,11 @@ const tenant = (r: Request) =>
 export async function GET(r: Request) {
   const access = await authorizeCloud(r, "Serviços");
   if (access.response) return access.response;
-  if (getSupabaseConfig()) return cloudServicesGet();
+  const company = Number(new URL(r.url).searchParams.get("company"));
+  if (getSupabaseConfig()) {
+    if (!company || (access.user?.companyIds && !access.user.companyIds.includes(company))) return Response.json({ error: "Empresa não autorizada." }, { status: 403 });
+    return cloudServicesGet(company);
+  }
   try {
     await ensureDatabase();
     const db = getDb(),
@@ -61,7 +65,7 @@ const normalizeNature = (value: unknown) => {
 export async function POST(r: Request) {
   const access = await authorizeCloud(r, "Serviços");
   if (access.response) return access.response;
-  if (getSupabaseConfig()) return cloudServicesPost(r);
+  if (getSupabaseConfig()) return cloudServicesPost(r, access.user?.companyIds);
   try {
     await ensureDatabase();
     const db = getDb(),
@@ -186,11 +190,18 @@ const serviceResponse = (row: CloudService) => ({
   usageCount: Number(row.daily_entries?.[0]?.count || 0),
 });
 
-async function cloudServicesGet() {
+async function cloudCompanyId(sourceId: number) {
+  const config = getSupabaseConfig()!;
+  const rows = await supabaseAdmin.get<Array<{id:string}>>(`/rest/v1/companies?select=id&organization_id=eq.${config.organizationId}&legacy_id=eq.${sourceId}&limit=1`);
+  return rows[0]?.id;
+}
+async function cloudServicesGet(companySourceId: number) {
   const config = getSupabaseConfig()!;
   try {
+    const companyId = await cloudCompanyId(companySourceId);
+    if (!companyId) return Response.json({ error: "Empresa não encontrada." }, { status: 404 });
     const rows = await supabaseAdmin.get<CloudService[]>(
-      `/rest/v1/services?select=*,daily_entries(count)&organization_id=eq.${config.organizationId}&order=description.asc`,
+      `/rest/v1/services?select=*,daily_entries(count)&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&order=description.asc`,
     );
     return Response.json({
       services: rows.map(serviceResponse),
@@ -209,10 +220,14 @@ async function cloudServicesGet() {
   }
 }
 
-async function cloudServicesPost(request: Request) {
+async function cloudServicesPost(request: Request, allowedCompanies?: number[] | null) {
   const config = getSupabaseConfig()!;
   try {
     const body = (await request.json()) as Record<string, unknown>;
+    const companySourceId = Number(body.companySourceId || 0);
+    if (!companySourceId || (allowedCompanies && !allowedCompanies.includes(companySourceId))) return Response.json({ error: "Empresa não autorizada." }, { status: 403 });
+    const companyId = await cloudCompanyId(companySourceId);
+    if (!companyId) return Response.json({ error: "Empresa não encontrada." }, { status: 404 });
     const action = String(body.action || "save");
     const id = String(body.id || "");
     if (action === "delete") {
@@ -241,12 +256,13 @@ async function cloudServicesPost(request: Request) {
     let legacyId = Number(body.sourceId || 0);
     if (!id && !legacyId) {
       const last = await supabaseAdmin.get<Array<{ legacy_id: number }>>(
-        `/rest/v1/services?select=legacy_id&organization_id=eq.${config.organizationId}&order=legacy_id.desc&limit=1`,
+        `/rest/v1/services?select=legacy_id&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&order=legacy_id.desc&limit=1`,
       );
       legacyId = Number(last[0]?.legacy_id || 0) + 1;
     }
     const values = {
       organization_id: config.organizationId,
+      company_id: companyId,
       legacy_id: legacyId,
       group_legacy_id: Number(body.groupSourceId) || null,
       description,

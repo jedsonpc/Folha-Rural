@@ -10,6 +10,17 @@ const text = (value: unknown) =>
   value == null ? null : String(value).trim() || null;
 const date = (value: unknown) =>
   value instanceof Date ? value.toISOString().slice(0, 10) : text(value);
+const serviceDescription = (value: unknown) => {
+  const original = String(value || "Serviço sem descrição").trim().replace(/\s+/g, " ");
+  const fixes: Record<string, string> = {
+    "diferensa de férias": "Diferença de férias", "fasendo mudas": "Fazendo mudas",
+    "fasendo aceiro": "Fazendo aceiro", "disbrotando cacau": "Desbrotando cacau",
+    "cutivo de mamão": "Cultivo de mamão", "conservaçao de estrada": "Conservação de estrada",
+    "demarcaçao": "Demarcação", "folga de aviso previo": "Folga de aviso prévio",
+    "salário familia": "Salário-família", "combate à pragas": "Combate a pragas",
+  };
+  return fixes[original.toLocaleLowerCase("pt-BR")] || original;
+};
 const educationCode = (value: number) => {
   if (value === 1) return "illiterate";
   if ([2, 3, 4].includes(value)) return "elementary_incomplete";
@@ -68,9 +79,9 @@ export async function POST(request: Request) {
         { status: 403 },
       );
     const bytes = await request.arrayBuffer();
-    if (!bytes.byteLength || bytes.byteLength > 50 * 1024 * 1024) {
+    if (!bytes.byteLength || bytes.byteLength > 200 * 1024 * 1024) {
       return Response.json(
-        { error: "O arquivo deve ter entre 1 byte e 50 MB." },
+        { error: "O arquivo deve ter entre 1 byte e 200 MB." },
         { status: 400 },
       );
     }
@@ -85,6 +96,11 @@ export async function POST(request: Request) {
     const rawCompanies = get("TB_Empresas");
     const rawWorkers = get("TB_Cadastro_Pessoal");
     const rawServices = get("TB_Cadastro de Servicos");
+    const rawSuppliers = get("TB_Fornecedor");
+    const rawProductGroups = get("TB_Grupo_Insumos");
+    const rawProducts = get("TB_Produtos");
+    const rawPurchases = get("TB_Entrada1");
+    const rawPurchaseItems = get("TB_Detalhes Entrada1");
     const education = new Map(
       get("TB_Instrucao").map((row) => [
         num(row.Instrucao),
@@ -222,7 +238,7 @@ export async function POST(request: Request) {
         return {
           sourceId: num(row.CodServico),
           groupSourceId,
-          description: text(row.Descricao) || "Serviço sem descrição",
+          description: serviceDescription(row.Descricao),
           unitSourceId,
           fgts: !!row.FGTS,
           fgts13: !!row["FGTS 13 Sal"],
@@ -236,6 +252,13 @@ export async function POST(request: Request) {
           active: true,
         };
       }),
+      inventory: {
+        categories: rawProductGroups.map((row) => ({ sourceId: num(row.CodGrupo), name: text(row.Grupo) || "Sem categoria" })),
+        suppliers: rawSuppliers.map((row) => ({ sourceId: num(row.CodFornecedor), name: text(row.Fornecedor) || "Fornecedor sem nome", tradeName: text(row.Fantasia), phone: text(row.Fone), contactName: text(row.Contato) })),
+        products: rawProducts.map((row) => ({ sourceId: num(row.CodProduto), categorySourceId: num(row.CodGrupo), description: text(row.Descricao) || "Produto sem descrição", unit: text(row.Unidade) || "UN" })),
+        purchases: rawPurchases.map((row) => ({ sourceId: num(row.CodEntrada), companySourceId: num(row.CodEmpresa), supplierSourceId: num(row.CodFornecedor), date: date(row.Data), documentNumber: text(row.NotaCupom) })),
+        purchaseItems: rawPurchaseItems.map((row) => ({ purchaseSourceId: num(row.CodEntrada), productSourceId: num(row.CodProduto), quantity: num(row.Quantidade), totalValue: num(row.Valor), notes: text(row["Observação"]) })),
+      },
       peopleCount: personKeys.size,
       activeCount: contracts.filter((row) => row.active).length,
       dependentsCount: get("TB_Det Dependente").filter((row) =>

@@ -25,7 +25,13 @@ const UnionsModule = lazy(() => import("./unions-module"));
 const UsersModule = lazy(() => import("./users-module"));
 const CompaniesModule = lazy(() => import("./companies-module"));
 const RegistrationsModule = lazy(() => import("./registrations-module"));
+const InventoryModule = lazy(() => import("./inventory-module"));
 const navGroups = [
+    {
+      label: "Gestão agrícola",
+      icon: "GA",
+      items: [["EC", "Estoque e custos"]],
+    },
     {
       label: "Visão geral",
       icon: "CO",
@@ -80,8 +86,8 @@ const navGroups = [
       items: [["IA", "Importar Access"]],
     },
   ],
-  SYSTEM_VERSION = "1.3.57",
-  LAST_UPDATE = "01/08/2026";
+  SYSTEM_VERSION = "1.4.0",
+  LAST_UPDATE = "08/08/2026";
 type Company = {
   sourceId: number;
   name: string;
@@ -497,7 +503,7 @@ export default function Home() {
           ) : active === "Importar Access" ? (
             <AccessImporter />
           ) : active === "Serviços" ? (
-            <ServicesModule />
+            <ServicesModule company={company} />
           ) : active === "Sindicatos" ? (
             <UnionsModule />
           ) : active === "Usuários" ? (
@@ -508,6 +514,8 @@ export default function Home() {
             <LaunchesModule company={company} />
           ) : active === "Fechamento" ? (
             <ClosingModule company={company} />
+          ) : active === "Estoque e custos" ? (
+            <InventoryModule company={company} />
           ) : active === "Relatórios Analíticos" ? (
             <ReportsModule selectedCompany={company} category="analytical" />
           ) : active === "Relatórios Resumo" ? (

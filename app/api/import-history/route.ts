@@ -21,6 +21,12 @@ export async function POST(request: Request) {
         { error: "A importação do Access é exclusiva de administradores." },
         { status: 403 },
       );
+    if (cloud && (request.headers.get("content-type") || "").includes("application/json")) {
+      const body = await request.json() as { entries?: Array<Record<string, unknown>> };
+      const entries = (body.entries || []).slice(0, 500);
+      const imported = entries.length ? await supabaseAdmin.post<number>("/rest/v1/rpc/folha_import_access_history", { p_organization_id: cloud.organizationId, p_entries: entries }) : 0;
+      return Response.json({ ok: true, imported, received: entries.length });
+    }
     const bytes = await request.arrayBuffer();
     if (!bytes.byteLength || bytes.byteLength > 50 * 1024 * 1024)
       return Response.json(

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { getSupabaseConfig, supabaseAdmin } from "../../../db/supabase";
 
 type ImportPayload = {
@@ -6,6 +7,7 @@ type ImportPayload = {
   contracts?: unknown[];
   dependents?: unknown[];
   services?: unknown[];
+  inventory?: Record<string, any[]>;
 };
 
 export async function cloudImportAccessGet() {
@@ -37,25 +39,71 @@ export async function cloudImportAccessGet() {
 export async function cloudImportAccessPost(request: Request) {
   const config = getSupabaseConfig()!;
   const payload = (await request.json()) as ImportPayload;
-  const companies = (payload.companies || []).slice(0, 1000);
-  const contracts = (payload.contracts || []).slice(0, 5000);
-  const dependents = (payload.dependents || []).slice(0, 5000);
+  const rawCompanies = (payload.companies || []).slice(0, 1000) as any[];
+  const rawContracts = (payload.contracts || []).slice(0, 5000) as any[];
+  const rawDependents = (payload.dependents || []).slice(0, 5000) as any[];
   const services = (payload.services || []).slice(0, 1000);
-  if (!companies.length && !contracts.length && !services.length)
+  if (!rawCompanies.length && !rawContracts.length && !services.length)
     return Response.json(
       { error: "Nenhum registro válido foi recebido." },
       { status: 400 },
     );
+  const digits = (value: unknown) => String(value || "").replace(/\D/g, "");
+  const existingCompanies = await supabaseAdmin.get<any[]>(`/rest/v1/companies?select=id,legacy_id,document,cei,name&organization_id=eq.${config.organizationId}`);
+  const usedIds = new Set(existingCompanies.map(row => Number(row.legacy_id))), remap = new Map<number,number>();
+  let nextId = Math.max(0, ...usedIds) + 1;
+  const companies = rawCompanies.map(company => {
+    const sourceId = Number(company.sourceId), document = digits(company.document || company.cei);
+    const same = existingCompanies.find(row => document && [digits(row.document), digits(row.cei)].includes(document));
+    let targetId = same ? Number(same.legacy_id) : sourceId;
+    if (!same && usedIds.has(targetId)) { while (usedIds.has(nextId)) nextId++; targetId = nextId++; }
+    usedIds.add(targetId); remap.set(sourceId,targetId);
+    return { ...company, sourceId: targetId };
+  });
+  const contracts = rawContracts.map(row => ({ ...row, companySourceId: remap.get(Number(row.companySourceId)) ?? Number(row.companySourceId) }));
+  const dependents = rawDependents.map(row => ({ ...row, companySourceId: remap.get(Number(row.companySourceId)) ?? Number(row.companySourceId) }));
+  const inventory: Record<string, any[]> | undefined = payload.inventory ? { ...payload.inventory, purchases: (payload.inventory.purchases || []).map(row => ({ ...row, companySourceId: remap.get(Number(row.companySourceId)) ?? Number(row.companySourceId) })) } : undefined;
+  const existingContracts = await supabaseAdmin.get<any[]>(`/rest/v1/employment_contracts?select=legacy_registration,companies!inner(legacy_id)&organization_id=eq.${config.organizationId}`);
+  const existingKeys = new Set(existingContracts.map(row => `${Number(row.companies?.legacy_id)}:${Number(row.legacy_registration)}`));
+  const newContracts = contracts.filter(row => !existingKeys.has(`${Number(row.companySourceId)}:${Number(row.sourceRegistration)}`));
+  const newContractKeys = new Set(newContracts.map(row => `${Number(row.companySourceId)}:${Number(row.sourceRegistration)}`));
+  const newDependents = dependents.filter(row => newContractKeys.has(`${Number(row.companySourceId)}:${Number(row.sourceRegistration)}`));
   const result = await supabaseAdmin.post<Record<string, unknown>>(
     "/rest/v1/rpc/folha_import_access_registry",
     {
       p_organization_id: config.organizationId,
       p_file_name: (payload.fileName || "Banco Access").slice(0, 180),
       p_companies: companies,
-      p_contracts: contracts,
-      p_dependents: dependents,
-      p_services: services,
+      p_contracts: newContracts,
+      p_dependents: newDependents,
+      p_services: [],
     },
   );
-  return Response.json(result);
+  const companyRows = await supabaseAdmin.get<any[]>(`/rest/v1/companies?select=id,legacy_id&organization_id=eq.${config.organizationId}`);
+  const companyMap = new Map(companyRows.map(row => [Number(row.legacy_id), row.id]));
+  for (const company of companies) {
+      const companyId = companyMap.get(Number(company.sourceId));
+      if (!companyId) continue;
+      for (const row of services as any[]) await supabaseAdmin.post("/rest/v1/services?on_conflict=organization_id,company_id,legacy_id", {
+        organization_id: config.organizationId, company_id: companyId, legacy_id: row.sourceId,
+        description: row.description, group_legacy_id: row.groupSourceId || null, unit_legacy_id: row.unitSourceId || null,
+        fgts_incidence: Boolean(row.fgts), fgts_13_incidence: Boolean(row.fgts13), inss_incidence: Boolean(row.inss),
+        inss_13_incidence: Boolean(row.inss13), rais_incidence: Boolean(row.rais), formula_code: row.formulaCode || null,
+        group_name: row.groupName || null, unit_name: row.unitName || null, affects_dsr: Boolean(row.affectsDsr), active: row.active !== false,
+      }, { prefer: "resolution=ignore-duplicates,return=minimal" });
+      if (!inventory) continue;
+      for (const row of inventory.categories || []) await supabaseAdmin.post("/rest/v1/inventory_categories?on_conflict=organization_id,company_id,legacy_id", { organization_id: config.organizationId, company_id: companyId, legacy_id: row.sourceId, name: row.name }, { prefer: "resolution=ignore-duplicates,return=minimal" });
+      for (const row of inventory.suppliers || []) await supabaseAdmin.post("/rest/v1/business_partners?on_conflict=organization_id,company_id,partner_type,legacy_id", { organization_id: config.organizationId, company_id: companyId, legacy_id: row.sourceId, partner_type: "supplier", name: row.name, trade_name: row.tradeName, phone: row.phone, contact_name: row.contactName }, { prefer: "resolution=ignore-duplicates,return=minimal" });
+      const categories = await supabaseAdmin.get<any[]>(`/rest/v1/inventory_categories?select=id,legacy_id&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}`), categoryMap = new Map(categories.map(row => [Number(row.legacy_id), row.id]));
+      for (const row of inventory.products || []) await supabaseAdmin.post("/rest/v1/inventory_products?on_conflict=organization_id,company_id,legacy_id", { organization_id: config.organizationId, company_id: companyId, category_id: categoryMap.get(Number(row.categorySourceId)) || null, legacy_id: row.sourceId, sku: String(row.sourceId), description: row.description, unit: row.unit }, { prefer: "resolution=ignore-duplicates,return=minimal" });
+      const products = await supabaseAdmin.get<any[]>(`/rest/v1/inventory_products?select=id,legacy_id&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}`), productMap = new Map(products.map(row => [Number(row.legacy_id), row.id]));
+      const suppliers = await supabaseAdmin.get<any[]>(`/rest/v1/business_partners?select=id,legacy_id&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&partner_type=eq.supplier`), supplierMap = new Map(suppliers.map(row => [Number(row.legacy_id), row.id]));
+      const purchases = new Map((inventory.purchases || []).filter(row => Number(row.companySourceId) === Number(company.sourceId)).map(row => [Number(row.sourceId), row]));
+      for (const item of inventory.purchaseItems || []) {
+        const purchase:any = purchases.get(Number(item.purchaseSourceId)), productId = productMap.get(Number(item.productSourceId));
+        if (!purchase || !productId || !item.quantity || !purchase.date) continue;
+        await supabaseAdmin.post("/rest/v1/inventory_movements?on_conflict=organization_id,company_id,legacy_entry_id,product_id", { organization_id: config.organizationId, company_id: companyId, product_id: productId, partner_id: supplierMap.get(Number(purchase.supplierSourceId)) || null, movement_type: "purchase", movement_date: purchase.date, quantity: item.quantity, unit_value_cents: Math.round(Number(item.totalValue || 0) * 100 / Number(item.quantity)), document_number: purchase.documentNumber, notes: item.notes, legacy_entry_id: item.purchaseSourceId }, { prefer: "resolution=ignore-duplicates,return=minimal" });
+      }
+  }
+  return Response.json({ ...result, inventoryImported: Boolean(inventory), skippedExistingContracts: contracts.length - newContracts.length, companyCodeRemap: Object.fromEntries(remap) });
 }
