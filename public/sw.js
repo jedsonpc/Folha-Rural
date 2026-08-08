@@ -1,4 +1,4 @@
-const CACHE_NAME = "folha-rural-shell-v8-importacao-estoque";
+const CACHE_NAME = "folha-rural-shell-v9-gestao-agricola";
 const APP_SHELL = [
   "/",
   "/manifest.webmanifest",

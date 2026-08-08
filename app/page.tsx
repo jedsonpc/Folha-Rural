@@ -30,7 +30,13 @@ const navGroups = [
     {
       label: "Gestão agrícola",
       icon: "GA",
-      items: [["EC", "Estoque e custos"]],
+      items: [
+        ["PA", "Painel agrícola"],
+        ["PI", "Produtos e insumos"],
+        ["CF", "Clientes e fornecedores"],
+        ["ME", "Entradas e saídas"],
+        ["RG", "Relatórios agrícolas"],
+      ],
     },
     {
       label: "Visão geral",
@@ -86,7 +92,7 @@ const navGroups = [
       items: [["IA", "Importar Access"]],
     },
   ],
-  SYSTEM_VERSION = "1.4.0",
+  SYSTEM_VERSION = "1.4.1",
   LAST_UPDATE = "08/08/2026";
 type Company = {
   sourceId: number;
@@ -338,11 +344,20 @@ export default function Home() {
               "EPI",
               "Ferramentas",
             ];
+            const agriculturalItems = [
+              "Painel agrícola",
+              "Produtos e insumos",
+              "Clientes e fornecedores",
+              "Entradas e saídas",
+              "Relatórios agrícolas",
+            ];
             const items = group.items.filter(
               ([, label]) =>
                 localUser?.role === "admin" ||
                 localUser?.permissions.includes(label) ||
                 localUser?.permissions.includes(group.label) ||
+                (agriculturalItems.includes(label) &&
+                  localUser?.permissions.includes("Estoque e custos")) ||
                 (registrationItems.includes(label) &&
                   localUser?.permissions.includes("Cadastros")),
             );
@@ -514,8 +529,16 @@ export default function Home() {
             <LaunchesModule company={company} />
           ) : active === "Fechamento" ? (
             <ClosingModule company={company} />
-          ) : active === "Estoque e custos" ? (
-            <InventoryModule company={company} />
+          ) : active === "Painel agrícola" ? (
+            <InventoryModule company={company} section="dashboard" />
+          ) : active === "Produtos e insumos" ? (
+            <InventoryModule company={company} section="products" />
+          ) : active === "Clientes e fornecedores" ? (
+            <InventoryModule company={company} section="partners" />
+          ) : active === "Entradas e saídas" ? (
+            <InventoryModule company={company} section="movements" />
+          ) : active === "Relatórios agrícolas" ? (
+            <InventoryModule company={company} section="reports" />
           ) : active === "Relatórios Analíticos" ? (
             <ReportsModule selectedCompany={company} category="analytical" />
           ) : active === "Relatórios Resumo" ? (
