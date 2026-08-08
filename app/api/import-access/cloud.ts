@@ -84,26 +84,32 @@ export async function cloudImportAccessPost(request: Request) {
   for (const company of companies) {
       const companyId = companyMap.get(Number(company.sourceId));
       if (!companyId) continue;
-      for (const row of services as any[]) await supabaseAdmin.post("/rest/v1/services?on_conflict=organization_id,company_id,legacy_id", {
+      const serviceRows = (services as any[]).map(row => ({
         organization_id: config.organizationId, company_id: companyId, legacy_id: row.sourceId,
         description: row.description, group_legacy_id: row.groupSourceId || null, unit_legacy_id: row.unitSourceId || null,
         fgts_incidence: Boolean(row.fgts), fgts_13_incidence: Boolean(row.fgts13), inss_incidence: Boolean(row.inss),
         inss_13_incidence: Boolean(row.inss13), rais_incidence: Boolean(row.rais), formula_code: row.formulaCode || null,
         group_name: row.groupName || null, unit_name: row.unitName || null, affects_dsr: Boolean(row.affectsDsr), active: row.active !== false,
-      }, { prefer: "resolution=ignore-duplicates,return=minimal" });
+      }));
+      if (serviceRows.length) await supabaseAdmin.post("/rest/v1/services?on_conflict=organization_id,company_id,legacy_id", serviceRows, { prefer: "resolution=ignore-duplicates,return=minimal" });
       if (!inventory) continue;
-      for (const row of inventory.categories || []) await supabaseAdmin.post("/rest/v1/inventory_categories?on_conflict=organization_id,company_id,legacy_id", { organization_id: config.organizationId, company_id: companyId, legacy_id: row.sourceId, name: row.name }, { prefer: "resolution=ignore-duplicates,return=minimal" });
-      for (const row of inventory.suppliers || []) await supabaseAdmin.post("/rest/v1/business_partners?on_conflict=organization_id,company_id,partner_type,legacy_id", { organization_id: config.organizationId, company_id: companyId, legacy_id: row.sourceId, partner_type: "supplier", name: row.name, trade_name: row.tradeName, phone: row.phone, contact_name: row.contactName }, { prefer: "resolution=ignore-duplicates,return=minimal" });
+      const categoryRows = (inventory.categories || []).map(row => ({ organization_id: config.organizationId, company_id: companyId, legacy_id: row.sourceId, name: row.name }));
+      if (categoryRows.length) await supabaseAdmin.post("/rest/v1/inventory_categories?on_conflict=organization_id,company_id,legacy_id", categoryRows, { prefer: "resolution=ignore-duplicates,return=minimal" });
+      const supplierRows = (inventory.suppliers || []).map(row => ({ organization_id: config.organizationId, company_id: companyId, legacy_id: row.sourceId, partner_type: "supplier", name: row.name, trade_name: row.tradeName, phone: row.phone, contact_name: row.contactName }));
+      if (supplierRows.length) await supabaseAdmin.post("/rest/v1/business_partners?on_conflict=organization_id,company_id,partner_type,legacy_id", supplierRows, { prefer: "resolution=ignore-duplicates,return=minimal" });
       const categories = await supabaseAdmin.get<any[]>(`/rest/v1/inventory_categories?select=id,legacy_id&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}`), categoryMap = new Map(categories.map(row => [Number(row.legacy_id), row.id]));
-      for (const row of inventory.products || []) await supabaseAdmin.post("/rest/v1/inventory_products?on_conflict=organization_id,company_id,legacy_id", { organization_id: config.organizationId, company_id: companyId, category_id: categoryMap.get(Number(row.categorySourceId)) || null, legacy_id: row.sourceId, sku: String(row.sourceId), description: row.description, unit: row.unit }, { prefer: "resolution=ignore-duplicates,return=minimal" });
+      const productRows = (inventory.products || []).map(row => ({ organization_id: config.organizationId, company_id: companyId, category_id: categoryMap.get(Number(row.categorySourceId)) || null, legacy_id: row.sourceId, sku: String(row.sourceId), description: row.description, unit: row.unit }));
+      if (productRows.length) await supabaseAdmin.post("/rest/v1/inventory_products?on_conflict=organization_id,company_id,legacy_id", productRows, { prefer: "resolution=ignore-duplicates,return=minimal" });
       const products = await supabaseAdmin.get<any[]>(`/rest/v1/inventory_products?select=id,legacy_id&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}`), productMap = new Map(products.map(row => [Number(row.legacy_id), row.id]));
       const suppliers = await supabaseAdmin.get<any[]>(`/rest/v1/business_partners?select=id,legacy_id&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&partner_type=eq.supplier`), supplierMap = new Map(suppliers.map(row => [Number(row.legacy_id), row.id]));
       const purchases = new Map((inventory.purchases || []).filter(row => Number(row.companySourceId) === Number(company.sourceId)).map(row => [Number(row.sourceId), row]));
+      const movementRows = [];
       for (const item of inventory.purchaseItems || []) {
         const purchase:any = purchases.get(Number(item.purchaseSourceId)), productId = productMap.get(Number(item.productSourceId));
         if (!purchase || !productId || !item.quantity || !purchase.date) continue;
-        await supabaseAdmin.post("/rest/v1/inventory_movements?on_conflict=organization_id,company_id,legacy_entry_id,product_id", { organization_id: config.organizationId, company_id: companyId, product_id: productId, partner_id: supplierMap.get(Number(purchase.supplierSourceId)) || null, movement_type: "purchase", movement_date: purchase.date, quantity: item.quantity, unit_value_cents: Math.round(Number(item.totalValue || 0) * 100 / Number(item.quantity)), document_number: purchase.documentNumber, notes: item.notes, legacy_entry_id: item.purchaseSourceId }, { prefer: "resolution=ignore-duplicates,return=minimal" });
+        movementRows.push({ organization_id: config.organizationId, company_id: companyId, product_id: productId, partner_id: supplierMap.get(Number(purchase.supplierSourceId)) || null, movement_type: "purchase", movement_date: purchase.date, quantity: item.quantity, unit_value_cents: Math.round(Number(item.totalValue || 0) * 100 / Number(item.quantity)), document_number: purchase.documentNumber, notes: item.notes, legacy_entry_id: item.purchaseSourceId });
       }
+      if (movementRows.length) await supabaseAdmin.post("/rest/v1/inventory_movements?on_conflict=organization_id,company_id,legacy_entry_id,product_id", movementRows, { prefer: "resolution=ignore-duplicates,return=minimal" });
   }
   return Response.json({ ...result, inventoryImported: Boolean(inventory), skippedExistingContracts: contracts.length - newContracts.length, companyCodeRemap: Object.fromEntries(remap) });
 }

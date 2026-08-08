@@ -26,7 +26,8 @@ create table if not exists public.inventory_movements (
   document_number text, crop text, cost_center text, notes text, legacy_entry_id integer, created_at timestamptz not null default now()
 );
 create index if not exists inventory_movements_company_date_idx on public.inventory_movements (organization_id, company_id, movement_date desc);
-create unique index if not exists inventory_movements_legacy_idx on public.inventory_movements (organization_id, company_id, legacy_entry_id, product_id) where legacy_entry_id is not null;
+drop index if exists public.inventory_movements_legacy_idx;
+create unique index inventory_movements_legacy_idx on public.inventory_movements (organization_id, company_id, legacy_entry_id, product_id);
 
 alter table public.business_partners enable row level security;
 alter table public.inventory_categories enable row level security;
