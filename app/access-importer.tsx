@@ -35,7 +35,7 @@ export default function AccessImporter() {
     [message, setMessage] = useState(""),
     [history, setHistory] = useState<{
       imported: number;
-      skipped: number;
+      notIncluded: number;
       launchDays: number;
     } | null>(null);
   async function readFile(f: File) {
@@ -47,6 +47,10 @@ export default function AccessImporter() {
       const password = window.prompt("Digite a senha do arquivo Access:") || "";
       if (!password) throw new Error("A senha do arquivo é obrigatória.");
       const result = await parseAccessInBrowser(f,password) as ImportData & { error?: string };
+      if (result.detailsCount > 0 && !result.historyEntries?.length)
+        throw new Error(
+          "O arquivo possui detalhes de lançamentos, mas nenhum apontamento pôde ser preparado. A importação foi interrompida para evitar uma confirmação incorreta.",
+        );
       setData(result);
       setStage("ready");
     } catch (e) {
@@ -80,7 +84,7 @@ export default function AccessImporter() {
         imported+=Number(part.imported||0);
         received+=batch.length;
       }
-      setHistory({imported,skipped:Math.max(0,received-imported),launchDays:data.launchesCount});
+      setHistory({imported,notIncluded:Math.max(0,received-imported),launchDays:data.launchesCount});
       setStage("done");
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "Falha na importação");
@@ -217,8 +221,8 @@ export default function AccessImporter() {
                   <p>
                     {history?.launchDays.toLocaleString("pt-BR")} dias analisados:{" "}
                     {history?.imported.toLocaleString("pt-BR")} apontamentos novos
-                    incluídos e {history?.skipped.toLocaleString("pt-BR")} já
-                    existentes ignorados.
+                    incluídos e {history?.notIncluded.toLocaleString("pt-BR")} não
+                    incluídos (já existentes ou sem correspondência cadastral).
                   </p>
                 </div>
                 <button
