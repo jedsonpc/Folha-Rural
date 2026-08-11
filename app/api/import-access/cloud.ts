@@ -49,12 +49,22 @@ export async function cloudImportAccessPost(request: Request) {
       { status: 400 },
     );
   const digits = (value: unknown) => String(value || "").replace(/\D/g, "");
+  const normalizedName = (value: unknown) =>
+    String(value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim()
+      .toLowerCase();
   const existingCompanies = await supabaseAdmin.get<any[]>(`/rest/v1/companies?select=id,legacy_id,document,cei,name&organization_id=eq.${config.organizationId}`);
   const usedIds = new Set(existingCompanies.map(row => Number(row.legacy_id))), remap = new Map<number,number>();
   let nextId = Math.max(0, ...usedIds) + 1;
   const companies = rawCompanies.map(company => {
     const sourceId = Number(company.sourceId), document = digits(company.document || company.cei);
-    const same = existingCompanies.find(row => document && [digits(row.document), digits(row.cei)].includes(document));
+    const same = existingCompanies.find(
+      row =>
+        (document && [digits(row.document), digits(row.cei)].includes(document)) ||
+        normalizedName(row.name) === normalizedName(company.name),
+    );
     let targetId = same ? Number(same.legacy_id) : sourceId;
     if (!same && usedIds.has(targetId)) { while (usedIds.has(nextId)) nextId++; targetId = nextId++; }
     usedIds.add(targetId); remap.set(sourceId,targetId);
