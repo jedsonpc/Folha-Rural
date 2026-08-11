@@ -624,7 +624,7 @@ export default function DataModule({
             .map((r) => r.registrationNumber || 0),
         ) + 1;
   const suggestedMatEs = predictedRegistration
-    ? String(predictedRegistration).padStart(5, "0")
+    ? String(predictedRegistration).slice(0, 5)
     : "";
   if (mode === "Empresas")
     return (
@@ -852,7 +852,7 @@ export default function DataModule({
                         readOnly
                       />
                       <Field
-                        label="Mat ES · 5 números"
+                        label="Mat ES · de 1 a 5 números"
                         value={isValidCpf(createForm.cpf) ? createForm.matEs : ""}
                         set={(v) =>
                           setCreateForm({
@@ -1697,7 +1697,7 @@ export default function DataModule({
                         readOnly
                       />
                       <Field
-                        label="Mat ES · 5 números"
+                        label="Mat ES · de 1 a 5 números"
                         value={form.matEs}
                         set={(v) =>
                           setForm({ ...form, matEs: onlyDigits(v).slice(0, 5) })

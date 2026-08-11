@@ -205,9 +205,9 @@ async function callWorkerRpc(body: Row, user: CloudUser | null) {
   )
     return Response.json({ error: "Empresa não autorizada." }, { status: 403 });
   const matEs = String(body.matEs || "").replace(/\D/g, "");
-  if (matEs && !/^\d{5}$/.test(matEs))
+  if (matEs && !/^\d{1,5}$/.test(matEs))
     return Response.json(
-      { error: "A Mat ES deve ter exatamente 5 posições numéricas." },
+      { error: "A Mat ES deve ter de 1 a 5 algarismos." },
       { status: 400 },
     );
   const result = await supabaseAdmin.post<
@@ -223,7 +223,7 @@ async function callWorkerRpc(body: Row, user: CloudUser | null) {
       const rows = await supabaseAdmin.get<Row[]>(
         `/rest/v1/employment_contracts?select=registration_number&id=eq.${saved.contract_id}&organization_id=eq.${config.organizationId}&limit=1`,
       );
-      finalMatEs = String(rows[0]?.registration_number || "").padStart(5, "0");
+      finalMatEs = String(rows[0]?.registration_number || "").slice(0, 5);
     }
     await supabaseAdmin.patch(
       `/rest/v1/employment_contracts?id=eq.${saved.contract_id}&organization_id=eq.${config.organizationId}`,

@@ -249,7 +249,7 @@ export function ensureDatabase() {
         await runtimeDb!
           .prepare(
             `UPDATE employment_contracts
-             SET mat_es = printf('%05d', registration_number)
+             SET mat_es = substr(CAST(registration_number AS TEXT), 1, 5)
              WHERE registration_number IS NOT NULL
                AND (mat_es IS NULL OR trim(mat_es) = '')`,
           )

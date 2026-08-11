@@ -301,9 +301,9 @@ export async function PUT(request: Request) {
         { error: "Informe um CPF válido para o colaborador." },
         { status: 400 },
       );
-    if (!/^\d{5}$/.test(matEs))
+    if (!/^\d{1,5}$/.test(matEs))
       return Response.json(
-        { error: "A Mat ES deve ter exatamente 5 posições numéricas." },
+        { error: "A Mat ES deve ter de 1 a 5 algarismos." },
         { status: 400 },
       );
     if (admissionDate && !/^\d{4}-\d{2}-\d{2}$/.test(admissionDate))
@@ -806,11 +806,11 @@ export async function POST(request: Request) {
       const sourceRegistration = (lastSource?.value || 0) + 1,
         registrationNumber = (lastRegistration?.value || 0) + 1;
       const matEs = String(
-        body.matEs || String(registrationNumber).padStart(5, "0"),
+        body.matEs || String(registrationNumber).slice(0, 5),
       ).replace(/\D/g, "");
-      if (!/^\d{5}$/.test(matEs))
+      if (!/^\d{1,5}$/.test(matEs))
         return Response.json(
-          { error: "A Mat ES deve ter exatamente 5 posições numéricas." },
+          { error: "A Mat ES deve ter de 1 a 5 algarismos." },
           { status: 400 },
         );
       let person = existingPerson;
@@ -1096,7 +1096,7 @@ export async function POST(request: Request) {
         companySourceId: company.sourceId,
         sourceRegistration,
         registrationNumber,
-        matEs: String(registrationNumber).padStart(5, "0"),
+        matEs: String(registrationNumber).slice(0, 5),
         legacyCode: null,
         admissionDate: body.admissionDate!,
         terminationDate: null,
