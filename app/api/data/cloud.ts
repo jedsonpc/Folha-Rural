@@ -225,11 +225,16 @@ async function callWorkerRpc(body: Row, user: CloudUser | null) {
       );
       finalMatEs = String(rows[0]?.registration_number || "").slice(0, 5);
     }
-    await supabaseAdmin.patch(
-      `/rest/v1/employment_contracts?id=eq.${saved.contract_id}&organization_id=eq.${config.organizationId}`,
-      { mat_es: finalMatEs },
-      { prefer: "return=minimal" },
+    const persisted = await supabaseAdmin.post<string>(
+      "/rest/v1/rpc/folha_set_contract_mat_es",
+      {
+        p_organization_id: config.organizationId,
+        p_contract_id: saved.contract_id,
+        p_mat_es: finalMatEs,
+      },
     );
+    if (String(persisted) !== finalMatEs)
+      throw new Error("Não foi possível confirmar a Matrícula no eSocial.");
   }
   return Response.json(result[0] || { ok: true });
 }

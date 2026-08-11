@@ -303,7 +303,7 @@ export async function PUT(request: Request) {
       );
     if (!/^\d{1,5}$/.test(matEs))
       return Response.json(
-        { error: "A Mat ES deve ter de 1 a 5 algarismos." },
+        { error: "A Matrícula no eSocial deve ter de 1 a 5 algarismos." },
         { status: 400 },
       );
     if (admissionDate && !/^\d{4}-\d{2}-\d{2}$/.test(admissionDate))
@@ -810,7 +810,7 @@ export async function POST(request: Request) {
       ).replace(/\D/g, "");
       if (!/^\d{1,5}$/.test(matEs))
         return Response.json(
-          { error: "A Mat ES deve ter de 1 a 5 algarismos." },
+          { error: "A Matrícula no eSocial deve ter de 1 a 5 algarismos." },
           { status: 400 },
         );
       let person = existingPerson;

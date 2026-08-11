@@ -197,6 +197,7 @@ export default function DataModule({
   const [data, setData] = useState<Payload | null>(null),
     [search, setSearch] = useState(""),
     [status, setStatus] = useState("active"),
+    [sortBy, setSortBy] = useState<"name" | "registration" | "matEs">("name"),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [functions, setFunctions] = useState<JobFunction[]>([]);
@@ -352,16 +353,27 @@ export default function DataModule({
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase(),
       digits = search.replace(/\D/g, "");
-    return scoped.filter((r) => {
+    const rows = scoped.filter((r) => {
       const h =
-        `${r.name} ${r.cpf || ""} ${r.registrationNumber || ""} ${r.legacyCode || ""} ${r.role || ""}`.toLowerCase();
+        `${r.name} ${r.cpf || ""} ${r.registrationNumber || ""} ${r.matEs || ""} ${r.legacyCode || ""} ${r.role || ""}`.toLowerCase();
       return (
         (status === "all" || normalizedContractStatus(r) === status) &&
         (!reviewOnly || r.needsReview) &&
         (!term || h.includes(term) || (digits && h.includes(digits)))
       );
     });
-  }, [scoped, search, status, reviewOnly]);
+    return rows.sort((a, b) => {
+      if (sortBy === "registration")
+        return (a.registrationNumber ?? Number.MAX_SAFE_INTEGER) -
+          (b.registrationNumber ?? Number.MAX_SAFE_INTEGER) ||
+          a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" });
+      if (sortBy === "matEs")
+        return (Number(a.matEs) || Number.MAX_SAFE_INTEGER) -
+          (Number(b.matEs) || Number.MAX_SAFE_INTEGER) ||
+          a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" });
+      return a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" });
+    });
+  }, [scoped, search, status, reviewOnly, sortBy]);
   const openAdmission = (r: Contract) => {
     setAdmission(r);
     setNotice("");
@@ -711,6 +723,14 @@ export default function DataModule({
             <option value="active">Ativos</option>
             <option value="terminated">Desligados</option>
           </select>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+          >
+            <option value="name">Ordem: nome</option>
+            <option value="registration">Ordem: matrícula</option>
+            <option value="matEs">Ordem: matrícula no eSocial</option>
+          </select>
           <button
             className="primary"
             disabled={selectedCompany === "all"}
@@ -739,7 +759,7 @@ export default function DataModule({
           <table className="data-table">
             <thead>
               <tr>
-                <th>Matrícula / código</th>
+                <th>Matrícula</th>
                 <th>CPF</th>
                 <th>Colaborador</th>
                 <th>Função</th>
@@ -754,9 +774,12 @@ export default function DataModule({
                   <td>
                     <b>
                       {r.registrationNumber
-                        ? `MAT-${String(r.registrationNumber).padStart(4, "0")}`
+                        ? `Matrícula ${r.registrationNumber}`
                         : r.legacyCode}
                     </b>
+                    <small>
+                      Matrícula no eSocial: {r.matEs || "Não informada"}
+                    </small>
                     <small>Origem: {r.sourceRegistration}</small>
                   </td>
                   <td>
@@ -852,7 +875,7 @@ export default function DataModule({
                         readOnly
                       />
                       <Field
-                        label="Mat ES · de 1 a 5 números"
+                        label="Matrícula no eSocial"
                         value={isValidCpf(createForm.cpf) ? createForm.matEs : ""}
                         set={(v) =>
                           setCreateForm({
@@ -1697,7 +1720,7 @@ export default function DataModule({
                         readOnly
                       />
                       <Field
-                        label="Mat ES · de 1 a 5 números"
+                        label="Matrícula no eSocial"
                         value={form.matEs}
                         set={(v) =>
                           setForm({ ...form, matEs: onlyDigits(v).slice(0, 5) })
