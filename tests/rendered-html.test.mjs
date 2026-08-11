@@ -18,6 +18,16 @@ test("keeps the installable app metadata and update worker", async () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
   assert.match(serviceWorker, /SKIP_WAITING/);
-  assert.match(serviceWorker, /folha-rural-shell-v17-importacao-apontamentos/);
+  assert.match(serviceWorker, /folha-rural-shell-v18-importacao-em-lotes/);
   assert.match(serviceWorker, /skipWaiting/);
+});
+
+test("sends Access history separately from registry data", async () => {
+  const importer = await readFile(
+    new URL("../app/access-importer.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(importer, /historyEntries: entries = \[\], \.\.\.registryData/);
+  assert.match(importer, /body: JSON\.stringify\(registryData\)/);
+  assert.doesNotMatch(importer, /body: JSON\.stringify\(data\)/);
 });

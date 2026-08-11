@@ -67,14 +67,15 @@ export default function AccessImporter() {
     setStage("sending");
     setMessage("");
     try {
+      const { historyEntries: entries = [], ...registryData } = data;
       let response = await fetch("/api/import-access", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify(data),
+          body: JSON.stringify(registryData),
         }),
         result = await responseJson<{ error?: string; companyCodeRemap?: Record<string,string|number> }>(response);
       if (!response.ok) throw new Error(result.error || "Falha na gravação");
-      const remap=result.companyCodeRemap||{}, entries=data.historyEntries||[];
+      const remap=result.companyCodeRemap||{};
       let imported=0, received=0;
       for(let i=0;i<entries.length;i+=500){
         const batch=entries.slice(i,i+500).map(row=>({...row,companySourceId:Number(remap[String(row.companySourceId)]??row.companySourceId)}));

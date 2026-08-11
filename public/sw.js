@@ -1,4 +1,4 @@
-const CACHE_NAME = "folha-rural-shell-v17-importacao-apontamentos";
+const CACHE_NAME = "folha-rural-shell-v18-importacao-em-lotes";
 const APP_SHELL = [
   "/",
   "/manifest.webmanifest",
