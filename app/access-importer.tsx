@@ -35,6 +35,7 @@ export default function AccessImporter() {
     [message, setMessage] = useState(""),
     [history, setHistory] = useState<{
       imported: number;
+      skipped: number;
       launchDays: number;
     } | null>(null);
   async function readFile(f: File) {
@@ -70,15 +71,16 @@ export default function AccessImporter() {
         result = await responseJson<{ error?: string; companyCodeRemap?: Record<string,string|number> }>(response);
       if (!response.ok) throw new Error(result.error || "Falha na gravação");
       const remap=result.companyCodeRemap||{}, entries=data.historyEntries||[];
-      let imported=0;
+      let imported=0, received=0;
       for(let i=0;i<entries.length;i+=500){
         const batch=entries.slice(i,i+500).map(row=>({...row,companySourceId:Number(remap[String(row.companySourceId)]??row.companySourceId)}));
         response=await fetch("/api/import-history",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({entries:batch})});
         const part=await responseJson<{error?:string;imported:number}>(response);
         if(!response.ok)throw new Error(part.error||"Falha ao importar apontamentos");
         imported+=Number(part.imported||0);
+        received+=batch.length;
       }
-      setHistory({imported,launchDays:data.launchesCount});
+      setHistory({imported,skipped:Math.max(0,received-imported),launchDays:data.launchesCount});
       setStage("done");
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "Falha na importação");
@@ -189,8 +191,8 @@ export default function AccessImporter() {
             {stage === "ready" && (
               <div className="import-actions">
                 <p>
-                  <b>Importação idempotente:</b> pode executar novamente; os
-                  registros existentes serão atualizados sem duplicação.
+                  <b>Sincronização inteligente:</b> cadastros e apontamentos
+                  existentes são comparados; somente registros novos são incluídos.
                 </p>
                 <button className="primary" onClick={confirmImport}>
                   Importar tudo
@@ -213,9 +215,10 @@ export default function AccessImporter() {
                 <div>
                   <b>Importação concluída</b>
                   <p>
-                    {history?.launchDays.toLocaleString("pt-BR")} dias e{" "}
-                    {history?.imported.toLocaleString("pt-BR")} lançamentos
-                    foram processados.
+                    {history?.launchDays.toLocaleString("pt-BR")} dias analisados:{" "}
+                    {history?.imported.toLocaleString("pt-BR")} apontamentos novos
+                    incluídos e {history?.skipped.toLocaleString("pt-BR")} já
+                    existentes ignorados.
                   </p>
                 </div>
                 <button
