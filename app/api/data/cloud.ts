@@ -204,12 +204,33 @@ async function callWorkerRpc(body: Row, user: CloudUser | null) {
     !user.companyIds.includes(companySourceId)
   )
     return Response.json({ error: "Empresa não autorizada." }, { status: 403 });
+  const matEs = String(body.matEs || "").replace(/\D/g, "");
+  if (matEs && !/^\d{5}$/.test(matEs))
+    return Response.json(
+      { error: "A Mat ES deve ter exatamente 5 posições numéricas." },
+      { status: 400 },
+    );
   const result = await supabaseAdmin.post<
     Array<{ ok: boolean; message: string; contract_id?: string }>
   >("/rest/v1/rpc/folha_save_worker", {
     p_organization_id: config.organizationId,
     p_payload: body,
   });
+  const saved = result[0];
+  if (saved?.contract_id && body.action !== "terminate") {
+    let finalMatEs = matEs;
+    if (!finalMatEs) {
+      const rows = await supabaseAdmin.get<Row[]>(
+        `/rest/v1/employment_contracts?select=registration_number&id=eq.${saved.contract_id}&organization_id=eq.${config.organizationId}&limit=1`,
+      );
+      finalMatEs = String(rows[0]?.registration_number || "").padStart(5, "0");
+    }
+    await supabaseAdmin.patch(
+      `/rest/v1/employment_contracts?id=eq.${saved.contract_id}&organization_id=eq.${config.organizationId}`,
+      { mat_es: finalMatEs },
+      { prefer: "return=minimal" },
+    );
+  }
   return Response.json(result[0] || { ok: true });
 }
 

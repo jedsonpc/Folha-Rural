@@ -20,7 +20,7 @@ export function ensureDatabase() {
       `CREATE UNIQUE INDEX IF NOT EXISTS companies_tenant_source_idx ON companies (tenant_id, source_id)`,
       `CREATE TABLE IF NOT EXISTS people (id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id TEXT NOT NULL, person_key TEXT NOT NULL, name TEXT NOT NULL, cpf TEXT, pis TEXT, birth_date TEXT, needs_review INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
       `CREATE UNIQUE INDEX IF NOT EXISTS people_tenant_key_idx ON people (tenant_id, person_key)`,
-      `CREATE TABLE IF NOT EXISTS employment_contracts (id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id TEXT NOT NULL, person_id INTEGER NOT NULL REFERENCES people(id), company_source_id INTEGER NOT NULL, source_registration INTEGER NOT NULL, registration_number INTEGER, legacy_code TEXT, admission_date TEXT, termination_date TEXT, role TEXT, season_source_id INTEGER, status TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+      `CREATE TABLE IF NOT EXISTS employment_contracts (id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id TEXT NOT NULL, person_id INTEGER NOT NULL REFERENCES people(id), company_source_id INTEGER NOT NULL, source_registration INTEGER NOT NULL, registration_number INTEGER, mat_es TEXT, legacy_code TEXT, admission_date TEXT, termination_date TEXT, role TEXT, season_source_id INTEGER, status TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
       `CREATE UNIQUE INDEX IF NOT EXISTS contracts_tenant_source_idx ON employment_contracts (tenant_id, company_source_id, source_registration)`,
       `CREATE UNIQUE INDEX IF NOT EXISTS contracts_tenant_registration_idx ON employment_contracts (tenant_id, company_source_id, registration_number)`,
       `CREATE TABLE IF NOT EXISTS legacy_contract_map (id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id TEXT NOT NULL, company_source_id INTEGER NOT NULL, source_registration INTEGER NOT NULL, contract_id INTEGER NOT NULL REFERENCES employment_contracts(id), target_code TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
@@ -219,6 +219,7 @@ export function ensureDatabase() {
             .all<{ name: string }>(),
           contractExisting = new Set(contractInfo.results.map((c) => c.name));
         const contractAdds: Record<string, string> = {
+          mat_es: "TEXT",
           payment_type: "TEXT NOT NULL DEFAULT 'production'",
           union_member: "INTEGER NOT NULL DEFAULT 0",
           union_discount_cents: "INTEGER NOT NULL DEFAULT 0",
@@ -245,6 +246,19 @@ export function ensureDatabase() {
               ),
             ),
           );
+        await runtimeDb!
+          .prepare(
+            `UPDATE employment_contracts
+             SET mat_es = printf('%05d', registration_number)
+             WHERE registration_number IS NOT NULL
+               AND (mat_es IS NULL OR trim(mat_es) = '')`,
+          )
+          .run();
+        await runtimeDb!
+          .prepare(
+            "CREATE UNIQUE INDEX IF NOT EXISTS contracts_tenant_mat_es_idx ON employment_contracts (tenant_id, company_source_id, mat_es)",
+          )
+          .run();
         const unionInfo = await runtimeDb!
             .prepare("PRAGMA table_info(unions)")
             .all<{ name: string }>(),

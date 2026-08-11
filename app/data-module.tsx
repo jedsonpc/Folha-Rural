@@ -17,6 +17,7 @@ type Contract = {
   id: number;
   companySourceId: number;
   registrationNumber: number | null;
+  matEs: string | null;
   legacyCode: string | null;
   sourceRegistration: number;
   admissionDate: string | null;
@@ -255,6 +256,7 @@ export default function DataModule({
     }),
     [createForm, setCreateForm] = useState({
       name: "",
+      matEs: "",
       cpf: "",
       pis: "",
       birthDate: "",
@@ -382,6 +384,8 @@ export default function DataModule({
     setNotice("");
     setForm({
       name: r.name,
+      registrationNumber: String(r.registrationNumber || ""),
+      matEs: r.matEs || "",
       cpf: formatCpf(r.cpf),
       pis: formatPis(r.pis),
       birthDate: r.birthDate || "",
@@ -619,6 +623,9 @@ export default function DataModule({
             .filter((r) => String(r.companySourceId) === selectedCompany)
             .map((r) => r.registrationNumber || 0),
         ) + 1;
+  const suggestedMatEs = predictedRegistration
+    ? String(predictedRegistration).padStart(5, "0")
+    : "";
   if (mode === "Empresas")
     return (
       <section className="data-module">
@@ -838,14 +845,38 @@ export default function DataModule({
                 <div className="form-grid">
                   {createTab === "person" && (
                     <>
+                      <Field
+                        label="Matrícula"
+                        value={isValidCpf(createForm.cpf) ? String(predictedRegistration || "") : ""}
+                        set={() => {}}
+                        readOnly
+                      />
+                      <Field
+                        label="Mat ES · 5 números"
+                        value={isValidCpf(createForm.cpf) ? createForm.matEs : ""}
+                        set={(v) =>
+                          setCreateForm({
+                            ...createForm,
+                            matEs: onlyDigits(v).slice(0, 5),
+                          })
+                        }
+                      />
                       <div className="cpf-gate wide">
                         <Field
                           wide
                           label="CPF do colaborador · obrigatório"
                           value={createForm.cpf}
-                          set={(v) =>
-                            setCreateForm({ ...createForm, cpf: formatCpf(v) })
-                          }
+                          set={(v) => {
+                            const cpf = formatCpf(v);
+                            setCreateForm({
+                              ...createForm,
+                              cpf,
+                              matEs:
+                                isValidCpf(cpf) && !createForm.matEs
+                                  ? suggestedMatEs
+                                  : createForm.matEs,
+                            });
+                          }}
                         />
                         <span
                           className={
@@ -1660,6 +1691,19 @@ export default function DataModule({
                   {tab === "person" && (
                     <>
                       <Field
+                        label="Matrícula"
+                        value={form.registrationNumber}
+                        set={() => {}}
+                        readOnly
+                      />
+                      <Field
+                        label="Mat ES · 5 números"
+                        value={form.matEs}
+                        set={(v) =>
+                          setForm({ ...form, matEs: onlyDigits(v).slice(0, 5) })
+                        }
+                      />
+                      <Field
                         wide
                         label="CPF do colaborador · obrigatório"
                         value={form.cpf}
@@ -2330,12 +2374,14 @@ function Field({
   set,
   type = "text",
   wide = false,
+  readOnly = false,
 }: {
   label: string;
   value?: string;
   set: (v: string) => void;
   type?: string;
   wide?: boolean;
+  readOnly?: boolean;
 }) {
   return (
     <label className={wide ? "wide" : ""}>
@@ -2343,6 +2389,7 @@ function Field({
       <input
         type={type}
         value={value || ""}
+        readOnly={readOnly}
         onChange={(e) => set(e.target.value)}
       />
     </label>

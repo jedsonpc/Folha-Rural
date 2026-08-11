@@ -137,6 +137,7 @@ export const employmentContracts = sqliteTable(
     companySourceId: integer("company_source_id").notNull(),
     sourceRegistration: integer("source_registration").notNull(),
     registrationNumber: integer("registration_number"),
+    matEs: text("mat_es"),
     legacyCode: text("legacy_code"),
     admissionDate: text("admission_date"),
     terminationDate: text("termination_date"),
@@ -177,6 +178,11 @@ export const employmentContracts = sqliteTable(
       table.tenantId,
       table.companySourceId,
       table.registrationNumber,
+    ),
+    uniqueIndex("contracts_tenant_mat_es_idx").on(
+      table.tenantId,
+      table.companySourceId,
+      table.matEs,
     ),
   ],
 );

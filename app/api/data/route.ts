@@ -55,6 +55,7 @@ export async function GET(request: Request) {
           id: employmentContracts.id,
           companySourceId: employmentContracts.companySourceId,
           registrationNumber: employmentContracts.registrationNumber,
+          matEs: employmentContracts.matEs,
           legacyCode: employmentContracts.legacyCode,
           sourceRegistration: employmentContracts.sourceRegistration,
           admissionDate: employmentContracts.admissionDate,
@@ -274,6 +275,7 @@ export async function PUT(request: Request) {
     }
     const name = String(body.name || "").trim();
     const cpf = cleanCpf(body.cpf);
+    const matEs = String(body.matEs || "").replace(/\D/g, "");
     const admissionDate = String(body.admissionDate || "");
     const email = String(body.email || "")
         .trim()
@@ -297,6 +299,11 @@ export async function PUT(request: Request) {
     if (!isValidCpf(cpf))
       return Response.json(
         { error: "Informe um CPF válido para o colaborador." },
+        { status: 400 },
+      );
+    if (!/^\d{5}$/.test(matEs))
+      return Response.json(
+        { error: "A Mat ES deve ter exatamente 5 posições numéricas." },
         { status: 400 },
       );
     if (admissionDate && !/^\d{4}-\d{2}-\d{2}$/.test(admissionDate))
@@ -402,6 +409,7 @@ export async function PUT(request: Request) {
     await db
       .update(employmentContracts)
       .set({
+        matEs,
         admissionDate: admissionDate || null,
         role: String(body.role || "").trim() || null,
         cboCode: String(body.cboCode || "").replace(/\D/g, "") || null,
@@ -797,6 +805,14 @@ export async function POST(request: Request) {
         .limit(1);
       const sourceRegistration = (lastSource?.value || 0) + 1,
         registrationNumber = (lastRegistration?.value || 0) + 1;
+      const matEs = String(
+        body.matEs || String(registrationNumber).padStart(5, "0"),
+      ).replace(/\D/g, "");
+      if (!/^\d{5}$/.test(matEs))
+        return Response.json(
+          { error: "A Mat ES deve ter exatamente 5 posições numéricas." },
+          { status: 400 },
+        );
       let person = existingPerson;
       if (!person) {
         [person] = await db
@@ -881,6 +897,7 @@ export async function POST(request: Request) {
           companySourceId: companyId,
           sourceRegistration,
           registrationNumber,
+          matEs,
           admissionDate: admission,
           role: String(body.role || "").trim() || null,
           cboCode: String(body.cboCode || "").replace(/\D/g, "") || null,
@@ -1079,6 +1096,7 @@ export async function POST(request: Request) {
         companySourceId: company.sourceId,
         sourceRegistration,
         registrationNumber,
+        matEs: String(registrationNumber).padStart(5, "0"),
         legacyCode: null,
         admissionDate: body.admissionDate!,
         terminationDate: null,
