@@ -647,6 +647,18 @@
   padding-top: 6px;
   padding-bottom: 6px;
 }
+.cadastros-menu .submenu {
+  position: fixed;
+  top: 16px;
+  left: 262px;
+  max-height: calc(100dvh - 32px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.cadastros-menu .submenu::before {
+  display: none;
+}
 .menu-group.expanded .submenu {
   opacity: 1;
   visibility: visible;
@@ -752,6 +764,15 @@
       visibility 0.16s ease,
       padding 0.2s ease,
       transform 0.2s ease;
+  }
+  .cadastros-menu .submenu {
+    position: static;
+    max-height: 0;
+    overflow: hidden;
+  }
+  .cadastros-menu.expanded .submenu {
+    max-height: 560px;
+    overflow-y: auto;
   }
   .menu-group.expanded .submenu {
     max-height: 560px;

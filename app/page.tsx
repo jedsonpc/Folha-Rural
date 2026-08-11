@@ -382,7 +382,7 @@ export default function Home() {
               );
             return (
               <div
-                className={`menu-group ${expanded ? "expanded" : ""}`}
+                className={`menu-group ${group.label === "Cadastros" ? "cadastros-menu" : ""} ${expanded ? "expanded" : ""}`}
                 key={group.label}
               >
                 <button
