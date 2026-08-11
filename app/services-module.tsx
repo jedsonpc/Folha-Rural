@@ -116,14 +116,14 @@ export default function ServicesModule({ company }: { company: string }) {
     }
   };
   const flags = [
-    ["fgts", "FGTS mensal"],
     ["fgts13", "FGTS sobre 13º"],
-    ["inss", "INSS mensal"],
     ["inss13", "INSS sobre 13º"],
-    ["irrf", "IRRF mensal"],
-    ["rais", "Informar na RAIS"],
     ["affectsDsr", "Compõe média do DSR"],
     ["composesProductionAverage", "Compõe média de produção"],
+    ["fgts", "FGTS mensal"],
+    ["rais", "Informar na RAIS"],
+    ["inss", "INSS mensal"],
+    ["irrf", "IRRF mensal"],
     ["active", "Serviço ativo"],
   ];
   return (
@@ -267,9 +267,10 @@ export default function ServicesModule({ company }: { company: string }) {
                 Centro de custo
                 <select value={form.groupSourceId || ""} onChange={(e) => {
                   const selected=centers.find((c:any)=>String(c.id)===e.target.value);
-                  setForm({ ...form, groupSourceId:e.target.value, groupName:selected?.description || "" });
+                  setForm({ ...form, groupSourceId:e.target.value, groupName:selected?.description || (e.target.value==="-1" ? "Pecuária" : "") });
                 }}>
                   <option value="">Sem centro de custo</option>
+                  {!centers.some((c:any)=>c.active && c.description?.trim().toLocaleLowerCase("pt-BR")==="pecuária") && <option value="-1">Pecuária</option>}
                   {centers.filter((c:any)=>c.active).map((c:any)=><option key={c.id} value={c.id}>{c.description}</option>)}
                 </select>
               </label>
