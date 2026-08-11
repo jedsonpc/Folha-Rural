@@ -57,6 +57,7 @@ const contractResponse = (row: Row) => ({
   id: row.id,
   companySourceId: Number(row.companies?.legacy_id),
   registrationNumber: row.registration_number,
+  matEs: row.mat_es,
   legacyCode: row.legacy_code,
   sourceRegistration: row.legacy_registration,
   admissionDate: row.admission_date,
@@ -207,7 +208,7 @@ async function callWorkerRpc(body: Row, user: CloudUser | null) {
   const matEs = String(body.matEs || "").replace(/\D/g, "");
   if (matEs && !/^\d{1,5}$/.test(matEs))
     return Response.json(
-      { error: "A Mat ES deve ter de 1 a 5 algarismos." },
+      { error: "A Matrícula no eSocial deve ter de 1 a 5 algarismos." },
       { status: 400 },
     );
   const result = await supabaseAdmin.post<
@@ -217,11 +218,16 @@ async function callWorkerRpc(body: Row, user: CloudUser | null) {
     p_payload: body,
   });
   const saved = result[0];
-  if (saved?.contract_id && body.action !== "terminate") {
+  const contractId = String(body.contractId || saved?.contract_id || "");
+  if (body.action !== "terminate") {
+    if (!contractId)
+      throw new Error(
+        "Não foi possível identificar o contrato para salvar a Matrícula no eSocial.",
+      );
     let finalMatEs = matEs;
     if (!finalMatEs) {
       const rows = await supabaseAdmin.get<Row[]>(
-        `/rest/v1/employment_contracts?select=registration_number&id=eq.${saved.contract_id}&organization_id=eq.${config.organizationId}&limit=1`,
+        `/rest/v1/employment_contracts?select=registration_number&id=eq.${contractId}&organization_id=eq.${config.organizationId}&limit=1`,
       );
       finalMatEs = String(rows[0]?.registration_number || "").slice(0, 5);
     }
@@ -229,7 +235,7 @@ async function callWorkerRpc(body: Row, user: CloudUser | null) {
       "/rest/v1/rpc/folha_set_contract_mat_es",
       {
         p_organization_id: config.organizationId,
-        p_contract_id: saved.contract_id,
+        p_contract_id: contractId,
         p_mat_es: finalMatEs,
       },
     );
