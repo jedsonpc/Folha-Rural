@@ -1,4 +1,4 @@
-const CACHE_NAME = "folha-rural-shell-v21-correcao-cartao-ponto";
+const CACHE_NAME = "folha-rural-shell-v22-cartao-ponto-legibilidade";
 const APP_SHELL = [
   "/",
   "/manifest.webmanifest",

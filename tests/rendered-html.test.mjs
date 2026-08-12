@@ -18,7 +18,7 @@ test("keeps the installable app metadata and update worker", async () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
   assert.match(serviceWorker, /SKIP_WAITING/);
-  assert.match(serviceWorker, /folha-rural-shell-v21-correcao-cartao-ponto/);
+  assert.match(serviceWorker, /folha-rural-shell-v22-cartao-ponto-legibilidade/);
   assert.match(serviceWorker, /skipWaiting/);
 });
 

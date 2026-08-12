@@ -359,8 +359,9 @@
 .time-card-table th:nth-last-child(2) { width: 26mm; }
 .time-card-table th:last-child { width: 39mm; }
 .time-card-table tbody tr { height: 10.7mm; }
-.time-card-table tbody td:first-child { display: grid; align-content: center; height: 10.7mm; padding: 0 1mm; text-align: left; }
-.time-card-table tbody td:first-child span { color: #555; font-size: 5.5px; text-transform: capitalize; }
+.time-card-table tbody td:first-child { display: grid; align-content: center; justify-items: center; height: 10.7mm; padding: 0 1mm; text-align: center; }
+.time-card-table tbody td:first-child b { font-size: 8px; line-height: 1.2; }
+.time-card-table tbody td:first-child span { color: #444; font-size: 7px; font-weight: 700; line-height: 1.25; text-transform: capitalize; }
 .time-card-footer { display: grid; grid-template-columns: 28% 47% 25%; min-height: 23mm; border: 1px solid #111; border-top: 0; }
 .time-card-footer > div { display: flex; flex-direction: column; justify-content: flex-end; padding: 1.5mm 2mm; border-right: 1px solid #111; text-align: center; }
 .time-card-footer > div:last-child { border-right: 0; }

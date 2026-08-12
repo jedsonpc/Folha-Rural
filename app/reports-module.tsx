@@ -261,8 +261,8 @@ export default function ReportsModule({
                 ["receipts", "Recibos de pagamento"],
                 ["detailed", "Folha de pagamento"],
                 ["events", "Lançamentos por evento"],
-                ["financial", "Ficha financeira"],
                 ["timecard", "Cartão de Ponto"],
+                ["financial", "Ficha financeira"],
               ]
             : [
                 ["summary", "Folha Resumida"],
