@@ -194,10 +194,11 @@ export default function ReportsModule({
       packs
         .flatMap((p) =>
           p.contracts
-            .filter(
-              (c) =>
-                matchesStatus(c, status) &&
-                p.entries.some((e) => e.contractId === c.id),
+            .filter((c) =>
+              type === "timecard"
+                ? c.status === "active"
+                : matchesStatus(c, status) &&
+                  p.entries.some((e) => e.contractId === c.id),
             )
             .map((c) => ({ c, p })),
         )

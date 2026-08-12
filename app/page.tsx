@@ -92,7 +92,7 @@ const navGroups = [
       items: [["IA", "Importar Access"]],
     },
   ],
-  SYSTEM_VERSION = "1.4.11",
+  SYSTEM_VERSION = "1.4.12",
   LAST_UPDATE = "11/08/2026";
 type Company = {
   sourceId: number;
