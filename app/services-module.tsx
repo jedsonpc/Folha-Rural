@@ -49,6 +49,10 @@ const empty = {
   composesProductionAverage: false,
   active: true,
 };
+const centerLabel = (value: unknown) =>
+  String(value || "").trim().toLocaleLowerCase("pt-BR") === "entressafra"
+    ? "Tratos Culturais"
+    : String(value || "");
 export default function ServicesModule({ company }: { company: string }) {
   const [rows, setRows] = useState<S[]>([]),
     [centers, setCenters] = useState<any[]>([]),
@@ -61,6 +65,14 @@ export default function ServicesModule({ company }: { company: string }) {
     [form, setForm] = useState<any>(empty),
     [msg, setMsg] = useState(""),
     [busy, setBusy] = useState(false);
+  const centerOptions = useMemo(() => {
+    const active = centers
+      .filter((c: any) => c.active)
+      .map((c: any) => ({ ...c, description: centerLabel(c.description) }));
+    if (!active.some((c: any) => c.description.toLocaleLowerCase("pt-BR") === "plantio"))
+      active.push({ id: -2, description: "Plantio", active: true });
+    return active.sort((a: any, b: any) => a.description.localeCompare(b.description, "pt-BR"));
+  }, [centers]);
   const load = () =>
     fetch(`/api/services?company=${company}`)
       .then((r) => r.json())
@@ -210,7 +222,7 @@ export default function ServicesModule({ company }: { company: string }) {
                   <small>SRV {s.sourceId}</small>
                   <b>{s.description}</b>
                 </td>
-                <td>{s.groupName || "—"}</td>
+                <td>{centerLabel(s.groupName) || "—"}</td>
                 <td>{s.unitName || "—"}</td>
                 <td>
                   <div className="incidences">
@@ -266,12 +278,12 @@ export default function ServicesModule({ company }: { company: string }) {
               <label>
                 Centro de custo
                 <select value={form.groupSourceId || ""} onChange={(e) => {
-                  const selected=centers.find((c:any)=>String(c.id)===e.target.value);
+                  const selected=centerOptions.find((c:any)=>String(c.id)===e.target.value);
                   setForm({ ...form, groupSourceId:e.target.value, groupName:selected?.description || (e.target.value==="-1" ? "Pecuária" : "") });
                 }}>
                   <option value="">Sem centro de custo</option>
-                  {!centers.some((c:any)=>c.active && c.description?.trim().toLocaleLowerCase("pt-BR")==="pecuária") && <option value="-1">Pecuária</option>}
-                  {centers.filter((c:any)=>c.active).map((c:any)=><option key={c.id} value={c.id}>{c.description}</option>)}
+                  {!centerOptions.some((c:any)=>c.description?.trim().toLocaleLowerCase("pt-BR")==="pecuária") && <option value="-1">Pecuária</option>}
+                  {centerOptions.map((c:any)=><option key={c.id} value={c.id}>{c.description}</option>)}
                 </select>
               </label>
               <label>

@@ -160,17 +160,20 @@ export default function ReportsModule({
       const ids = new Set<string>();
       loaded.forEach((p) =>
         p.contracts
-          .filter(
-            (c) =>
-              matchesStatus(c, status) &&
-              p.entries.some((e) => e.contractId === c.id),
+          .filter((c) =>
+            type === "timecard"
+              ? c.status === "active"
+              : matchesStatus(c, status) &&
+                p.entries.some((e) => e.contractId === c.id),
           )
           .forEach((c) => ids.add(c.id)),
       );
       setSelected(ids);
       const entryCount = loaded.reduce((sum, pack) => sum + pack.entries.length, 0);
       setNotice(
-        entryCount
+        type === "timecard"
+          ? `${ids.size} colaborador(es) ativo(s) disponível(is) para impressão.`
+          : entryCount
           ? `${entryCount} lançamento(s) encontrado(s) no período selecionado.`
           : "Nenhum lançamento encontrado no período selecionado. Confira os filtros ou registre os apontamentos antes de gerar o relatório.",
       );
@@ -204,7 +207,7 @@ export default function ReportsModule({
             : (a.c.registrationNumber || 999999) -
               (b.c.registrationNumber || 999999),
         ),
-    [packs, status, order],
+    [packs, status, order, type],
   );
   const chosen = workers.filter((x) => selected.has(x.c.id)),
     availableServices = [
@@ -258,6 +261,7 @@ export default function ReportsModule({
                 ["detailed", "Folha de pagamento"],
                 ["events", "Lançamentos por evento"],
                 ["financial", "Ficha financeira"],
+                ["timecard", "Cartão de Ponto"],
               ]
             : [
                 ["summary", "Folha Resumida"],
@@ -270,6 +274,11 @@ export default function ReportsModule({
               onClick={() => {
                 setType(k);
                 setPacks([]);
+                if (k === "timecard") {
+                  setStatus("active");
+                  setOrder("name");
+                  setPeriod("advance");
+                }
               }}
             >
               {l}
@@ -386,9 +395,9 @@ export default function ReportsModule({
                   setPacks([]);
                 }}
               >
-                <option value="full">Folha mensal — mês completo</option>
-                <option value="advance">Adiantamento — dias 01 a 15</option>
-                <option value="balance">Saldo mensal — dia 16 ao final</option>
+                {type !== "timecard" && <option value="full">Folha mensal — mês completo</option>}
+                <option value="advance">{type === "timecard" ? "1ª Quinzena — dias 01 a 15" : "Adiantamento — dias 01 a 15"}</option>
+                <option value="balance">{type === "timecard" ? "2ª Quinzena — dia 16 ao final" : "Saldo mensal — dia 16 ao final"}</option>
               </select>
             </label>
           )}
@@ -406,19 +415,19 @@ export default function ReportsModule({
               ))}
             </select>
           </label>
-          <label>
+          {type !== "timecard" && <label>
             Situação
             <select value={status} onChange={(e) => setStatus(e.target.value)}>
               <option value="all">Todos com lançamentos</option>
               <option value="active">Ativos</option>
               <option value="terminated">Demitidos</option>
             </select>
-          </label>
+          </label>}
           <label>
             Classificação
             <select value={order} onChange={(e) => setOrder(e.target.value)}>
-              <option value="registration">Matrícula</option>
               <option value="name">Alfabética</option>
+              <option value="registration">Matrícula</option>
             </select>
           </label>
           <button className="primary" onClick={load} disabled={busy}>
@@ -432,18 +441,24 @@ export default function ReportsModule({
         )}
         {workers.length > 0 && (
           <div className="employee-selection">
+            {type === "timecard" && (
+              <label className="select-all-print">
+                <input type="checkbox" checked={selected.size === workers.length} onChange={toggleAll} />
+                Imprimir todos os colaboradores ativos
+              </label>
+            )}
             <div>
               <b>Colaboradores</b>
               <span>
                 {selected.size} de {workers.length} selecionados
               </span>
             </div>
-            <button className="secondary" onClick={toggleAll}>
+            {type !== "timecard" && <button className="secondary" onClick={toggleAll}>
               {selected.size === workers.length
                 ? "Desmarcar todos"
                 : "Selecionar todos"}
-            </button>
-            <div className="selection-grid">
+            </button>}
+            {(type !== "timecard" || selected.size !== workers.length) && <div className={`selection-grid ${type === "timecard" ? "selection-list-vertical" : ""}`}>
               {workers.map(({ c }) => (
                 <label key={c.id}>
                   <input
@@ -465,7 +480,7 @@ export default function ReportsModule({
                   </span>
                 </label>
               ))}
-            </div>
+            </div>}
           </div>
         )}
         <div className="report-actions">
@@ -562,6 +577,8 @@ export default function ReportsModule({
             dateStart={dateStart}
             dateEnd={dateEnd}
           />
+        ) : type === "timecard" ? (
+          <TimeCards chosen={chosen} month={month} period={period} />
         ) : type === "summary" ? (
           <Summary
             packs={packs}
@@ -580,6 +597,76 @@ export default function ReportsModule({
       </div>
     </section>
   );
+}
+function TimeCards({
+  chosen,
+  month,
+  period,
+}: {
+  chosen: { c: Contract; p: Pack }[];
+  month: string;
+  period: string;
+}) {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const lastDay = new Date(year, monthNumber, 0).getDate();
+  const first = period === "balance" ? 16 : 1;
+  const last = period === "balance" ? lastDay : 15;
+  const dates = Array.from({ length: last - first + 1 }, (_, index) =>
+    new Date(year, monthNumber - 1, first + index),
+  );
+  const formatDate = (date: Date) =>
+    new Intl.DateTimeFormat("pt-BR").format(date);
+  const weekday = (date: Date) =>
+    new Intl.DateTimeFormat("pt-BR", { weekday: "long" })
+      .format(date)
+      .replace("-feira", "");
+  return (
+    <>
+      {chosen.map(({ c, p }) => (
+        <article className="time-card print-page employee-print-page" key={`${p.company.sourceId}-${c.id}`}>
+          <header className="time-card-title">
+            <div>
+              <small>CONTROLE DE JORNADA E APONTAMENTO DIÁRIO</small>
+              <h1>CARTÃO DE PONTO</h1>
+            </div>
+            <MiniCalendar year={year} month={monthNumber} first={first} last={last} />
+          </header>
+          <section className="time-card-identification">
+            <div className="time-card-company"><small>Empresa</small><b>{p.company.name}</b></div>
+            <div className="time-card-worker"><small>Colaborador</small><b>{c.name}</b></div>
+            <div><small>Matrícula</small><b>{c.registrationNumber || c.legacyCode || "—"}</b></div>
+            <div><small>Período</small><b>{formatDate(dates[0])} a {formatDate(dates[dates.length - 1])}</b></div>
+          </section>
+          <table className="time-card-table">
+            <thead>
+              <tr><th rowSpan={2}>Data</th><th colSpan={4}>Registros</th><th rowSpan={2}>Serviços executados</th><th rowSpan={2}>Quantidade produzida</th><th rowSpan={2}>Visto do apontador</th></tr>
+              <tr><th>Início</th><th colSpan={2}>Intervalo</th><th>Término</th></tr>
+            </thead>
+            <tbody>
+              {dates.map((date) => (
+                <tr key={date.toISOString()}>
+                  <td><b>{formatDate(date)}</b><span>{weekday(date)}</span></td>
+                  <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <footer className="time-card-footer">
+            <div><small>POLEGAR DIREITO</small></div>
+            <div><p>A tarefa cumprida equivale à jornada de 8 horas.</p><span>ASSINATURA DO COLABORADOR</span></div>
+            <div><span>ADMINISTRADOR</span></div>
+          </footer>
+        </article>
+      ))}
+    </>
+  );
+}
+function MiniCalendar({ year, month, first, last }: { year: number; month: number; first: number; last: number }) {
+  const offset = (new Date(year, month - 1, 1).getDay() + 6) % 7;
+  const days = new Date(year, month, 0).getDate();
+  const cells = Array.from({ length: 42 }, (_, index) => index - offset + 1);
+  const title = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(new Date(year, month - 1, 1));
+  return <aside className="mini-calendar"><b>{title}</b><div className="mini-calendar-grid">{["S","T","Q","Q","S","S","D"].map((d,i)=><strong key={`${d}-${i}`}>{d}</strong>)}{cells.map((day,index)=><span key={index} className={day >= first && day <= last ? "selected" : ""}>{day > 0 && day <= days ? day : ""}</span>)}</div></aside>;
 }
 function matchesStatus(c: Contract, status: string) {
   return status === "all" || c.status === status;

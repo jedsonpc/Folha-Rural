@@ -299,6 +299,74 @@
   margin-top: 12px;
   border: 1px solid #bbb;
 }
+.select-all-print {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #294435;
+}
+.selection-list-vertical {
+  grid-template-columns: minmax(280px, 520px);
+  max-height: 360px;
+  overflow-y: auto;
+}
+.time-card {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 277mm;
+  padding: 10mm;
+  background: #fff;
+  border: 1px solid var(--line);
+  color: #111;
+}
+.time-card-title {
+  display: grid;
+  grid-template-columns: 1fr 54mm;
+  align-items: center;
+  gap: 8mm;
+  padding-bottom: 3mm;
+  border-bottom: 2px solid #111;
+}
+.time-card-title small { font-size: 8px; font-weight: 800; letter-spacing: .12em; }
+.time-card-title h1 { margin: 2mm 0 0; font-size: 25px; font-style: italic; }
+.mini-calendar { border: 1px solid #222; padding: 2mm; text-align: center; }
+.mini-calendar > b { display: block; margin-bottom: 1mm; font-size: 8px; text-transform: capitalize; }
+.mini-calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: .35mm; font-size: 6px; }
+.mini-calendar-grid strong { font-size: 5.5px; }
+.mini-calendar-grid span { padding: .4mm 0; border-radius: 2px; }
+.mini-calendar-grid .selected { background: #334b39; color: #fff; font-weight: 800; }
+.time-card-identification {
+  display: grid;
+  grid-template-columns: 1fr 34mm 52mm;
+  border: 1px solid #111;
+  border-bottom: 0;
+  margin-top: 3mm;
+}
+.time-card-identification > div { display: grid; min-height: 11mm; padding: 1.5mm 2mm; border-right: 1px solid #111; }
+.time-card-identification > div:last-child { border-right: 0; }
+.time-card-identification small { font-size: 6.5px; }
+.time-card-identification b { align-self: end; font-size: 9px; }
+.time-card-company { grid-column: 1 / -1; border-right: 0 !important; border-bottom: 1px solid #111; }
+.time-card-worker { min-width: 0; }
+.time-card-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 6.5px; }
+.time-card-table th, .time-card-table td { border: 1px solid #111; text-align: center; }
+.time-card-table th { height: 6mm; padding: .7mm; text-transform: uppercase; }
+.time-card-table th:first-child { width: 25mm; }
+.time-card-table th:nth-last-child(3) { width: 55mm; }
+.time-card-table th:nth-last-child(2) { width: 26mm; }
+.time-card-table th:last-child { width: 39mm; }
+.time-card-table tbody tr { height: 10.7mm; }
+.time-card-table tbody td:first-child { display: grid; align-content: center; height: 10.7mm; padding: 0 1mm; text-align: left; }
+.time-card-table tbody td:first-child span { color: #555; font-size: 5.5px; text-transform: capitalize; }
+.time-card-footer { display: grid; grid-template-columns: 28% 47% 25%; min-height: 23mm; border: 1px solid #111; border-top: 0; }
+.time-card-footer > div { display: flex; flex-direction: column; justify-content: flex-end; padding: 1.5mm 2mm; border-right: 1px solid #111; text-align: center; }
+.time-card-footer > div:last-child { border-right: 0; }
+.time-card-footer p { margin: 0 auto auto; font-size: 6px; text-transform: uppercase; }
+.time-card-footer span { padding-top: 1mm; border-top: 1px solid #111; font-size: 6px; }
+.time-card-footer small { margin-bottom: auto; text-align: left; font-size: 6px; }
 .receipt-totals div {
   display: grid;
   min-width: 0;
@@ -468,6 +536,15 @@
     padding: 12mm;
     margin: 0;
   }
+  .time-card {
+    min-height: 0;
+    height: 277mm;
+    padding: 4mm;
+    border: 0;
+    overflow: hidden;
+  }
+  .time-card-table tbody tr { height: 10.4mm; }
+  .time-card-table tbody td:first-child { height: 10.4mm; }
   .receipt-sheet {
     display: grid;
     grid-template-rows: repeat(2, 1fr);
