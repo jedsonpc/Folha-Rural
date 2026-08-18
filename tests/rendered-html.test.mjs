@@ -31,3 +31,21 @@ test("sends Access history separately from registry data", async () => {
   assert.match(importer, /body: JSON\.stringify\(registryData\)/);
   assert.doesNotMatch(importer, /body: JSON\.stringify\(data\)/);
 });
+
+test("keeps the edited service nature when saving", async () => {
+  const services = await readFile(
+    new URL("../app/services-module.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(services, /service\.entryType \?\? service\.nature/);
+  assert.match(services, /entryType: nature, nature/);
+  assert.match(services, /setForm\(\{ \.\.\.form, entryType: nature, nature \}\)/);
+
+  const route = await readFile(
+    new URL("../app/api/services/route.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(route, /normalizeNature\(b\.entryType \?\? b\.nature\)/);
+  assert.match(route, /normalizeNature\(body\.entryType \?\? body\.nature\)/);
+});

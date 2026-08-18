@@ -24,7 +24,7 @@ type S = {
 };
 const natureOf = (service: Partial<S> & Record<string, unknown>) => {
   const raw = String(
-    service.nature ?? service.entryType ?? service.natureza ?? "earning",
+    service.entryType ?? service.nature ?? service.natureza ?? "earning",
   )
     .trim()
     .toLowerCase();
@@ -240,7 +240,8 @@ export default function ServicesModule({ company }: { company: string }) {
                     className="table-action"
                     onClick={() => {
                       setEdit(s);
-                      setForm({ ...s, entryType: natureOf(s) });
+                      const nature = natureOf(s);
+                      setForm({ ...s, entryType: nature, nature });
                     }}
                   >
                     Editar
@@ -299,9 +300,10 @@ export default function ServicesModule({ company }: { company: string }) {
                 Natureza
                 <select
                   value={natureOf(form)}
-                  onChange={(e) =>
-                    setForm({ ...form, entryType: e.target.value })
-                  }
+                  onChange={(e) => {
+                    const nature = e.target.value;
+                    setForm({ ...form, entryType: nature, nature });
+                  }}
                 >
                   <option value="earning">Provento</option>
                   <option value="deduction">Desconto</option>
