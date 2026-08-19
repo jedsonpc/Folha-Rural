@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import "./unions.css";
+import CurrencyInput from "./currency-input";
 type Union = {
   id: number;
   code: string;
@@ -435,13 +436,11 @@ export default function UnionsModule() {
               </label>
               <label>
                 Desconto mensal (R$)
-                <input
-                  type="number"
+                <CurrencyInput
                   min="0"
-                  step="0.01"
                   value={form.contribution}
-                  onChange={(e) =>
-                    setForm({ ...form, contribution: e.target.value })
+                  onValueChange={(value) =>
+                    setForm({ ...form, contribution: value })
                   }
                 />
               </label>

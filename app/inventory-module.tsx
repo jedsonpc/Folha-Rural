@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useMemo, useState } from "react";
 import "./inventory.css";
+import CurrencyInput from "./currency-input";
 
 type AnyRow = Record<string, any>;
 type InventorySection = "dashboard" | "products" | "partners" | "movements" | "reports";
@@ -73,7 +74,7 @@ export default function InventoryModule({ company, section }:{ company:string; s
         <div className="form-heading"><small>NOVO CADASTRO</small><h3>Produto ou insumo</h3><p>Preencha os dados essenciais. Você poderá movimentar o item logo após salvar.</p></div>
         <label>Descrição do produto<input name="description" placeholder="Ex.: Fertilizante NPK" required /></label>
         <div className="inventory-form-row"><label>Código / SKU<input name="sku" placeholder="Código interno" /></label><label>Unidade<select name="unit"><option>UN</option><option>KG</option><option>L</option><option>TON</option><option>SC</option><option>CX</option></select></label></div>
-        <div className="inventory-form-row"><label>Estoque mínimo<input name="minimumStock" type="number" step="0.001" placeholder="0,000" /></label><label>Preço de venda<input name="salePrice" type="number" step="0.01" placeholder="0,00" /></label></div>
+        <div className="inventory-form-row"><label>Estoque mínimo<input name="minimumStock" type="number" step="0.001" placeholder="0,000" /></label><label>Preço de venda (R$)<CurrencyInput name="salePrice" /></label></div>
         <button className="primary">Salvar produto</button>
       </form>
       <div className="inventory-list"><SectionTitle title="Produtos cadastrados" description={`${(data.products || []).length} item(ns) nesta empresa.`} /><ProductTable rows={data.products || []} /></div>
@@ -99,7 +100,7 @@ export default function InventoryModule({ company, section }:{ company:string; s
         <label>Produto<select name="productId" required><option value="">Selecione o produto</option>{(data.products || []).map((p: AnyRow) => <option value={p.id} key={p.id}>{p.description}</option>)}</select></label>
         <label>Cliente ou fornecedor<select name="partnerId"><option value="">Sem parceiro vinculado</option>{availablePartners.map((p: AnyRow) => <option value={p.id} key={p.id}>{p.name}</option>)}</select></label>
         <div className="inventory-form-row"><label>Data<input name="date" type="date" required /></label><label>Quantidade<input name="quantity" type="number" min="0.0001" step="0.0001" placeholder="0,0000" required /></label></div>
-        <div className="inventory-form-row"><label>Valor unitário<input name="unitValue" type="number" step="0.01" placeholder="0,00" /></label><label>Documento<input name="documentNumber" placeholder="NF ou documento" /></label></div>
+        <div className="inventory-form-row"><label>Valor unitário (R$)<CurrencyInput name="unitValue" /></label><label>Documento<input name="documentNumber" placeholder="NF ou documento" /></label></div>
         <div className="inventory-form-row"><label>Cultura<input name="crop" placeholder="Cana, cacau..." /></label><label>Talhão / centro de custo<input name="costCenter" placeholder="Local da aplicação" /></label></div>
         <button className="primary">Registrar movimentação</button>
       </form>

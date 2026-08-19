@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import "./hr.css";
+import CurrencyInput from "./currency-input";
 
 const brl=(c:number)=>new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format((c||0)/100);
 const isoToday=()=>new Date().toISOString().slice(0,10);
@@ -30,8 +31,8 @@ export default function WorkerHrTabs({contractId,kind}:{contractId:number;kind:"
     <section className="salary-card"><div className="salary-card-title"><span>1</span><div><b>Remuneração principal</b><small>Informe o regime e o salário mensal contratado.</small></div></div>
       <div className="salary-grid salary-grid-main">
         <label>Tipo de salário<select value={salary.salaryType} onChange={e=>setSalary({...salary,salaryType:e.target.value})}><option value="monthly">Mensalista</option><option value="daily">Apontamento diário</option></select></label>
-        <label>Salário-base mensal (R$)<input type="number" min="0" step=".01" value={salary.baseSalary} onChange={e=>{const base=e.target.value;setSalary({...salary,baseSalary:base,dailyRate:base?(Number(base)/30).toFixed(2):""})}}/></label>
-        <label className="calculated-field">Valor da diária (R$)<input type="number" step=".01" value={salary.baseSalary?(Number(salary.baseSalary)/30).toFixed(2):""} readOnly/><small className="field-help">Cálculo automático: salário mensal ÷ 30.</small></label>
+        <label>Salário-base mensal (R$)<CurrencyInput min="0" value={salary.baseSalary} onValueChange={base=>setSalary({...salary,baseSalary:base,dailyRate:base?(Number(base)/30).toFixed(2):""})}/></label>
+        <label className="calculated-field">Valor da diária (R$)<CurrencyInput value={salary.baseSalary?(Number(salary.baseSalary)/30).toFixed(2):""} readOnly/><small className="field-help">Cálculo automático: salário mensal ÷ 30.</small></label>
       </div>
     </section>
     <section className="salary-card"><div className="salary-card-title"><span>2</span><div><b>Parâmetros e vigência</b><small>Complete os dados que identificam esta configuração salarial.</small></div></div>

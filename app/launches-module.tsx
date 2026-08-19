@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { cachedApiFetch, queueableLaunchFetch } from "./offline-api";
 import "./launches.css";
+import CurrencyInput from "./currency-input";
 type Contract = {
   id: number;
   name: string;
@@ -419,15 +420,13 @@ export default function LaunchesModule({ company }: { company: string }) {
                       />
                     </td>
                     <td>
-                      <input
-                        type="number"
+                      <CurrencyInput
                         min="0"
-                        step="0.01"
                         value={row.unitPrice}
-                        onChange={(e) =>
+                        onValueChange={(value) =>
                           setGridRows({
                             ...gridRows,
-                            [c.id]: { ...row, unitPrice: e.target.value },
+                            [c.id]: { ...row, unitPrice: value },
                           })
                         }
                       />
@@ -528,14 +527,12 @@ export default function LaunchesModule({ company }: { company: string }) {
             </label>
             <label>
               Valor unitário (R$)
-              <input
+              <CurrencyInput
                 required
-                type="number"
                 min="0"
-                step="0.01"
                 value={form.unitPrice}
-                onChange={(e) =>
-                  setForm({ ...form, unitPrice: e.target.value })
+                onValueChange={(value) =>
+                  setForm({ ...form, unitPrice: value })
                 }
               />
             </label>

@@ -74,3 +74,14 @@ test("applies the statutory vacation entitlement bands", async () => {
   assert.match(tabs, /Até 2 dias antes do início das férias/);
   assert.match(tabs, /Math\.floor\(days\/3\)/);
 });
+
+test("uses the Brazilian monetary input across financial registrations", async () => {
+  const currency = await readFile(new URL("../app/currency-input.tsx", import.meta.url), "utf8");
+  assert.match(currency, /minimumFractionDigits: 2/);
+  assert.match(currency, /maximumFractionDigits: 2/);
+  assert.match(currency, /currency-tight/);
+  for (const file of ["worker-hr-tabs.tsx", "launches-module.tsx", "unions-module.tsx", "registrations-module.tsx", "inventory-module.tsx"]) {
+    const source = await readFile(new URL(`../app/${file}`, import.meta.url), "utf8");
+    assert.match(source, /CurrencyInput/);
+  }
+});

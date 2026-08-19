@@ -1,0 +1,7 @@
+/* Padrão visual para valores monetários: duas casas, sem quebra e ajuste progressivo. */
+.currency-input{font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right;font-weight:700;transition:font-size .15s ease}
+.currency-input.currency-compact{font-size:.88rem!important;letter-spacing:-.01em}
+.currency-input.currency-tight{font-size:.76rem!important;letter-spacing:-.025em}
+.inventory-kpis article b,.entry-total b,.salary-history b,.compact-list b,.report-kpis b,.dashboard-kpis b{display:block;max-width:100%;font-size:clamp(.82rem,2.1vw,1.55rem);font-variant-numeric:tabular-nums;line-height:1.08;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+td,th{overflow-wrap:normal}.data-table td,.data-table th{white-space:nowrap}
+@media(max-width:600px){.currency-input.currency-compact{font-size:.82rem!important}.currency-input.currency-tight{font-size:.7rem!important}}
