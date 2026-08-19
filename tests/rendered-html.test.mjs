@@ -53,7 +53,8 @@ test("keeps the edited service nature when saving", async () => {
 test("calculates the employee daily rate from the monthly salary", async () => {
   const tabs = await readFile(new URL("../app/worker-hr-tabs.tsx", import.meta.url), "utf8");
   const route = await readFile(new URL("../app/api/hr/route.ts", import.meta.url), "utf8");
-  assert.match(tabs, /Valor da diária \(salário ÷ 30\)/);
+  assert.match(tabs, /Valor da diária \(R\$\)/);
+  assert.match(tabs, /Cálculo automático: salário mensal ÷ 30/);
   assert.match(tabs, /Number\(salary\.baseSalary\)\/30/);
   assert.match(tabs, /readOnly/);
   assert.match(route, /Math\.round\(salary\/30\)/);

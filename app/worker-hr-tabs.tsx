@@ -25,17 +25,24 @@ export default function WorkerHrTabs({contractId,kind}:{contractId:number;kind:"
   const maxAllowance=vac.days?Math.floor(Number(vac.days)/3):0,daysToTake=Math.max(0,Number(vac.days)-Number(vac.soldDays));
   const vacationNotes=useMemo(()=>[`Faltas injustificadas no período: ${vac.unjustifiedAbsences}.`,`Hipótese de perda do direito: ${vac.lossReason||"Não informada"}.`,`Dias de direito calculados conforme art. 130 da CLT: ${vac.days}.`,vac.sellAllowance?`Abono pecuniário: ${vac.soldDays} dia(s).`:"Sem abono pecuniário.",vac.notes].filter(Boolean).join("\n"),[vac]);
 
-  if(kind==="salary")return <div className="hr-pane">
-    <h3>Salário</h3><p className="helper">Parâmetros usados na folha. Para mensalistas, a diária é sempre calculada por salário mensal ÷ 30.</p>
-    <div className="form-grid">
-      <label>Tipo de salário<select value={salary.salaryType} onChange={e=>setSalary({...salary,salaryType:e.target.value})}><option value="monthly">Mensalista</option><option value="daily">Apontamento diário</option></select></label>
-      <label>Salário-base (R$)<input type="number" min="0" step=".01" value={salary.baseSalary} onChange={e=>{const base=e.target.value;setSalary({...salary,baseSalary:base,dailyRate:base?(Number(base)/30).toFixed(2):""})}}/></label>
-      <label>Valor da diária (salário ÷ 30)<input type="number" step=".01" value={salary.baseSalary?(Number(salary.baseSalary)/30).toFixed(2):""} readOnly/><small className="field-help">Calculado automaticamente e gravado com duas casas decimais.</small></label>
-      <label>Adiantamento quinzenal (%)<input type="number" value={salary.advanceRate} onChange={e=>setSalary({...salary,advanceRate:e.target.value})}/></label>
-      <label>Data de vigência<input type="date" value={salary.effectiveDate} onChange={e=>setSalary({...salary,effectiveDate:e.target.value})}/></label>
-      <label className="wide">Motivo/observação<input value={salary.reason} onChange={e=>setSalary({...salary,reason:e.target.value})}/></label>
-    </div><button type="button" className="primary" onClick={()=>save({action:"saveProfile",contractId,...salary,dailyRate:salary.baseSalary?(Number(salary.baseSalary)/30).toFixed(2):""})}>Salvar salário</button>{msg&&<div className="inline-notice">{msg}</div>}
-    <h3>Histórico salarial</h3><div className="compact-list">{data.salaries.map((s:any)=><div key={s.id}><b>{brl(s.salary_cents)}</b><span>{s.effective_date} · {s.reason||"Sem observação"}</span></div>)}</div>
+  if(kind==="salary")return <div className="hr-pane salary-pane">
+    <div className="salary-heading"><div><h3>Salário e remuneração</h3><p className="helper">Defina os parâmetros usados nos cálculos da folha do colaborador.</p></div><span className="salary-badge">Configuração salarial</span></div>
+    <section className="salary-card"><div className="salary-card-title"><span>1</span><div><b>Remuneração principal</b><small>Informe o regime e o salário mensal contratado.</small></div></div>
+      <div className="salary-grid salary-grid-main">
+        <label>Tipo de salário<select value={salary.salaryType} onChange={e=>setSalary({...salary,salaryType:e.target.value})}><option value="monthly">Mensalista</option><option value="daily">Apontamento diário</option></select></label>
+        <label>Salário-base mensal (R$)<input type="number" min="0" step=".01" value={salary.baseSalary} onChange={e=>{const base=e.target.value;setSalary({...salary,baseSalary:base,dailyRate:base?(Number(base)/30).toFixed(2):""})}}/></label>
+        <label className="calculated-field">Valor da diária (R$)<input type="number" step=".01" value={salary.baseSalary?(Number(salary.baseSalary)/30).toFixed(2):""} readOnly/><small className="field-help">Cálculo automático: salário mensal ÷ 30.</small></label>
+      </div>
+    </section>
+    <section className="salary-card"><div className="salary-card-title"><span>2</span><div><b>Parâmetros e vigência</b><small>Complete os dados que identificam esta configuração salarial.</small></div></div>
+      <div className="salary-grid salary-grid-details">
+        <label>Adiantamento quinzenal (%)<input type="number" min="0" max="100" step=".01" value={salary.advanceRate} onChange={e=>setSalary({...salary,advanceRate:e.target.value})}/></label>
+        <label>Data de vigência<input type="date" value={salary.effectiveDate} onChange={e=>setSalary({...salary,effectiveDate:e.target.value})}/></label>
+        <label className="salary-reason">Motivo ou observação<input placeholder="Ex.: admissão, reajuste anual ou promoção" value={salary.reason} onChange={e=>setSalary({...salary,reason:e.target.value})}/></label>
+      </div>
+    </section>
+    <div className="salary-actions"><button type="button" className="primary" onClick={()=>save({action:"saveProfile",contractId,...salary,dailyRate:salary.baseSalary?(Number(salary.baseSalary)/30).toFixed(2):""})}>Salvar configuração salarial</button></div>{msg&&<div className="inline-notice">{msg}</div>}
+    <div className="salary-history-heading"><div><h3>Histórico salarial</h3><p className="helper">Alterações registradas para este colaborador.</p></div><span>{data.salaries.length} registro(s)</span></div><div className="compact-list salary-history">{data.salaries.map((s:any)=><div key={s.id}><b>{brl(s.salary_cents)}</b><span>{s.effective_date} · {s.reason||"Sem observação"}</span></div>)}</div>
   </div>;
 
   return <div className="hr-pane vacation-pane"><div className="vacation-heading"><div><h3>Gestão de férias</h3><p className="helper">Apuração orientada pelos arts. 130, 133, 134, 143 e 145 da CLT.</p></div><span className="legal-badge">Cálculo assistido</span></div>{alerts.length>0&&<div className="vacation-alert"><b>⚠ Férias exigem programação</b><span>Há período vencido ou a até quatro meses do fim do período concessivo.</span></div>}
