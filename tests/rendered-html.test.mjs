@@ -80,6 +80,8 @@ test("uses the Brazilian monetary input across financial registrations", async (
   assert.match(currency, /minimumFractionDigits: 2/);
   assert.match(currency, /maximumFractionDigits: 2/);
   assert.match(currency, /currency-tight/);
+  assert.match(currency, /const controlled = value !== undefined/);
+  assert.match(currency, /controlled \? String\(value \|\| ""\) : internal/);
   for (const file of ["worker-hr-tabs.tsx", "launches-module.tsx", "unions-module.tsx", "registrations-module.tsx", "inventory-module.tsx"]) {
     const source = await readFile(new URL(`../app/${file}`, import.meta.url), "utf8");
     assert.match(source, /CurrencyInput/);

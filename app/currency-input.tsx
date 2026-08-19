@@ -35,19 +35,20 @@ type Props = Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "value" | "onC
   onValueChange?: (value: string) => void;
 };
 
-export default function CurrencyInput({ value = "", name, onValueChange, className = "", ...props }: Props) {
+export default function CurrencyInput({ value, name, onValueChange, className = "", ...props }: Props) {
   const [focused, setFocused] = useState(false);
   const [draft, setDraft] = useState("");
+  const controlled = value !== undefined;
   const [internal, setInternal] = useState(String(value || ""));
   const inputRef = useRef<HTMLInputElement>(null);
-  const current = onValueChange ? String(value || "") : internal;
+  const current = controlled ? String(value || "") : internal;
   useEffect(() => { if (!focused) setDraft(formatBrazilianMoney(current)); }, [current, focused]);
-  useEffect(() => { const form=inputRef.current?.form;if(!form||onValueChange)return;const reset=()=>setInternal("");form.addEventListener("reset",reset);return()=>form.removeEventListener("reset",reset); }, [onValueChange]);
+  useEffect(() => { const form=inputRef.current?.form;if(!form||controlled)return;const reset=()=>setInternal("");form.addEventListener("reset",reset);return()=>form.removeEventListener("reset",reset); }, [controlled]);
   const shown = focused ? draft : formatBrazilianMoney(current);
   const size = shown.length > 17 ? "currency-tight" : shown.length > 12 ? "currency-compact" : "";
   return <><input {...props} ref={inputRef} type="text" inputMode="decimal" autoComplete="off" className={`currency-input ${size} ${className}`.trim()} value={shown}
     onFocus={e => { setFocused(true); setDraft(formatBrazilianMoney(current)); props.onFocus?.(e); }}
-    onChange={e => { const parsed=parseBrazilianMoney(e.target.value);setDraft(e.target.value);if(onValueChange)onValueChange(parsed);else setInternal(parsed); }}
+    onChange={e => { const parsed=parseBrazilianMoney(e.target.value);setDraft(e.target.value);if(controlled)onValueChange?.(parsed);else setInternal(parsed); }}
     onBlur={e => { setFocused(false); setDraft(formatBrazilianMoney(parseBrazilianMoney(e.target.value))); props.onBlur?.(e); }} />
     {name&&<input type="hidden" name={name} value={current}/>}</>;
 }
