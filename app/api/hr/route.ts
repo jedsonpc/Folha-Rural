@@ -11,6 +11,14 @@ const tenant = (r: Request) =>
 const money = (v: unknown) =>
   Math.max(0, Math.round(Number(String(v ?? 0).replace(",", ".")) * 100));
 const validDate = (v: unknown) => /^\d{4}-\d{2}-\d{2}$/.test(String(v || ""));
+const vacationEntitlement = (absences: number, lossReason: unknown) => {
+  if (String(lossReason || "").trim()) return 0;
+  if (absences <= 5) return 30;
+  if (absences <= 14) return 24;
+  if (absences <= 23) return 18;
+  if (absences <= 32) return 12;
+  return 0;
+};
 
 export async function GET(r: Request) {
   const access = await authorizeCloud(r, "Cadastros");
@@ -21,12 +29,13 @@ export async function GET(r: Request) {
     const db = getRuntimeDatabase(), t = tenant(r), url = new URL(r.url);
     const contractId = Number(url.searchParams.get("contractId") || 0);
     if (contractId) {
-      const [profile, salaries, vacations] = await Promise.all([
+      const [profile, salaries, vacations, contract] = await Promise.all([
         db.prepare("SELECT * FROM worker_payroll_profiles WHERE tenant_id=? AND contract_id=?").bind(t, contractId).first(),
         db.prepare("SELECT * FROM salary_history WHERE tenant_id=? AND contract_id=? ORDER BY effective_date DESC,id DESC").bind(t, contractId).all(),
         db.prepare("SELECT * FROM vacation_periods WHERE tenant_id=? AND contract_id=? ORDER BY accrual_start DESC,id DESC").bind(t, contractId).all(),
+        db.prepare("SELECT id,admission_date,status FROM employment_contracts WHERE tenant_id=? AND id=?").bind(t, contractId).first(),
       ]);
-      return Response.json({ profile, salaries: salaries.results, vacations: vacations.results });
+      return Response.json({ profile, salaries: salaries.results, vacations: vacations.results, contract });
     }
     const [functions, centers, references, items, issues, workers] = await Promise.all([
       db.prepare("SELECT f.*,(SELECT COUNT(*) FROM employment_contracts c WHERE c.tenant_id=f.tenant_id AND c.role=COALESCE(NULLIF(f.local_description,''),f.official_description)) usage_count FROM job_functions f WHERE tenant_id=? ORDER BY official_description").bind(t).all(),
@@ -51,7 +60,7 @@ export async function POST(r: Request) {
     const db = getRuntimeDatabase(), t = tenant(r), b = await r.json() as Record<string, unknown>;
     const action = String(b.action || "");
     if (action === "saveProfile") {
-      const contractId=Number(b.contractId), salary=money(b.baseSalary), daily=b.dailyRate ? money(b.dailyRate) : Math.round(salary/30);
+      const contractId=Number(b.contractId), salary=money(b.baseSalary), daily=Math.round(salary/30);
       if (!contractId || !salary) return Response.json({error:"Informe o salário-base."},{status:400});
       await db.prepare(`INSERT INTO worker_payroll_profiles (tenant_id,contract_id,employment_link_code,employment_link_description,contract_term,salary_type,base_salary_cents,daily_rate_cents,advance_rate_basis_points,updated_at)
         VALUES (?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(tenant_id,contract_id) DO UPDATE SET salary_type=excluded.salary_type,base_salary_cents=excluded.base_salary_cents,daily_rate_cents=excluded.daily_rate_cents,advance_rate_basis_points=excluded.advance_rate_basis_points,updated_at=CURRENT_TIMESTAMP`)
@@ -59,8 +68,11 @@ export async function POST(r: Request) {
       if (validDate(b.effectiveDate)) await db.prepare("INSERT INTO salary_history (tenant_id,contract_id,effective_date,salary_cents,reason,source) VALUES (?,?,?,?,?,'individual')").bind(t,contractId,b.effectiveDate,salary,String(b.reason||"Cadastro/alteração salarial")).run();
     } else if (action === "saveVacation") {
       if (![b.accrualStart,b.accrualEnd,b.concessionDeadline].every(validDate)) return Response.json({error:"Informe o período aquisitivo e o prazo concessivo."},{status:400});
+      const absences=Math.max(0,Number(b.unjustifiedAbsences)||0),days=vacationEntitlement(absences,b.lossReason);
+      if (!days) return Response.json({error:"O período está sem direito a férias pelas faltas ou ocorrência informada. Registre a data de retorno como início de um novo período aquisitivo."},{status:400});
+      const soldDays=Math.min(Math.floor(days/3),Math.max(0,Number(b.soldDays)||0));
       await db.prepare("INSERT INTO vacation_periods (tenant_id,contract_id,accrual_start,accrual_end,concession_deadline,scheduled_start,scheduled_end,days,sold_days,payment_date,status,notes,settled_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)")
-        .bind(t,Number(b.contractId),b.accrualStart,b.accrualEnd,b.concessionDeadline,b.scheduledStart||null,b.scheduledEnd||null,Number(b.days)||30,Number(b.soldDays)||0,b.paymentDate||null,String(b.status||"pending"),String(b.notes||""),b.status==="paid"?new Date().toISOString():null).run();
+        .bind(t,Number(b.contractId),b.accrualStart,b.accrualEnd,b.concessionDeadline,b.scheduledStart||null,b.scheduledEnd||null,days,soldDays,b.paymentDate||null,String(b.status||"pending"),String(b.notes||""),b.status==="paid"?new Date().toISOString():null).run();
     } else if (action === "saveFunction") {
       if (!String(b.cboCode||"").trim() || !String(b.officialDescription||"").trim()) return Response.json({error:"Informe o CBO e a descrição oficial."},{status:400});
       if (b.id) await db.prepare("UPDATE job_functions SET cbo_code=?,official_description=?,local_description=?,active=? WHERE tenant_id=? AND id=?").bind(b.cboCode,b.officialDescription,b.localDescription||null,b.active!==false,t,Number(b.id)).run();
@@ -123,7 +135,7 @@ async function cloudHrGet(request: Request, user: CloudUser | null) {
     const contractId = String(url.searchParams.get("contractId") || "");
     if (contractId) {
       const contracts = await supabaseAdmin.get<CloudRow[]>(
-        `/rest/v1/employment_contracts?select=id,companies!inner(legacy_id)&id=eq.${contractId}&organization_id=eq.${config.organizationId}${allowedCompanyFilter(user)}&limit=1`,
+        `/rest/v1/employment_contracts?select=id,admission_date,status,companies!inner(legacy_id)&id=eq.${contractId}&organization_id=eq.${config.organizationId}${allowedCompanyFilter(user)}&limit=1`,
       );
       if (!contracts.length)
         return Response.json(
@@ -145,6 +157,7 @@ async function cloudHrGet(request: Request, user: CloudUser | null) {
         profile: profiles[0] || null,
         salaries,
         vacations,
+        contract: contracts[0] || null,
         dataSource: "supabase",
       });
     }
@@ -335,9 +348,7 @@ async function cloudHrPost(request: Request, user: CloudUser | null) {
             { status: 400 },
           );
         payload.baseSalaryCents = baseSalaryCents;
-        payload.dailyRateCents = body.dailyRate
-          ? money(body.dailyRate)
-          : Math.round(baseSalaryCents / 30);
+        payload.dailyRateCents = Math.round(baseSalaryCents / 30);
         payload.advanceRateBasisPoints = Math.round(
           Number(body.advanceRate || 40) * 100,
         );
@@ -352,6 +363,18 @@ async function cloudHrPost(request: Request, user: CloudUser | null) {
             { error: "Informe o período aquisitivo e o prazo concessivo." },
             { status: 400 },
           );
+        const absences = Math.max(0, Number(body.unjustifiedAbsences) || 0);
+        const days = vacationEntitlement(absences, body.lossReason);
+        if (!days)
+          return Response.json(
+            { error: "O período está sem direito a férias pelas faltas ou ocorrência informada. Registre a data de retorno como início de um novo período aquisitivo." },
+            { status: 400 },
+          );
+        payload.days = days;
+        payload.soldDays = Math.min(
+          Math.floor(days / 3),
+          Math.max(0, Number(body.soldDays) || 0),
+        );
       } else if (action === "saveReference") {
         const valueCents = money(body.value);
         if (!validDate(body.effectiveDate) || !valueCents)

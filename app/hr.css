@@ -8,3 +8,15 @@
 .cbo-results button{display:grid;grid-template-columns:90px 1fr;gap:12px;text-align:left;padding:10px;border:0;border-radius:8px;background:#f5f8f6;cursor:pointer}
 .cbo-results button:hover{background:#e7f2eb}.cbo-results span{color:#34483b}
 @media(max-width:800px){.registrations-module{display:block}.registration-tabs{flex-direction:row;overflow:auto;margin-bottom:18px}.registration-tabs button{white-space:nowrap}}
+.field-help{display:block;margin-top:5px;color:#617067;font-size:.78rem;line-height:1.35;font-weight:500}
+.vacation-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.legal-badge{display:inline-flex;align-items:center;border:1px solid #bfd2c5;border-radius:999px;padding:6px 10px;background:#eef6f0;color:#28523a;font-size:.78rem;font-weight:700}
+.vacation-step{margin:14px 0;padding:16px;border:1px solid #d9e2dc;border-radius:12px;background:#fbfcfb}
+.vacation-step-title{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.vacation-step-title>span{display:grid;place-items:center;flex:0 0 30px;height:30px;border-radius:50%;background:#1f5b3b;color:#fff;font-weight:800}
+.vacation-step-title div{display:grid;gap:2px}.vacation-step-title small{color:#617067}
+.vacation-entitlement{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:12px 0 0;padding:12px 14px;border-left:4px solid #d89b25;border-radius:8px;background:#fff6df;color:#573d0b}
+.vacation-entitlement strong{font-size:1.15rem;white-space:nowrap}
+.vacation-check{display:flex!important;align-items:flex-start;gap:9px;padding-top:27px}.vacation-check input{width:auto;margin-top:2px}
+.legal-notice{margin:14px 0;padding:12px 14px;border-radius:9px;background:#eef3ef;color:#46564b;font-size:.86rem;line-height:1.45}
+@media(max-width:800px){.vacation-step{padding:12px}.vacation-entitlement{align-items:flex-start;flex-direction:column}.vacation-check{padding-top:8px}}

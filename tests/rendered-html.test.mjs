@@ -49,3 +49,27 @@ test("keeps the edited service nature when saving", async () => {
   assert.match(route, /normalizeNature\(b\.entryType \?\? b\.nature\)/);
   assert.match(route, /normalizeNature\(body\.entryType \?\? body\.nature\)/);
 });
+
+test("calculates the employee daily rate from the monthly salary", async () => {
+  const tabs = await readFile(new URL("../app/worker-hr-tabs.tsx", import.meta.url), "utf8");
+  const route = await readFile(new URL("../app/api/hr/route.ts", import.meta.url), "utf8");
+  assert.match(tabs, /Valor da diária \(salário ÷ 30\)/);
+  assert.match(tabs, /Number\(salary\.baseSalary\)\/30/);
+  assert.match(tabs, /readOnly/);
+  assert.match(route, /Math\.round\(salary\/30\)/);
+  assert.match(route, /Math\.round\(baseSalaryCents \/ 30\)/);
+});
+
+test("applies the statutory vacation entitlement bands", async () => {
+  const tabs = await readFile(new URL("../app/worker-hr-tabs.tsx", import.meta.url), "utf8");
+  const route = await readFile(new URL("../app/api/hr/route.ts", import.meta.url), "utf8");
+  for (const source of [tabs, route]) {
+    assert.match(source, /absences\s*<=\s*5\)\s*return 30/);
+    assert.match(source, /absences\s*<=\s*14\)\s*return 24/);
+    assert.match(source, /absences\s*<=\s*23\)\s*return 18/);
+    assert.match(source, /absences\s*<=\s*32\)\s*return 12/);
+  }
+  assert.match(tabs, /Limite do período concessivo/);
+  assert.match(tabs, /Até 2 dias antes do início das férias/);
+  assert.match(tabs, /Math\.floor\(days\/3\)/);
+});
