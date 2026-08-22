@@ -105,7 +105,15 @@ export async function cloudDataGet(user: CloudUser | null) {
             )
           : Promise.resolve([]),
       ]);
-    const contracts = contractRows.map(contractResponse);
+    const motherByPerson = new Map(
+      dependentRows
+        .filter((row) => row.dependent_type === "mother" && String(row.name || "").trim())
+        .map((row) => [row.person_id, String(row.name).trim()]),
+    );
+    const contracts = contractRows.map(contractResponse).map((contract) => ({
+      ...contract,
+      motherName: contract.motherName || motherByPerson.get(contract.personId) || null,
+    }));
     const visiblePeople = new Set(contracts.map((row) => row.personId));
     return Response.json(
       {

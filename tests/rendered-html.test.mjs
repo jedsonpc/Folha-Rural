@@ -18,7 +18,7 @@ test("keeps the installable app metadata and update worker", async () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
   assert.match(serviceWorker, /SKIP_WAITING/);
-  assert.match(serviceWorker, /folha-rural-shell-v24-pais-sem-cpf/);
+  assert.match(serviceWorker, /folha-rural-shell-v25-mae-sincronizada/);
   assert.match(serviceWorker, /skipWaiting/);
 });
 
@@ -115,4 +115,15 @@ test("allows father and mother dependents without CPF", async () => {
     assert.match(source, /LEGACY-DEP:PARENT:/);
     assert.match(source, /!parentWithoutCpf && !isValidCpf/);
   }
+});
+
+test("uses a registered mother dependent to clear the worker mother-name issue", async () => {
+  const route = await readFile(new URL("../app/api/data/route.ts", import.meta.url), "utf8");
+  const cloud = await readFile(new URL("../app/api/data/cloud.ts", import.meta.url), "utf8");
+  for (const source of [route, cloud]) {
+    assert.match(source, /motherByPerson/);
+    assert.match(source, /motherName: contract\.motherName \|\| motherByPerson\.get/);
+  }
+  const badge = await readFile(new URL("../app/version-badge.css", import.meta.url), "utf8");
+  assert.match(badge, /v1\.4\.17/);
 });

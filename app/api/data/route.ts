@@ -158,12 +158,21 @@ export async function GET(request: Request) {
         : companyRows.filter((company) =>
             allowedCompanies.includes(company.sourceId),
           );
-    const visibleContracts =
+    const scopedContracts =
       allowedCompanies == null
         ? contracts
         : contracts.filter((contract) =>
             allowedCompanies.includes(contract.companySourceId),
           );
+    const motherByPerson = new Map(
+      (dependentRows || [])
+        .filter((row) => row.dependentType === "mother" && String(row.name || "").trim())
+        .map((row) => [row.personId, String(row.name).trim()]),
+    );
+    const visibleContracts = scopedContracts.map((contract) => ({
+      ...contract,
+      motherName: contract.motherName || motherByPerson.get(contract.personId) || null,
+    }));
     const visiblePeople = new Set(
       visibleContracts.map((contract) => contract.personId),
     );
