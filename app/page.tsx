@@ -53,6 +53,7 @@ const navGroups = [
         ["EM", "Empresas"],
         ["CL", "Colaboradores"],
         ["FN", "Funções"],
+        ["VI", "Vínculos"],
         ["SV", "Serviços"],
         ["ES", "Evolução salarial"],
         ["RS", "Reajuste salarial"],
@@ -339,6 +340,7 @@ export default function Home() {
           {navGroups.map((group) => {
             const registrationItems = [
               "Funções",
+              "Vínculos",
               "Evolução salarial",
               "Reajuste salarial",
               "Centros de custo",
@@ -551,6 +553,7 @@ export default function Home() {
             <CompaniesModule onChanged={loadCompanies} />
           ) : [
               "Funções",
+              "Vínculos",
               "Evolução salarial",
               "Reajuste salarial",
               "Centros de custo",

@@ -37,15 +37,16 @@ export async function GET(r: Request) {
       ]);
       return Response.json({ profile, salaries: salaries.results, vacations: vacations.results, contract });
     }
-    const [functions, centers, references, items, issues, workers] = await Promise.all([
+    const [functions, links, centers, references, items, issues, workers] = await Promise.all([
       db.prepare("SELECT f.*,(SELECT COUNT(*) FROM employment_contracts c WHERE c.tenant_id=f.tenant_id AND c.role=COALESCE(NULLIF(f.local_description,''),f.official_description)) usage_count FROM job_functions f WHERE tenant_id=? ORDER BY official_description").bind(t).all(),
+      db.prepare("SELECT l.*,(SELECT COUNT(*) FROM employment_contracts c WHERE c.tenant_id=l.tenant_id AND c.employment_link_code=l.code) usage_count FROM employment_links l WHERE tenant_id=? ORDER BY code").bind(t).all(),
       db.prepare("SELECT c.*,(SELECT COUNT(*) FROM services s WHERE s.tenant_id=c.tenant_id AND s.group_source_id=c.id) usage_count FROM cost_centers c WHERE tenant_id=? ORDER BY description").bind(t).all(),
       db.prepare("SELECT * FROM salary_references WHERE tenant_id=? ORDER BY effective_date DESC,id DESC").bind(t).all(),
       db.prepare("SELECT s.*,(SELECT COUNT(*) FROM item_issues i WHERE i.item_id=s.id) usage_count FROM safety_items s WHERE tenant_id=? ORDER BY item_type,description").bind(t).all(),
       db.prepare("SELECT i.*,s.description item_description,p.name worker_name FROM item_issues i JOIN safety_items s ON s.id=i.item_id JOIN employment_contracts c ON c.id=i.contract_id JOIN people p ON p.id=c.person_id WHERE i.tenant_id=? ORDER BY i.issue_date DESC,i.id DESC").bind(t).all(),
       db.prepare("SELECT c.id,p.name,c.role FROM employment_contracts c JOIN people p ON p.id=c.person_id WHERE c.tenant_id=? AND c.status='active' ORDER BY p.name").bind(t).all(),
     ]);
-    return Response.json({ functions:functions.results, centers:centers.results, references:references.results, items:items.results, issues:issues.results, workers:workers.results });
+    return Response.json({ functions:functions.results, links:links.results, centers:centers.results, references:references.results, items:items.results, issues:issues.results, workers:workers.results });
   } catch (e) {
     return Response.json({ error: e instanceof Error ? e.message : "Falha ao consultar cadastros." }, { status: 500 });
   }
@@ -77,6 +78,11 @@ export async function POST(r: Request) {
       if (!String(b.cboCode||"").trim() || !String(b.officialDescription||"").trim()) return Response.json({error:"Informe o CBO e a descrição oficial."},{status:400});
       if (b.id) await db.prepare("UPDATE job_functions SET cbo_code=?,official_description=?,local_description=?,active=? WHERE tenant_id=? AND id=?").bind(b.cboCode,b.officialDescription,b.localDescription||null,b.active!==false,t,Number(b.id)).run();
       else await db.prepare("INSERT INTO job_functions (tenant_id,cbo_code,official_description,local_description) VALUES (?,?,?,?)").bind(t,b.cboCode,b.officialDescription,b.localDescription||null).run();
+    } else if (action === "saveLink") {
+      const code=String(b.code||"").trim(), description=String(b.description||"").trim();
+      if (!code || !description) return Response.json({error:"Informe o código e a descrição do vínculo."},{status:400});
+      if (b.id) await db.prepare("UPDATE employment_links SET code=?,description=?,active=? WHERE tenant_id=? AND id=?").bind(code,description,b.active!==false,t,Number(b.id)).run();
+      else await db.prepare("INSERT INTO employment_links (tenant_id,code,description) VALUES (?,?,?)").bind(t,code,description).run();
     } else if (action === "saveCenter") {
       if (!String(b.description||"").trim()) return Response.json({error:"Informe a descrição."},{status:400});
       if (b.id) await db.prepare("UPDATE cost_centers SET description=?,active=? WHERE tenant_id=? AND id=?").bind(b.description,b.active!==false,t,Number(b.id)).run();
@@ -107,9 +113,10 @@ export async function POST(r: Request) {
       for(const x of batches.results){const histories=await db.prepare("SELECT DISTINCT contract_id FROM salary_history WHERE tenant_id=? AND adjustment_batch_id=?").bind(t,x.id).all<{contract_id:number}>();await db.prepare("DELETE FROM salary_history WHERE tenant_id=? AND adjustment_batch_id=?").bind(t,x.id).run();for(const h of histories.results){const prev=await db.prepare("SELECT salary_cents FROM salary_history WHERE tenant_id=? AND contract_id=? ORDER BY effective_date DESC,id DESC LIMIT 1").bind(t,h.contract_id).first<{salary_cents:number}>();if(prev)await db.prepare("UPDATE worker_payroll_profiles SET base_salary_cents=?,daily_rate_cents=ROUND(?/30.0),updated_at=CURRENT_TIMESTAMP WHERE tenant_id=? AND contract_id=?").bind(prev.salary_cents,prev.salary_cents,t,h.contract_id).run();}await db.prepare("UPDATE salary_adjustment_batches SET status='undone' WHERE tenant_id=? AND id=?").bind(t,x.id).run();}
       return Response.json({ok:true,message:`${batches.results.length} reajuste(s) desfeito(s).`});
     } else if (action === "delete") {
-      const table = {function:"job_functions",center:"cost_centers",item:"safety_items",reference:"salary_references"}[String(b.entity)];
+      const table = {function:"job_functions",link:"employment_links",center:"cost_centers",item:"safety_items",reference:"salary_references"}[String(b.entity)];
       if (!table) return Response.json({error:"Cadastro inválido."},{status:400});
-      const usage = table==="job_functions" ? await db.prepare("SELECT 1 FROM daily_entries d JOIN employment_contracts c ON c.id=d.contract_id JOIN job_functions f ON f.tenant_id=c.tenant_id AND c.role=COALESCE(NULLIF(f.local_description,''),f.official_description) WHERE f.tenant_id=? AND f.id=? LIMIT 1").bind(t,Number(b.id)).first()
+      const usage = table==="job_functions" ? await db.prepare("SELECT 1 FROM employment_contracts c JOIN job_functions f ON f.tenant_id=c.tenant_id AND c.role=COALESCE(NULLIF(f.local_description,''),f.official_description) WHERE f.tenant_id=? AND f.id=? LIMIT 1").bind(t,Number(b.id)).first()
+        : table==="employment_links" ? await db.prepare("SELECT 1 FROM employment_contracts c JOIN employment_links l ON l.tenant_id=c.tenant_id AND c.employment_link_code=l.code WHERE l.tenant_id=? AND l.id=? LIMIT 1").bind(t,Number(b.id)).first()
         : table==="cost_centers" ? await db.prepare("SELECT 1 FROM services WHERE tenant_id=? AND group_source_id=? LIMIT 1").bind(t,Number(b.id)).first()
         : table==="safety_items" ? await db.prepare("SELECT 1 FROM item_issues WHERE tenant_id=? AND item_id=? LIMIT 1").bind(t,Number(b.id)).first() : null;
       if (usage) return Response.json({error:"O registro possui vínculos e não pode ser excluído."},{status:409});
@@ -162,13 +169,16 @@ async function cloudHrGet(request: Request, user: CloudUser | null) {
       });
     }
 
-    const [functions, contracts, references, centers, services, items, issues] =
+    const [functions, links, contracts, references, centers, services, items, issues] =
       await Promise.all([
       supabaseAdmin.get<CloudRow[]>(
         `/rest/v1/job_functions?select=*&organization_id=eq.${config.organizationId}&order=official_description.asc`,
       ),
       supabaseAdmin.get<CloudRow[]>(
-        `/rest/v1/employment_contracts?select=id,role_name,status,people(full_name),companies!inner(legacy_id)&organization_id=eq.${config.organizationId}${allowedCompanyFilter(user)}&order=created_at.asc`,
+        `/rest/v1/employment_links?select=*&organization_id=eq.${config.organizationId}&order=code.asc`,
+      ),
+      supabaseAdmin.get<CloudRow[]>(
+        `/rest/v1/employment_contracts?select=id,role_name,employment_link_code,status,people(full_name),companies!inner(legacy_id)&organization_id=eq.${config.organizationId}${allowedCompanyFilter(user)}&order=created_at.asc`,
       ),
       supabaseAdmin.get<CloudRow[]>(
         `/rest/v1/salary_references?select=*&organization_id=eq.${config.organizationId}&order=effective_date.desc,created_at.desc`,
@@ -198,6 +208,10 @@ async function cloudHrGet(request: Request, user: CloudUser | null) {
           usage.get(
             String(row.local_description || row.official_description),
           ) || 0,
+      })),
+      links: links.map((row) => ({
+        ...row,
+        usage_count: contracts.filter((contract) => contract.employment_link_code === row.code).length,
       })),
       centers: centers.map((row) => ({
         ...row,
@@ -283,9 +297,9 @@ async function cloudHrPost(request: Request, user: CloudUser | null) {
         );
       else
         savedRows = await supabaseAdmin.post<CloudRow[]>(
-          "/rest/v1/job_functions?on_conflict=organization_id,cbo_code",
+          "/rest/v1/job_functions",
           values,
-          { prefer: "resolution=merge-duplicates,return=representation" },
+          { prefer: "return=representation" },
         );
       if (!savedRows?.length)
         return Response.json(
@@ -310,16 +324,11 @@ async function cloudHrPost(request: Request, user: CloudUser | null) {
             `/rest/v1/employment_contracts?select=id&organization_id=eq.${config.organizationId}&role_name=eq.${encodeURIComponent(role)}`,
           )
         : [];
-      const launched = linkedContracts.length
-        ? await supabaseAdmin.get<Array<{ id: string }>>(
-            `/rest/v1/daily_entries?select=id&organization_id=eq.${config.organizationId}&contract_id=in.(${linkedContracts.map((contract) => contract.id).join(",")})&limit=1`,
-          )
-        : [];
-      if (launched.length)
+      if (linkedContracts.length)
         return Response.json(
           {
             error:
-              "A função está vinculada a colaborador com lançamentos e não pode ser excluída.",
+              "A função está vinculada a colaborador e não pode ser excluída.",
           },
           { status: 409 },
         );
@@ -327,6 +336,23 @@ async function cloudHrPost(request: Request, user: CloudUser | null) {
         `/rest/v1/job_functions?id=eq.${body.id}&organization_id=eq.${config.organizationId}`,
       );
       return Response.json({ ok: true, message: "Função excluída." });
+    }
+    if (action === "saveLink") {
+      const code=String(body.code||"").trim(), description=String(body.description||"").trim();
+      if (!code||!description) return Response.json({error:"Informe o código e a descrição do vínculo."},{status:400});
+      const values={organization_id:config.organizationId,code,description,active:body.active!==false};
+      const saved=body.id
+        ? await supabaseAdmin.patch<CloudRow[]>(`/rest/v1/employment_links?id=eq.${body.id}&organization_id=eq.${config.organizationId}`,values,{prefer:"return=representation"})
+        : await supabaseAdmin.post<CloudRow[]>("/rest/v1/employment_links",values,{prefer:"return=representation"});
+      if(!saved?.length)return Response.json({error:"O Supabase não confirmou a gravação do vínculo."},{status:502});
+      return Response.json({ok:true,message:"Vínculo salvo com sucesso.",link:saved[0]});
+    }
+    if(action==="delete"&&body.entity==="link"){
+      const rows=await supabaseAdmin.get<CloudRow[]>(`/rest/v1/employment_links?select=code&organization_id=eq.${config.organizationId}&id=eq.${body.id}&limit=1`);
+      const linked=rows[0]?.code?await supabaseAdmin.get<CloudRow[]>(`/rest/v1/employment_contracts?select=id&organization_id=eq.${config.organizationId}&employment_link_code=eq.${encodeURIComponent(rows[0].code)}&limit=1`):[];
+      if(linked.length)return Response.json({error:"O vínculo está associado a colaborador e não pode ser excluído."},{status:409});
+      await supabaseAdmin.delete(`/rest/v1/employment_links?id=eq.${body.id}&organization_id=eq.${config.organizationId}`);
+      return Response.json({ok:true,message:"Vínculo excluído."});
     }
 
     if (

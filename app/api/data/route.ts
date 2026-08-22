@@ -40,7 +40,6 @@ export async function GET(request: Request) {
       companyRows,
       contracts,
       personTotals,
-      reviewTotals,
       imports,
       dependentRows,
       unionRows,
@@ -129,10 +128,6 @@ export async function GET(request: Request) {
         .from(people)
         .where(eq(people.tenantId, tenantId)),
       db
-        .select({ value: count() })
-        .from(people)
-        .where(and(eq(people.tenantId, tenantId), eq(people.needsReview, true))),
-      db
         .select()
         .from(importRuns)
         .where(eq(importRuns.tenantId, tenantId))
@@ -150,7 +145,6 @@ export async function GET(request: Request) {
         .orderBy(asc(unions.description)),
     ]);
     const [personTotal] = personTotals;
-    const [reviewTotal] = reviewTotals;
     const allowedCompanies = access.user?.companyIds;
     const visibleCompanies =
       allowedCompanies == null
@@ -186,10 +180,11 @@ export async function GET(request: Request) {
           contracts: visibleContracts.length,
           active: visibleContracts.filter((row) => row.status === "active")
             .length,
-          review:
-            allowedCompanies == null
-              ? reviewTotal.value
-              : visibleContracts.filter((row) => row.needsReview).length,
+          review: new Set(
+            visibleContracts
+              .filter((row) => row.status === "active" && row.needsReview)
+              .map((row) => row.personId),
+          ).size,
         },
         imports: allowedCompanies == null ? imports : [],
         dependents: (dependentRows || []).map((row) => ({

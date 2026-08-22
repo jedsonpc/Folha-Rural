@@ -2,7 +2,7 @@
   position: relative;
 }
 .terra-brand:after {
-  content: "v1.4.17";
+  content: "v1.4.18";
   position: absolute;
   right: 10px;
   bottom: -5px;

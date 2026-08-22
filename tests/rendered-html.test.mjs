@@ -18,7 +18,7 @@ test("keeps the installable app metadata and update worker", async () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
   assert.match(serviceWorker, /SKIP_WAITING/);
-  assert.match(serviceWorker, /folha-rural-shell-v25-mae-sincronizada/);
+  assert.match(serviceWorker, /folha-rural-shell-v26-cadastros-sincronizados/);
   assert.match(serviceWorker, /skipWaiting/);
 });
 
@@ -125,5 +125,26 @@ test("uses a registered mother dependent to clear the worker mother-name issue",
     assert.match(source, /motherName: contract\.motherName \|\| motherByPerson\.get/);
   }
   const badge = await readFile(new URL("../app/version-badge.css", import.meta.url), "utf8");
-  assert.match(badge, /v1\.4\.17/);
+  assert.match(badge, /v1\.4\.18/);
+});
+
+test("keeps worker saves, termination dates and review alerts synchronized", async () => {
+  const data = await readFile(new URL("../app/data-module.tsx", import.meta.url), "utf8");
+  const review = await readFile(new URL("../app/worker-review.ts", import.meta.url), "utf8");
+  assert.match(data, /const profileSaved = await request\("PUT"/);
+  assert.match(data, /terminationDate: r\.terminationDate \|\| ""/);
+  assert.match(data, /Data atual sugerida para o desligamento/);
+  assert.match(data, /activeWorkerNeedsReview/);
+  assert.match(review, /return !terminated && workerNeedsReview/);
+});
+
+test("supports registered employment links and multiple descriptions per CBO", async () => {
+  const data = await readFile(new URL("../app/data-module.tsx", import.meta.url), "utf8");
+  const registrations = await readFile(new URL("../app/registrations-module.tsx", import.meta.url), "utf8");
+  const database = await readFile(new URL("../db/index.ts", import.meta.url), "utf8");
+  const route = await readFile(new URL("../app/api/hr/route.ts", import.meta.url), "utf8");
+  assert.match(data, /EmploymentLinkField/);
+  assert.match(registrations, /saveLink/);
+  assert.match(database, /job_functions_tenant_cbo_description_idx/);
+  assert.match(route, /A função está vinculada a colaborador e não pode ser excluída/);
 });

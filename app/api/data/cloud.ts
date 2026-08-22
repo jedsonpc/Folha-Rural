@@ -139,7 +139,7 @@ export async function cloudDataGet(user: CloudUser | null) {
           active: contracts.filter((row) => row.status === "active").length,
           review: new Set(
             contracts
-              .filter((row) => row.needsReview)
+              .filter((row) => row.status === "active" && row.needsReview)
               .map((row) => row.personId),
           ).size,
         },

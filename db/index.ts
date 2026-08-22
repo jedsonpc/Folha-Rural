@@ -47,7 +47,9 @@ export function ensureDatabase() {
       `CREATE TABLE IF NOT EXISTS local_sessions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL REFERENCES local_users(id), token_hash TEXT NOT NULL, expires_at TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
       `CREATE UNIQUE INDEX IF NOT EXISTS local_sessions_token_idx ON local_sessions (token_hash)`,
       `CREATE TABLE IF NOT EXISTS job_functions (id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id TEXT NOT NULL, cbo_code TEXT NOT NULL, official_description TEXT NOT NULL, local_description TEXT, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
-      `CREATE UNIQUE INDEX IF NOT EXISTS job_functions_tenant_cbo_idx ON job_functions (tenant_id, cbo_code)`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS job_functions_tenant_cbo_description_idx ON job_functions (tenant_id, cbo_code, COALESCE(local_description, official_description))`,
+      `CREATE TABLE IF NOT EXISTS employment_links (id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id TEXT NOT NULL, code TEXT NOT NULL, description TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS employment_links_tenant_code_idx ON employment_links (tenant_id, code)`,
       `CREATE TABLE IF NOT EXISTS cost_centers (id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id TEXT NOT NULL, description TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
       `CREATE TABLE IF NOT EXISTS worker_payroll_profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id TEXT NOT NULL, contract_id INTEGER NOT NULL REFERENCES employment_contracts(id), employment_link_code TEXT, employment_link_description TEXT, contract_term TEXT NOT NULL DEFAULT 'indefinite', salary_type TEXT NOT NULL DEFAULT 'monthly', base_salary_cents INTEGER NOT NULL DEFAULT 0, daily_rate_cents INTEGER, advance_rate_basis_points INTEGER NOT NULL DEFAULT 4000, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
       `CREATE UNIQUE INDEX IF NOT EXISTS worker_payroll_profiles_contract_idx ON worker_payroll_profiles (tenant_id, contract_id)`,
@@ -61,6 +63,8 @@ export function ensureDatabase() {
     schemaReady = runtimeDb
       .batch(statements.map((statement) => runtimeDb!.prepare(statement)))
       .then(async () => {
+        await runtimeDb!.prepare("DROP INDEX IF EXISTS job_functions_tenant_cbo_idx").run();
+        await runtimeDb!.prepare("CREATE UNIQUE INDEX IF NOT EXISTS job_functions_tenant_cbo_description_idx ON job_functions (tenant_id, cbo_code, COALESCE(local_description, official_description))").run();
         const companyInfo = await runtimeDb!
             .prepare("PRAGMA table_info(companies)")
             .all<{ name: string }>(),

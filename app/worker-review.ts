@@ -53,3 +53,9 @@ export function workerReviewIssues(worker: WorkerRecord): WorkerReviewIssue[] {
 
 export const workerNeedsReview = (worker: WorkerRecord) =>
   workerReviewIssues(worker).length > 0;
+
+export const activeWorkerNeedsReview = (worker: WorkerRecord) => {
+  const status = String(worker.status ?? "").trim().toLowerCase();
+  const terminated = ["terminated", "desligado", "inativo", "d", "0"].includes(status) || !empty(worker.terminationDate);
+  return !terminated && workerNeedsReview(worker);
+};

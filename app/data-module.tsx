@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { workerNeedsReview, workerReviewIssues } from "./worker-review";
+import { activeWorkerNeedsReview, workerNeedsReview, workerReviewIssues } from "./worker-review";
 import { isValidCpf } from "./cpf";
 import "./data130.css";
 import "./data134.css";
@@ -113,6 +113,7 @@ type JobFunction = {
   local_description: string | null;
   active: boolean;
 };
+type EmploymentLink = { id: number | string; code: string; description: string; active: boolean };
 const showDate = (v: string | null) =>
   v
     ? new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC" }).format(
@@ -202,7 +203,8 @@ export default function DataModule({
     [sortBy, setSortBy] = useState<"name" | "registration" | "matEs">("name"),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
-    [functions, setFunctions] = useState<JobFunction[]>([]);
+    [functions, setFunctions] = useState<JobFunction[]>([]),
+    [employmentLinks, setEmploymentLinks] = useState<EmploymentLink[]>([]);
   const [admission, setAdmission] = useState<Contract | null>(null),
     [editing, setEditing] = useState<Contract | null>(null),
     [creating, setCreating] = useState(false),
@@ -333,8 +335,11 @@ export default function DataModule({
     load();
     fetch("/api/hr")
       .then((r) => r.json())
-      .then((b) => setFunctions(Array.isArray(b.functions) ? b.functions : []))
-      .catch(() => setFunctions([]));
+      .then((b) => {
+        setFunctions(Array.isArray(b.functions) ? b.functions : []);
+        setEmploymentLinks(Array.isArray(b.links) ? b.links : []);
+      })
+      .catch(() => { setFunctions([]); setEmploymentLinks([]); });
   }, []);
   useEffect(() => {
     setStatus(reviewOnly ? "all" : "active");
@@ -360,7 +365,7 @@ export default function DataModule({
         `${r.name} ${r.cpf || ""} ${r.registrationNumber || ""} ${r.matEs || ""} ${r.legacyCode || ""} ${r.role || ""}`.toLowerCase();
       return (
         (status === "all" || normalizedContractStatus(r) === status) &&
-        (!reviewOnly || workerNeedsReview(r)) &&
+        (!reviewOnly || activeWorkerNeedsReview(r)) &&
         (!term || h.includes(term) || (digits && h.includes(digits)))
       );
     });
@@ -378,7 +383,7 @@ export default function DataModule({
   }, [scoped, search, status, reviewOnly, sortBy]);
   const openAdmission = (r: Contract) => {
     setAdmission(r);
-    setNotice("");
+    setNotice(workerNeedsReview(r) ? "Este colaborador possui pendências cadastrais. Revise a ficha antes de concluir a readmissão." : "");
     setNewForm({
       companySourceId: String(r.companySourceId),
       admissionDate: today(),
@@ -394,7 +399,7 @@ export default function DataModule({
   };
   const openEdit = (r: Contract) => {
     setEditing(r);
-    setTab(workerReviewIssues(r)[0]?.tab || "person");
+    setTab(normalizedContractStatus(r) === "active" ? workerReviewIssues(r)[0]?.tab || "person" : "person");
     setNotice("");
     setForm({
       name: r.name,
@@ -442,7 +447,7 @@ export default function DataModule({
       employmentLinkCode: r.employmentLinkCode || "",
       employmentLinkDescription: r.employmentLinkDescription || "",
       contractTerm: r.contractTerm || "indefinite",
-      terminationDate: today(),
+      terminationDate: r.terminationDate || "",
       paymentType: r.paymentType || "production",
       unionMember: r.unionMember ? "true" : "false",
       unionDiscount: String((r.unionDiscountCents || 0) / 100),
@@ -541,22 +546,20 @@ export default function DataModule({
   };
   const saveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (tab === "salary") {
-      setSaving(true);
-      const saved = await salaryRef.current?.saveSalary();
-      setSaving(false);
-      if (saved) setTimeout(() => setEditing(null), 900);
-      return;
-    }
-    if (
-      editing &&
-      (await request("PUT", {
+    if (!editing) return;
+    const profileSaved = await request("PUT", {
         ...form,
         unionMember: form.unionMember === "true",
         personId: editing.personId,
         contractId: editing.id,
-      }))
-    )
+      });
+    if (!profileSaved) return;
+    if (tab === "salary") {
+      setSaving(true);
+      const salarySaved = await salaryRef.current?.saveSalary();
+      setSaving(false);
+      if (!salarySaved) return;
+    }
       setTimeout(() => setEditing(null), 900);
   };
   const saveCreate = async (e: React.FormEvent) => {
@@ -606,7 +609,13 @@ export default function DataModule({
       });
   };
   const terminate = async () => {
-    if (!editing || !confirm(`Confirma o desligamento de ${editing.name}?`))
+    if (!editing) return;
+    if (!form.terminationDate) {
+      setForm({ ...form, terminationDate: today() });
+      setNotice("Data atual sugerida para o desligamento. Confira e clique novamente em Encerrar contrato.");
+      return;
+    }
+    if (!confirm(`Confirma o desligamento de ${editing.name}?`))
       return;
     if (
       await request("PUT", {
@@ -647,7 +656,7 @@ export default function DataModule({
   const suggestedMatEs = predictedRegistration
     ? String(predictedRegistration).slice(0, 5)
     : "";
-  const currentEditIssues = editing
+  const currentEditIssues = editing && normalizedContractStatus(editing) === "active"
     ? workerReviewIssues({ ...editing, ...form })
     : [];
   if (mode === "Empresas")
@@ -706,7 +715,7 @@ export default function DataModule({
           <span>contratos ativos</span>
         </article>
         <article>
-          <strong>{scoped.filter((r) => workerNeedsReview(r)).length}</strong>
+          <strong>{scoped.filter((r) => activeWorkerNeedsReview(r)).length}</strong>
           <span>cadastros para revisar</span>
         </article>
       </div>
@@ -788,7 +797,7 @@ export default function DataModule({
             </thead>
             <tbody>
               {filtered.slice(0, 250).map((r) => {
-                const issues = workerReviewIssues(r);
+                const issues = normalizedContractStatus(r) === "active" ? workerReviewIssues(r) : [];
                 return (
                 <tr key={r.id} className={issues.length ? "worker-needs-review" : ""}>
                   <td>
@@ -1168,27 +1177,7 @@ export default function DataModule({
                           setCreateForm({ ...createForm, weeklyHours: v })
                         }
                       />
-                      <Field
-                        label="Código do vínculo"
-                        value={createForm.employmentLinkCode}
-                        set={(v) =>
-                          setCreateForm({
-                            ...createForm,
-                            employmentLinkCode: v,
-                          })
-                        }
-                      />
-                      <Field
-                        wide
-                        label="Vínculo"
-                        value={createForm.employmentLinkDescription}
-                        set={(v) =>
-                          setCreateForm({
-                            ...createForm,
-                            employmentLinkDescription: v,
-                          })
-                        }
-                      />
+                      <EmploymentLinkField links={employmentLinks} code={createForm.employmentLinkCode} description={createForm.employmentLinkDescription} set={(employmentLinkCode,employmentLinkDescription)=>setCreateForm({...createForm,employmentLinkCode,employmentLinkDescription})}/>
                       <label>
                         Prazo do contrato
                         <select
@@ -1618,21 +1607,7 @@ export default function DataModule({
                   value={newForm.weeklyHours}
                   set={(v) => setNewForm({ ...newForm, weeklyHours: v })}
                 />
-                <Field
-                  label="Código do vínculo"
-                  value={newForm.employmentLinkCode}
-                  set={(v) =>
-                    setNewForm({ ...newForm, employmentLinkCode: v })
-                  }
-                />
-                <Field
-                  wide
-                  label="Vínculo"
-                  value={newForm.employmentLinkDescription}
-                  set={(v) =>
-                    setNewForm({ ...newForm, employmentLinkDescription: v })
-                  }
-                />
+                <EmploymentLinkField links={employmentLinks} code={newForm.employmentLinkCode} description={newForm.employmentLinkDescription} set={(employmentLinkCode,employmentLinkDescription)=>setNewForm({...newForm,employmentLinkCode,employmentLinkDescription})}/>
                 <label>
                   Prazo do contrato
                   <select
@@ -1979,21 +1954,7 @@ export default function DataModule({
                         value={form.weeklyHours}
                         set={(v) => setForm({ ...form, weeklyHours: v })}
                       />
-                      <Field
-                        label="Código do vínculo"
-                        value={form.employmentLinkCode}
-                        set={(v) =>
-                          setForm({ ...form, employmentLinkCode: v })
-                        }
-                      />
-                      <Field
-                        wide
-                        label="Vínculo"
-                        value={form.employmentLinkDescription}
-                        set={(v) =>
-                          setForm({ ...form, employmentLinkDescription: v })
-                        }
-                      />
+                      <EmploymentLinkField links={employmentLinks} code={form.employmentLinkCode} description={form.employmentLinkDescription} set={(employmentLinkCode,employmentLinkDescription)=>setForm({...form,employmentLinkCode,employmentLinkDescription})}/>
                       <label>
                         Prazo do contrato
                         <select
@@ -2436,6 +2397,10 @@ function FunctionField({
       </label>
     </>
   );
+}
+function EmploymentLinkField({links,code,description,set}:{links:EmploymentLink[];code?:string;description?:string;set:(code:string,description:string)=>void}) {
+  const selected=links.find(link=>link.code===code&&link.description===description)?.id||"";
+  return <><label className="wide">Vínculo<select value={String(selected)} onChange={event=>{const link=links.find(item=>String(item.id)===event.target.value);set(link?.code||"",link?.description||"")}}><option value="">Selecione um vínculo cadastrado…</option>{links.filter(link=>link.active!==false).map(link=><option key={String(link.id)} value={String(link.id)}>{link.code} · {link.description}</option>)}</select></label><label>Código do vínculo<input value={code||""} readOnly placeholder="Preenchido pelo vínculo"/></label></>;
 }
 function Field({
   label,
