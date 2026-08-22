@@ -278,8 +278,11 @@ export async function cloudDataPost(
   try {
     const body = (await request.json()) as Row;
     if (body.action === "saveDependent") {
-      const cpf = cleanCpf(body.cpf);
-      if (!isValidCpf(cpf))
+      const dependentType = String(body.dependentType || ""),
+        informedCpf = cleanCpf(body.cpf),
+        parentWithoutCpf = ["father", "mother"].includes(dependentType) && !informedCpf,
+        cpf = parentWithoutCpf ? `LEGACY-DEP:PARENT:${body.personId}:${dependentType}` : informedCpf;
+      if (!parentWithoutCpf && !isValidCpf(cpf))
         return Response.json(
           { error: "Informe um CPF válido para o dependente." },
           { status: 400 },
@@ -287,7 +290,7 @@ export async function cloudDataPost(
       const payload = {
         organization_id: config.organizationId,
         person_id: body.personId,
-        dependent_type: String(body.dependentType || ""),
+        dependent_type: dependentType,
         name: String(body.name || "").trim(),
         cpf,
         birth_date: body.birthDate || null,

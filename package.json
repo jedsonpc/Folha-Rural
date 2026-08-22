@@ -1,6 +1,6 @@
 {
   "name": "folha-rural",
-  "version": "1.4.15",
+  "version": "1.4.16",
   "private": true,
   "engines": {
     "node": ">=22.13.0"

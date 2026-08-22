@@ -18,7 +18,7 @@ test("keeps the installable app metadata and update worker", async () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
   assert.match(serviceWorker, /SKIP_WAITING/);
-  assert.match(serviceWorker, /folha-rural-shell-v23-culturas-salario/);
+  assert.match(serviceWorker, /folha-rural-shell-v24-pais-sem-cpf/);
   assert.match(serviceWorker, /skipWaiting/);
 });
 
@@ -103,4 +103,16 @@ test("saves salary through the main worker action", async () => {
   assert.match(data, /salaryRef\.current\?\.saveSalary\(\)/);
   assert.match(tabs, /useImperativeHandle\(ref/);
   assert.match(tabs, /saveSalary/);
+});
+
+test("allows father and mother dependents without CPF", async () => {
+  const data = await readFile(new URL("../app/data-module.tsx", import.meta.url), "utf8");
+  const route = await readFile(new URL("../app/api/data/route.ts", import.meta.url), "utf8");
+  const cloud = await readFile(new URL("../app/api/data/cloud.ts", import.meta.url), "utf8");
+  assert.match(data, /CPF \(opcional para pai ou mãe\)/);
+  for (const source of [route, cloud]) {
+    assert.match(source, /\["father", "mother"\]\.includes/);
+    assert.match(source, /LEGACY-DEP:PARENT:/);
+    assert.match(source, /!parentWithoutCpf && !isValidCpf/);
+  }
 });

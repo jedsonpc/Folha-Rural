@@ -495,7 +495,9 @@ export async function POST(request: Request) {
       const personId = Number(body.personId),
         dependentType = String(body.dependentType || ""),
         name = String(body.name || "").trim(),
-        cpf = cleanCpf(body.cpf),
+        informedCpf = cleanCpf(body.cpf),
+        parentWithoutCpf = ["father", "mother"].includes(dependentType) && !informedCpf,
+        cpf = parentWithoutCpf ? `LEGACY-DEP:PARENT:${personId}:${dependentType}` : informedCpf,
         birthDate = String(body.birthDate || "");
       if (
         !personId ||
@@ -507,12 +509,12 @@ export async function POST(request: Request) {
           { error: "Preencha tipo, nome e nascimento do dependente." },
           { status: 400 },
         );
-      if (!isValidCpf(cpf))
+      if (!parentWithoutCpf && !isValidCpf(cpf))
         return Response.json(
           { error: "Informe um CPF válido e obrigatório para o dependente." },
           { status: 400 },
         );
-      const [personCpf] = await db
+      const [personCpf] = parentWithoutCpf ? [] : await db
         .select()
         .from(people)
         .where(and(eq(people.tenantId, tenantId), eq(people.cpf, cpf)))
@@ -522,7 +524,7 @@ export async function POST(request: Request) {
           { error: "Este CPF já pertence a um colaborador." },
           { status: 409 },
         );
-      const [dependentCpf] = await db
+      const [dependentCpf] = parentWithoutCpf ? [] : await db
         .select()
         .from(dependents)
         .where(and(eq(dependents.tenantId, tenantId), eq(dependents.cpf, cpf)))
@@ -706,9 +708,10 @@ export async function POST(request: Request) {
         const dc = cleanCpf(item.cpf),
           dn = String(item.name || "").trim(),
           dt = String(item.dependentType || ""),
+          parentWithoutCpf = ["father", "mother"].includes(dt) && !dc,
           dbirth = String(item.birthDate || "");
         if (
-          !isValidCpf(dc) ||
+          (!parentWithoutCpf && !isValidCpf(dc)) ||
           dn.length < 3 ||
           !dt ||
           !/^\d{4}-\d{2}-\d{2}$/.test(dbirth)
@@ -719,20 +722,20 @@ export async function POST(request: Request) {
             },
             { status: 400 },
           );
-        if (dc === cpf || pendingCpfs.has(dc))
+        if (!parentWithoutCpf && (dc === cpf || pendingCpfs.has(dc)))
           return Response.json(
             {
               error: "Há CPF repetido entre o colaborador e seus dependentes.",
             },
             { status: 400 },
           );
-        pendingCpfs.add(dc);
-        const [personUsed] = await db
+        if (!parentWithoutCpf) pendingCpfs.add(dc);
+        const [personUsed] = parentWithoutCpf ? [] : await db
             .select()
             .from(people)
             .where(and(eq(people.tenantId, tenantId), eq(people.cpf, dc)))
             .limit(1),
-          [dependentUsed] = await db
+          [dependentUsed] = parentWithoutCpf ? [] : await db
             .select()
             .from(dependents)
             .where(
@@ -944,12 +947,14 @@ export async function POST(request: Request) {
         ? (body.dependents as Array<Record<string, unknown>>)
         : [];
       for (const item of newDependents) {
-        const dependentCpf = cleanCpf(item.cpf),
+        const informedDependentCpf = cleanCpf(item.cpf),
           dependentType = String(item.dependentType || ""),
+          parentWithoutCpf = ["father", "mother"].includes(dependentType) && !informedDependentCpf,
+          dependentCpf = parentWithoutCpf ? `LEGACY-DEP:PARENT:${person.id}:${dependentType}` : informedDependentCpf,
           dependentName = String(item.name || "").trim(),
           dependentBirth = String(item.birthDate || "");
         if (
-          !isValidCpf(dependentCpf) ||
+          (!parentWithoutCpf && !isValidCpf(dependentCpf)) ||
           !dependentType ||
           dependentName.length < 3 ||
           !/^\d{4}-\d{2}-\d{2}$/.test(dependentBirth)
@@ -960,7 +965,7 @@ export async function POST(request: Request) {
             },
             { status: 400 },
           );
-        if (dependentCpf === cpf)
+        if (!parentWithoutCpf && dependentCpf === cpf)
           return Response.json(
             { error: "O dependente não pode usar o mesmo CPF do colaborador." },
             { status: 400 },

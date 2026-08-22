@@ -1403,7 +1403,7 @@ export default function DataModule({
                             }
                           />
                           <Field
-                            label="CPF obrigatório"
+                            label={(["father", "mother"].includes(createDependent.dependentType) ? "CPF (opcional para pai ou mãe)" : "CPF obrigatório")}
                             value={createDependent.cpf}
                             set={(v) =>
                               setCreateDependent({
@@ -2238,7 +2238,7 @@ export default function DataModule({
                             }
                           />
                           <Field
-                            label="CPF obrigatório"
+                            label={(["father", "mother"].includes(dependentForm.dependentType) ? "CPF (opcional para pai ou mãe)" : "CPF obrigatório")}
                             value={dependentForm.cpf}
                             set={(v) =>
                               setDependentForm({
