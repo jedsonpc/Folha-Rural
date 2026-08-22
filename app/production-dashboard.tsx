@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import { workerNeedsReview, workerReviewIssues } from "./worker-review";
 
 type Payload = {
   companies: Array<{ sourceId: number; name: string }>;
@@ -53,7 +54,8 @@ export default function ProductionDashboard({
   const people = new Set(rows.map((r) => r.personId)).size,
     active = rows.filter((r) => r.status === "active").length,
     ended = rows.filter((r) => r.status !== "active").length,
-    reviews = rows.filter((r: any) => r.needsReview).length,
+    reviewRows = rows.filter((r: any) => workerNeedsReview(r)),
+    reviews = reviewRows.length,
     recent = [...rows]
       .sort((a, b) =>
         (b.admissionDate || "").localeCompare(a.admissionDate || ""),
@@ -100,9 +102,28 @@ export default function ProductionDashboard({
             <h2>{reviews} cadastros para revisar</h2>
           </div>
           <button className="primary" onClick={onOpenReviews}>
-            Abrir página de revisão →
+            Ver colaboradores e pendências →
           </button>
         </div>
+        {reviewRows.length ? (
+          <div className="dashboard-review-workers">
+            {reviewRows.slice(0, 5).map((row) => {
+              const issues = workerReviewIssues(row);
+              return (
+                <button key={row.id} type="button" onClick={onOpenReviews}>
+                  <b>{row.name}</b>
+                  <span>{issues.slice(0, 3).map((issue) => issue.label).join(" · ")}</span>
+                  {issues.length > 3 && <small>+ {issues.length - 3} pendência(s)</small>}
+                </button>
+              );
+            })}
+            {reviewRows.length > 5 && (
+              <p>Mais {reviewRows.length - 5} colaborador(es) precisam de revisão.</p>
+            )}
+          </div>
+        ) : (
+          <p className="review-complete">✓ Nenhum cadastro pendente nesta consulta.</p>
+        )}
       </section>
       <section className="panel dashboard-real">
         <div className="panel-title">

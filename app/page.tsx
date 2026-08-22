@@ -34,6 +34,7 @@ const navGroups = [
         ["PA", "Painel agrícola"],
         ["PI", "Produtos e insumos"],
         ["CF", "Clientes e fornecedores"],
+        ["CU", "Culturas"],
         ["ME", "Entradas e saídas"],
         ["RG", "Relatórios agrícolas"],
       ],
@@ -92,8 +93,8 @@ const navGroups = [
       items: [["IA", "Importar Access"]],
     },
   ],
-  SYSTEM_VERSION = "1.4.13",
-  LAST_UPDATE = "11/08/2026";
+  SYSTEM_VERSION = "1.4.15",
+  LAST_UPDATE = "22/08/2026";
 type Company = {
   sourceId: number;
   name: string;
@@ -348,6 +349,7 @@ export default function Home() {
               "Painel agrícola",
               "Produtos e insumos",
               "Clientes e fornecedores",
+              "Culturas",
               "Entradas e saídas",
               "Relatórios agrícolas",
             ];
@@ -535,6 +537,8 @@ export default function Home() {
             <InventoryModule company={company} section="products" />
           ) : active === "Clientes e fornecedores" ? (
             <InventoryModule company={company} section="partners" />
+          ) : active === "Culturas" ? (
+            <InventoryModule company={company} section="crops" />
           ) : active === "Entradas e saídas" ? (
             <InventoryModule company={company} section="movements" />
           ) : active === "Relatórios agrícolas" ? (

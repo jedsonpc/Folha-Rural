@@ -940,6 +940,8 @@ header .primary {
   }
 }
 
+.dashboard-review-workers{display:grid;gap:8px;margin-top:14px}.dashboard-review-workers>button{border:1px solid #e7c38b;border-left:5px solid #bd6b25;border-radius:8px;background:#fffaf1;padding:11px 14px;text-align:left;display:grid;gap:4px;cursor:pointer;color:#332d25}.dashboard-review-workers>button:hover{background:#fff4df}.dashboard-review-workers b{font-size:14px}.dashboard-review-workers span{font-size:12px;color:#75542f}.dashboard-review-workers small{font-size:11px;color:#a14e2c}.dashboard-review-workers p,.review-complete{margin:10px 0 0;color:#4f6848;font-size:13px}.review-guidance{margin:14px 0;padding:13px 16px;border-left:5px solid #bd6b25;border-radius:7px;background:#fff4df;display:grid;gap:4px}.review-guidance span{font-size:13px;color:#6c563d}.worker-needs-review{background:#fffcf6}.worker-needs-review td:first-child{border-left:4px solid #bd6b25}.worker-review-issues{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;max-width:520px}.worker-review-issues span,.worker-review-alert button{border:1px solid #edc88d;border-radius:999px;background:#fff4df;color:#814719;padding:4px 8px;font-size:11px;line-height:1.2}.worker-review-alert{margin:0 0 14px;padding:14px;border:1px solid #dfad64;border-radius:8px;background:#fff8e9;display:grid;gap:9px}.worker-review-alert>div{display:flex;flex-wrap:wrap;gap:6px}.worker-review-alert button{cursor:pointer}.worker-review-alert button:hover{background:#ffe6bd}.worker-review-alert small{color:#715a3d}.worker-review-ok{margin:0 0 14px;padding:11px 14px;border-radius:8px;background:#edf6eb;color:#365a32;font-weight:700}
+
 /* Estrutura premium da direção 3, com a paleta Terra Editorial */
 .sidebar {
   width: 235px;

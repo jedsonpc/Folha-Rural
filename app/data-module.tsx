@@ -1,9 +1,10 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { workerNeedsReview, workerReviewIssues } from "./worker-review";
 import { isValidCpf } from "./cpf";
 import "./data130.css";
 import "./data134.css";
-import WorkerHrTabs from "./worker-hr-tabs";
+import WorkerHrTabs, { type WorkerHrTabsHandle } from "./worker-hr-tabs";
 
 type Company = {
   id: number;
@@ -194,6 +195,7 @@ export default function DataModule({
   onSelectCompany?: (v: string) => void;
   reviewOnly?: boolean;
 }) {
+  const salaryRef = useRef<WorkerHrTabsHandle>(null);
   const [data, setData] = useState<Payload | null>(null),
     [search, setSearch] = useState(""),
     [status, setStatus] = useState("active"),
@@ -358,7 +360,7 @@ export default function DataModule({
         `${r.name} ${r.cpf || ""} ${r.registrationNumber || ""} ${r.matEs || ""} ${r.legacyCode || ""} ${r.role || ""}`.toLowerCase();
       return (
         (status === "all" || normalizedContractStatus(r) === status) &&
-        (!reviewOnly || r.needsReview) &&
+        (!reviewOnly || workerNeedsReview(r)) &&
         (!term || h.includes(term) || (digits && h.includes(digits)))
       );
     });
@@ -392,7 +394,7 @@ export default function DataModule({
   };
   const openEdit = (r: Contract) => {
     setEditing(r);
-    setTab("person");
+    setTab(workerReviewIssues(r)[0]?.tab || "person");
     setNotice("");
     setForm({
       name: r.name,
@@ -539,6 +541,13 @@ export default function DataModule({
   };
   const saveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (tab === "salary") {
+      setSaving(true);
+      const saved = await salaryRef.current?.saveSalary();
+      setSaving(false);
+      if (saved) setTimeout(() => setEditing(null), 900);
+      return;
+    }
     if (
       editing &&
       (await request("PUT", {
@@ -638,6 +647,9 @@ export default function DataModule({
   const suggestedMatEs = predictedRegistration
     ? String(predictedRegistration).slice(0, 5)
     : "";
+  const currentEditIssues = editing
+    ? workerReviewIssues({ ...editing, ...form })
+    : [];
   if (mode === "Empresas")
     return (
       <section className="data-module">
@@ -694,7 +706,7 @@ export default function DataModule({
           <span>contratos ativos</span>
         </article>
         <article>
-          <strong>{scoped.filter((r) => r.needsReview).length}</strong>
+          <strong>{scoped.filter((r) => workerNeedsReview(r)).length}</strong>
           <span>cadastros para revisar</span>
         </article>
       </div>
@@ -709,6 +721,12 @@ export default function DataModule({
           <p>Edite a ficha para corrigir dados ou crie uma nova admissão.</p>
           {reviewOnly && <p><b>Filtro ativo:</b> cadastros que precisam de revisão.</p>}
         </div>
+        {reviewOnly && (
+          <div className="review-guidance">
+            <b>{filtered.length} colaborador(es) com pendências</b>
+            <span>Clique em “Corrigir pendências”. A ficha abrirá diretamente na primeira seção incompleta.</span>
+          </div>
+        )}
         {notice && !admission && !editing && !creating && (
           <div className="inline-notice">{notice}</div>
         )}
@@ -769,8 +787,10 @@ export default function DataModule({
               </tr>
             </thead>
             <tbody>
-              {filtered.slice(0, 250).map((r) => (
-                <tr key={r.id}>
+              {filtered.slice(0, 250).map((r) => {
+                const issues = workerReviewIssues(r);
+                return (
+                <tr key={r.id} className={issues.length ? "worker-needs-review" : ""}>
                   <td>
                     <b>
                       {r.registrationNumber
@@ -789,8 +809,15 @@ export default function DataModule({
                     <b>{r.name}</b>
                     <small>
                       {companyName(r.companySourceId)}
-                      {r.needsReview ? " · revisar cadastro" : ""}
+                      {issues.length ? " · REVISAR CADASTRO" : ""}
                     </small>
+                    {issues.length > 0 && (
+                      <div className="worker-review-issues">
+                        {issues.map((issue) => (
+                          <span key={issue.field}>{issue.label}</span>
+                        ))}
+                      </div>
+                    )}
                   </td>
                   <td>{r.role || "—"}</td>
                   <td>{showDate(r.admissionDate)}</td>
@@ -805,7 +832,7 @@ export default function DataModule({
                         className="table-action"
                         onClick={() => openEdit(r)}
                       >
-                        Editar ficha
+                        {issues.length ? "Corrigir pendências" : "Editar ficha"}
                       </button>
                       {normalizedContractStatus(r) === "terminated" && (
                         <button className="table-action" onClick={() => openAdmission(r)}>
@@ -815,7 +842,7 @@ export default function DataModule({
                     </div>
                   </td>
                 </tr>
-              ))}
+              )})}
             </tbody>
           </table>
         </div>
@@ -1664,6 +1691,25 @@ export default function DataModule({
             onMouseDown={(e) => e.stopPropagation()}
           >
             <ModalHead title={editing.name} close={() => setEditing(null)} />
+            {currentEditIssues.length > 0 ? (
+              <div className="worker-review-alert">
+                <b>Cadastro incompleto: {currentEditIssues.length} pendência(s)</b>
+                <div>
+                  {currentEditIssues.map((issue) => (
+                    <button
+                      key={issue.field}
+                      type="button"
+                      onClick={() => setTab(issue.tab)}
+                    >
+                      {issue.label}
+                    </button>
+                  ))}
+                </div>
+                <small>Preencha os campos indicados e salve. O alerta será removido automaticamente.</small>
+              </div>
+            ) : (
+              <div className="worker-review-ok">✓ Cadastro completo e sem pendências.</div>
+            )}
             <div className="edit-tabs" role="tablist">
               <button
                 className={tab === "person" ? "active" : ""}
@@ -2108,7 +2154,7 @@ export default function DataModule({
                     </>
                   )}
                   {tab === "salary" && (
-                    <div className="wide"><WorkerHrTabs contractId={editing.id} kind="salary" /></div>
+                    <div className="wide"><WorkerHrTabs ref={salaryRef} contractId={editing.id} kind="salary" /></div>
                   )}
                   {tab === "vacation" && (
                     <div className="wide"><WorkerHrTabs contractId={editing.id} kind="vacation" /></div>

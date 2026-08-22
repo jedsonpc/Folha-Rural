@@ -5,7 +5,7 @@ import "./inventory.css";
 import CurrencyInput from "./currency-input";
 
 type AnyRow = Record<string, any>;
-type InventorySection = "dashboard" | "products" | "partners" | "movements" | "reports";
+type InventorySection = "dashboard" | "products" | "partners" | "crops" | "movements" | "reports";
 
 const brl = (c: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format((c || 0) / 100);
@@ -22,6 +22,7 @@ const sectionContent: Record<InventorySection, { eyebrow: string; title: string;
   dashboard: { eyebrow: "GESTÃO AGRÍCOLA", title: "Painel agrícola", description: "Indicadores de estoque, compras, receitas e itens que precisam de atenção." },
   products: { eyebrow: "CADASTROS", title: "Produtos e insumos", description: "Cadastre insumos, materiais, unidades, preços e níveis mínimos de estoque." },
   partners: { eyebrow: "CADASTROS", title: "Clientes e fornecedores", description: "Centralize os dados comerciais de quem compra, vende ou fornece para a propriedade." },
+  crops: { eyebrow: "CADASTROS", title: "Culturas", description: "Cadastre as culturas utilizadas nas entradas e saídas de produtos da empresa." },
   movements: { eyebrow: "OPERAÇÃO", title: "Entradas e saídas", description: "Registre compras, consumo por cultura ou talhão, vendas e ajustes de inventário." },
   reports: { eyebrow: "RELATÓRIOS GERENCIAIS", title: "Custos, receitas e movimentações", description: "Acompanhe os resultados da operação e gere relatórios para impressão ou PDF." },
 };
@@ -93,6 +94,15 @@ export default function InventoryModule({ company, section }:{ company:string; s
       <div className="inventory-list"><SectionTitle title="Clientes e fornecedores cadastrados" description={`${partners.length} parceiro(s) nesta empresa.`} /><PartnerTable rows={partners} /></div>
     </div>}
 
+    {section === "crops" && <div className="inventory-workspace">
+      <form onSubmit={e => submit(e, "crop")} className="inventory-form">
+        <div className="form-heading"><small>NOVO CADASTRO</small><h3>Cultura agrícola</h3><p>As culturas salvas ficarão disponíveis na caixa Cultura das entradas e saídas.</p></div>
+        <label>Nome da cultura<input name="name" placeholder="Ex.: Cacau, café ou cana-de-açúcar" required /></label>
+        <button className="primary">Salvar cultura</button>
+      </form>
+      <div className="inventory-list"><SectionTitle title="Culturas cadastradas" description={`${(data.crops || []).length} cultura(s) nesta empresa.`} /><CropTable rows={data.crops || []} /></div>
+    </div>}
+
     {section === "movements" && <div className="inventory-workspace">
       <form onSubmit={e => submit(e, "movement")} className="inventory-form">
         <div className="form-heading"><small>NOVO LANÇAMENTO</small><h3>Movimentação de estoque</h3><p>Informe a origem ou o destino para compor corretamente custos e receitas.</p></div>
@@ -101,7 +111,7 @@ export default function InventoryModule({ company, section }:{ company:string; s
         <label>Cliente ou fornecedor<select name="partnerId"><option value="">Sem parceiro vinculado</option>{availablePartners.map((p: AnyRow) => <option value={p.id} key={p.id}>{p.name}</option>)}</select></label>
         <div className="inventory-form-row"><label>Data<input name="date" type="date" required /></label><label>Quantidade<input name="quantity" type="number" min="0.0001" step="0.0001" placeholder="0,0000" required /></label></div>
         <div className="inventory-form-row"><label>Valor unitário (R$)<CurrencyInput name="unitValue" /></label><label>Documento<input name="documentNumber" placeholder="NF ou documento" /></label></div>
-        <div className="inventory-form-row"><label>Cultura<input name="crop" placeholder="Cana, cacau..." /></label><label>Talhão / centro de custo<input name="costCenter" placeholder="Local da aplicação" /></label></div>
+        <div className="inventory-form-row"><label>Cultura<select name="crop"><option value="">Sem cultura vinculada</option>{(data.crops || []).map((crop: AnyRow) => <option value={crop.name} key={crop.id}>{crop.name}</option>)}</select></label><label>Talhão / centro de custo<input name="costCenter" placeholder="Local da aplicação" /></label></div>
         <button className="primary">Registrar movimentação</button>
       </form>
       <div className="inventory-list"><SectionTitle title="Movimentações recentes" description="Histórico de entradas, saídas, vendas e ajustes." /><MovementTable rows={data.movements || []} /></div>
@@ -120,4 +130,5 @@ function SectionTitle({ title, description }:{ title:string; description:string 
 function Empty({ text }:{ text:string }) { return <div className="inventory-empty"><span>✓</span><p>{text}</p></div>; }
 function ProductTable({ rows, empty = "Nenhum produto cadastrado." }:{ rows:AnyRow[]; empty?:string }) { if (!rows.length) return <Empty text={empty} />; return <div className="table-scroll"><table className="data-table"><thead><tr><th>Produto</th><th>Unidade</th><th>Estoque</th><th>Custo médio</th><th>Mínimo</th></tr></thead><tbody>{rows.map(r => <tr key={r.id}><td><b>{r.description}</b><small>{r.sku ? `Código ${r.sku}` : "Sem código interno"}</small></td><td>{r.unit}</td><td>{Number(r.stock || 0).toLocaleString("pt-BR")}</td><td>{brl(r.average_cost_cents)}</td><td>{r.minimum_stock}</td></tr>)}</tbody></table></div>; }
 function PartnerTable({ rows }:{ rows:AnyRow[] }) { if (!rows.length) return <Empty text="Nenhum cliente ou fornecedor cadastrado." />; return <div className="table-scroll"><table className="data-table"><thead><tr><th>Nome</th><th>Tipo</th><th>Documento</th><th>Contato</th></tr></thead><tbody>{rows.map(r => <tr key={r.id}><td><b>{r.name}</b><small>{r.trade_name}</small></td><td>{r.partner_type === "supplier" ? "Fornecedor" : r.partner_type === "customer" ? "Cliente" : "Ambos"}</td><td>{r.document || "—"}</td><td>{r.phone || r.email || "—"}</td></tr>)}</tbody></table></div>; }
+function CropTable({ rows }:{ rows:AnyRow[] }) { if (!rows.length) return <Empty text="Nenhuma cultura cadastrada." />; return <div className="table-scroll"><table className="data-table"><thead><tr><th>Cultura</th></tr></thead><tbody>{rows.map(r => <tr key={r.id}><td><b>{r.name}</b></td></tr>)}</tbody></table></div>; }
 function MovementTable({ rows }:{ rows:AnyRow[] }) { if (!rows.length) return <Empty text="Nenhuma movimentação registrada." />; return <div className="table-scroll"><table className="data-table"><thead><tr><th>Data</th><th>Movimento</th><th>Produto</th><th>Quantidade</th><th>Valor total</th><th>Cultura / Centro</th></tr></thead><tbody>{rows.map(r => <tr key={r.id}><td>{String(r.movement_date).split("-").reverse().join("/")}</td><td><span className={`movement-badge ${r.movement_type}`}>{movementNames[r.movement_type] || r.movement_type}</span></td><td><b>{r.inventory_products?.description}</b></td><td>{Number(r.quantity).toLocaleString("pt-BR")} {r.inventory_products?.unit}</td><td>{brl(Number(r.quantity) * Number(r.unit_value_cents))}</td><td>{[r.crop, r.cost_center].filter(Boolean).join(" · ") || "—"}</td></tr>)}</tbody></table></div>; }

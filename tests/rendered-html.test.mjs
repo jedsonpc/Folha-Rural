@@ -18,7 +18,7 @@ test("keeps the installable app metadata and update worker", async () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
   assert.match(serviceWorker, /SKIP_WAITING/);
-  assert.match(serviceWorker, /folha-rural-shell-v22-cartao-ponto-legibilidade/);
+  assert.match(serviceWorker, /folha-rural-shell-v23-culturas-salario/);
   assert.match(serviceWorker, /skipWaiting/);
 });
 
@@ -86,4 +86,21 @@ test("uses the Brazilian monetary input across financial registrations", async (
     const source = await readFile(new URL(`../app/${file}`, import.meta.url), "utf8");
     assert.match(source, /CurrencyInput/);
   }
+});
+
+test("links registered crops to agricultural movements", async () => {
+  const inventory = await readFile(new URL("../app/inventory-module.tsx", import.meta.url), "utf8");
+  const route = await readFile(new URL("../app/api/inventory/route.ts", import.meta.url), "utf8");
+  assert.match(inventory, /section === "crops"/);
+  assert.match(inventory, /<select name="crop">/);
+  assert.match(route, /CULTURA::/);
+  assert.match(route, /crop: b\.crop \|\| null/);
+});
+
+test("saves salary through the main worker action", async () => {
+  const data = await readFile(new URL("../app/data-module.tsx", import.meta.url), "utf8");
+  const tabs = await readFile(new URL("../app/worker-hr-tabs.tsx", import.meta.url), "utf8");
+  assert.match(data, /salaryRef\.current\?\.saveSalary\(\)/);
+  assert.match(tabs, /useImperativeHandle\(ref/);
+  assert.match(tabs, /saveSalary/);
 });

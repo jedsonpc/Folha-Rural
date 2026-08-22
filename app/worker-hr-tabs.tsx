@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from "react";
 import "./hr.css";
 import CurrencyInput from "./currency-input";
 
@@ -12,7 +12,9 @@ const vacationDays=(absences:number,lossReason:string)=>{if(lossReason)return 0;
 const statusLabel:Record<string,string>={pending:"Pendente",scheduled:"Programada",taken:"Gozada",paid:"Quitada"};
 const emptyVacation={accrualStart:"",accrualEnd:"",concessionDeadline:"",scheduledStart:"",scheduledEnd:"",unjustifiedAbsences:0,lossReason:"",days:30,sellAllowance:false,soldDays:0,paymentDate:"",status:"pending",notes:""};
 
-export default function WorkerHrTabs({contractId,kind}:{contractId:number;kind:"salary"|"vacation"}) {
+export type WorkerHrTabsHandle = { saveSalary: () => Promise<boolean> };
+
+const WorkerHrTabs = forwardRef<WorkerHrTabsHandle, {contractId:number;kind:"salary"|"vacation"}>(function WorkerHrTabs({contractId,kind}, ref) {
   const [data,setData]=useState<any>({profile:null,salaries:[],vacations:[],contract:null}),[msg,setMsg]=useState("");
   const [salary,setSalary]=useState<any>({salaryType:"monthly",baseSalary:"",dailyRate:"",advanceRate:40,effectiveDate:isoToday(),reason:""});
   const [vac,setVac]=useState<any>(emptyVacation);
@@ -20,7 +22,9 @@ export default function WorkerHrTabs({contractId,kind}:{contractId:number;kind:"
   const suggestedAccrualStart=(payload:any)=>{const latest=payload.vacations?.[0];return latest?.accrual_end?addDays(latest.accrual_end,1):payload.contract?.admission_date||""};
   const load=()=>fetch(`/api/hr?contractId=${contractId}`).then(r=>r.json()).then(b=>{setData(b);if(b.profile){const base=(b.profile.base_salary_cents/100).toFixed(2);setSalary((s:any)=>({...s,salaryType:b.profile.salary_type,baseSalary:base,dailyRate:(Number(base)/30).toFixed(2),advanceRate:b.profile.advance_rate_basis_points/100}))}setVac((current:any)=>{if(current.accrualStart)return current;const start=suggestedAccrualStart(b);return start?deriveVacation({...current,accrualStart:start}):current})});
   useEffect(()=>{void load()},[contractId]);
-  const save=async(body:any)=>{setMsg("");const r=await fetch("/api/hr",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}),b=await r.json();setMsg(b.error||b.message);if(r.ok){await load();if(body.action==="saveVacation")setVac(emptyVacation)}};
+  const save=async(body:any)=>{setMsg("");try{const r=await fetch("/api/hr",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}),b=await r.json();setMsg(b.error||b.message);if(r.ok){await load();if(body.action==="saveVacation")setVac(emptyVacation)}return r.ok}catch{setMsg("Falha ao salvar as informações salariais.");return false}};
+  const saveSalary=()=>save({action:"saveProfile",contractId,...salary,dailyRate:salary.baseSalary?(Number(salary.baseSalary)/30).toFixed(2):""});
+  useImperativeHandle(ref,()=>({saveSalary}),[contractId,salary]);
   const updateVacation=(change:any)=>setVac((current:any)=>deriveVacation({...current,...change}));
   const alerts=(data.vacations||[]).filter((v:any)=>v.status!=="paid"&&new Date(v.concession_deadline).getTime()-Date.now()<=122*86400000);
   const maxAllowance=vac.days?Math.floor(Number(vac.days)/3):0,daysToTake=Math.max(0,Number(vac.days)-Number(vac.soldDays));
@@ -42,7 +46,7 @@ export default function WorkerHrTabs({contractId,kind}:{contractId:number;kind:"
         <label className="salary-reason">Motivo ou observação<input placeholder="Ex.: admissão, reajuste anual ou promoção" value={salary.reason} onChange={e=>setSalary({...salary,reason:e.target.value})}/></label>
       </div>
     </section>
-    <div className="salary-actions"><button type="button" className="primary" onClick={()=>save({action:"saveProfile",contractId,...salary,dailyRate:salary.baseSalary?(Number(salary.baseSalary)/30).toFixed(2):""})}>Salvar configuração salarial</button></div>{msg&&<div className="inline-notice">{msg}</div>}
+    <div className="salary-actions"><button type="button" className="primary" onClick={saveSalary}>Salvar configuração salarial</button></div>{msg&&<div className="inline-notice">{msg}</div>}
     <div className="salary-history-heading"><div><h3>Histórico salarial</h3><p className="helper">Alterações registradas para este colaborador.</p></div><span>{data.salaries.length} registro(s)</span></div><div className="compact-list salary-history">{data.salaries.map((s:any)=><div key={s.id}><b>{brl(s.salary_cents)}</b><span>{s.effective_date} · {s.reason||"Sem observação"}</span></div>)}</div>
   </div>;
 
@@ -68,4 +72,7 @@ export default function WorkerHrTabs({contractId,kind}:{contractId:number;kind:"
     <button type="button" className="primary" disabled={!vac.accrualStart||!vac.days} onClick={()=>save({action:"saveVacation",contractId,...vac,notes:vacationNotes})}>Registrar período de férias</button>{msg&&<div className="inline-notice">{msg}</div>}
     <h3>Períodos registrados</h3><div className="compact-list vacation-list">{data.vacations.map((v:any)=><div key={v.id}><b>{v.accrual_start} a {v.accrual_end}</b><span>{v.days} dias · limite {v.concession_deadline} · {statusLabel[v.status]||v.status}</span></div>)}</div>
   </div>;
-}
+});
+
+WorkerHrTabs.displayName = "WorkerHrTabs";
+export default WorkerHrTabs;

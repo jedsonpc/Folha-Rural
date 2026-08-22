@@ -30,7 +30,8 @@ export async function GET(request: Request) {
   const inventoryValue = productRows.reduce((s,p) => s + Number(p.stock) * Number(p.average_cost_cents), 0);
   const revenue = movements.filter(m => m.movement_type === "sale").reduce((s,m) => s + Number(m.quantity) * Number(m.unit_value_cents), 0);
   const purchases = movements.filter(m => m.movement_type === "purchase").reduce((s,m) => s + Number(m.quantity) * Number(m.unit_value_cents), 0);
-  return Response.json({ products: productRows, partners, movements, categories, metrics: { inventoryValue, revenue, purchases, lowStock: productRows.filter(p => Number(p.stock) <= Number(p.minimum_stock)).length } }, { headers: { "Cache-Control": "no-store" } });
+  const crops = categories.filter(c => String(c.name).startsWith("CULTURA::")).map(c => ({ ...c, name: String(c.name).slice(9) }));
+  return Response.json({ products: productRows, partners, movements, categories: categories.filter(c => !String(c.name).startsWith("CULTURA::")), crops, metrics: { inventoryValue, revenue, purchases, lowStock: productRows.filter(p => Number(p.stock) <= Number(p.minimum_stock)).length } }, { headers: { "Cache-Control": "no-store" } });
 }
 export async function POST(request: Request) {
   const access = await authorizeCloud(request, "Estoque e custos");
@@ -41,6 +42,13 @@ export async function POST(request: Request) {
   if (!id || (access.user?.companyIds && !access.user.companyIds.includes(sourceId))) return Response.json({ error: "Empresa não autorizada." }, { status: 403 });
   const common = { organization_id: config.organizationId, company_id: id };
   if (b.action === "partner") await supabaseAdmin.post("/rest/v1/business_partners", { ...common, partner_type: b.partnerType, name: String(b.name || "").trim(), trade_name: b.tradeName || null, document: b.document || null, phone: b.phone || null, email: b.email || null }, { prefer: "return=minimal" });
+  else if (b.action === "crop") {
+    const name = String(b.name || "").trim();
+    if (!name) return Response.json({ error: "Informe o nome da cultura." }, { status: 400 });
+    const existing = await supabaseAdmin.get<Row[]>(`/rest/v1/inventory_categories?select=id&organization_id=eq.${config.organizationId}&company_id=eq.${id}&name=eq.${encodeURIComponent(`CULTURA::${name}`)}&limit=1`);
+    if (existing.length) return Response.json({ error: "Esta cultura já está cadastrada." }, { status: 409 });
+    await supabaseAdmin.post("/rest/v1/inventory_categories", { ...common, name: `CULTURA::${name}` }, { prefer: "return=minimal" });
+  }
   else if (b.action === "product") await supabaseAdmin.post("/rest/v1/inventory_products", { ...common, description: String(b.description || "").trim(), sku: b.sku || null, unit: b.unit || "UN", minimum_stock: Number(b.minimumStock || 0), sale_price_cents: cents(b.salePrice) }, { prefer: "return=minimal" });
   else if (b.action === "movement") await supabaseAdmin.post("/rest/v1/inventory_movements", { ...common, product_id: b.productId, partner_id: b.partnerId || null, movement_type: b.movementType, movement_date: b.date, quantity: Number(b.quantity), unit_value_cents: cents(b.unitValue), document_number: b.documentNumber || null, crop: b.crop || null, cost_center: b.costCenter || null, notes: b.notes || null }, { prefer: "return=minimal" });
   else return Response.json({ error: "Operação inválida." }, { status: 400 });
