@@ -18,7 +18,7 @@ test("keeps the installable app metadata and update worker", async () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
   assert.match(serviceWorker, /SKIP_WAITING/);
-  assert.match(serviceWorker, /folha-rural-shell-v32-clonagem-mesclada/);
+  assert.match(serviceWorker, /folha-rural-shell-v33-clonagem-intuitiva/);
   assert.match(serviceWorker, /skipWaiting/);
 });
 
@@ -125,7 +125,7 @@ test("uses a registered mother dependent to clear the worker mother-name issue",
     assert.match(source, /motherName: contract\.motherName \|\| motherByPerson\.get/);
   }
   const badge = await readFile(new URL("../app/version-badge.css", import.meta.url), "utf8");
-  assert.match(badge, /v1\.4\.24/);
+  assert.match(badge, /v1\.4\.25/);
 });
 
 test("keeps worker saves, termination dates and review alerts synchronized", async () => {
@@ -191,4 +191,8 @@ test("clones day entries by merging with the selected destination", async () => 
   assert.match(localApi, /clonados ou atualizados no dia de destino/);
   assert.match(cloudApi, /resolution=merge-duplicates/);
   assert.match(cloudApi, /O dia de origem não possui lançamentos salvos/);
+  const module = await readFile(new URL("../app/launches-module.tsx", import.meta.url), "utf8");
+  assert.match(module, /Clonar apontamentos deste dia/);
+  assert.match(module, /Dia de destino/);
+  assert.doesNotMatch(module, /setShowClone/);
 });

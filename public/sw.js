@@ -1,4 +1,4 @@
-const CACHE_NAME = "folha-rural-shell-v32-clonagem-mesclada";
+const CACHE_NAME = "folha-rural-shell-v33-clonagem-intuitiva";
 const APP_SHELL = [
   "/",
   "/manifest.webmanifest",

@@ -44,6 +44,7 @@ type Data = {
   holidays: Holiday[];
 };
 const iso = () => new Date().toISOString().slice(0, 10),
+  nextDay=(value:string)=>{const day=new Date(`${value}T12:00:00`);day.setDate(day.getDate()+1);return day.toISOString().slice(0,10)},
   money = (c: number) =>
     new Intl.NumberFormat("pt-BR", {
       style: "currency",
@@ -63,7 +64,6 @@ export default function LaunchesModule({ company }: { company: string }) {
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [busy, setBusy] = useState(false),
-    [showClone, setShowClone] = useState(false),
     [showHoliday, setShowHoliday] = useState(false);
   const [entryMode, setEntryMode] = useState<"production" | "monthly">(
       "production",
@@ -78,7 +78,7 @@ export default function LaunchesModule({ company }: { company: string }) {
       unitPrice: "",
       notes: "",
     }),
-    [cloneDate, setCloneDate] = useState(""),
+    [cloneDate, setCloneDate] = useState(nextDay(iso())),
     [holiday, setHoliday] = useState({ date: iso(), name: "" });
   const month = date.slice(0, 7);
   const load = async (requestedMonth=month) => {
@@ -260,12 +260,9 @@ export default function LaunchesModule({ company }: { company: string }) {
           <input
             type="date"
             value={date}
-            onChange={(e) => setDate(e.target.value)}
+            onChange={(e) => {setDate(e.target.value);setCloneDate(nextDay(e.target.value))}}
           />
         </label>
-        <button className="secondary" onClick={() => setShowClone(!showClone)}>
-          ⧉ Clonar dia
-        </button>
         <button
           className="secondary"
           onClick={() => setShowHoliday(!showHoliday)}
@@ -274,38 +271,6 @@ export default function LaunchesModule({ company }: { company: string }) {
         </button>
       </div>
       {notice && <div className="inline-notice">{notice}</div>}
-      {showClone && (
-        <div className="operation-box">
-          <div>
-            <b>Clonar {dateBR(date)}</b>
-            <p>Copia todos os lançamentos para um dia vazio.</p>
-          </div>
-          <input
-            type="date"
-            value={cloneDate}
-            onChange={(e) => setCloneDate(e.target.value)}
-          />
-          <button
-            className="primary"
-            disabled={busy}
-            onClick={async () => {
-              if(!/^20\d{2}-\d{2}-\d{2}$/.test(cloneDate)||Number(cloneDate.slice(0,4))>2100){setNotice("Informe uma data de destino válida entre os anos 2000 e 2100.");return}
-              if (
-                await post({
-                  action: "clone",
-                  sourceDate: date,
-                  targetDate: cloneDate,
-                })
-              ) {
-                setShowClone(false);
-                setDate(cloneDate);
-              }
-            }}
-          >
-            Confirmar clonagem
-          </button>
-        </div>
-      )}
       {showHoliday && (
         <div className="operation-box">
           <div>
@@ -362,6 +327,12 @@ export default function LaunchesModule({ company }: { company: string }) {
               Apontamento de mensalistas
             </button>
           </div>
+        </div>
+        <div className="day-clone-card">
+          <div className="day-clone-title"><span>⧉</span><div><b>Clonar apontamentos deste dia</b><small>Origem: {dateBR(date)}. Escolha abaixo o dia que receberá uma cópia de todos os apontamentos salvos.</small></div></div>
+          <label>Dia de destino<input type="date" min="2000-01-01" max="2100-12-31" value={cloneDate} onChange={e=>setCloneDate(e.target.value)}/></label>
+          <button type="button" className="primary" disabled={busy||!dayEntries.length||cloneDate===date} onClick={async()=>{if(!/^20\d{2}-\d{2}-\d{2}$/.test(cloneDate)||Number(cloneDate.slice(0,4))>2100){setNotice("Escolha uma data de destino válida entre 2000 e 2100.");return}if(cloneDate===date){setNotice("O dia de destino deve ser diferente do dia de origem.");return}if(await post({action:"clone",sourceDate:date,targetDate:cloneDate})){const destination=cloneDate;setDate(destination);setCloneDate(nextDay(destination))}}}>Clonar para {cloneDate?dateBR(cloneDate):"o dia escolhido"}</button>
+          {!dayEntries.length&&<small className="day-clone-warning">Salve ao menos um apontamento neste dia para habilitar a clonagem.</small>}
         </div>
         <div className="table-scroll">
           <table className="data-table batch-table">
