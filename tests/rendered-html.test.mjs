@@ -18,7 +18,7 @@ test("keeps the installable app metadata and update worker", async () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
   assert.match(serviceWorker, /SKIP_WAITING/);
-  assert.match(serviceWorker, /folha-rural-shell-v27-pendencias-ativas/);
+  assert.match(serviceWorker, /folha-rural-shell-v28-instalacao-na-entrada/);
   assert.match(serviceWorker, /skipWaiting/);
 });
 
@@ -125,7 +125,7 @@ test("uses a registered mother dependent to clear the worker mother-name issue",
     assert.match(source, /motherName: contract\.motherName \|\| motherByPerson\.get/);
   }
   const badge = await readFile(new URL("../app/version-badge.css", import.meta.url), "utf8");
-  assert.match(badge, /v1\.4\.19/);
+  assert.match(badge, /v1\.4\.20/);
 });
 
 test("keeps worker saves, termination dates and review alerts synchronized", async () => {
@@ -143,6 +143,14 @@ test("shows registration issues only for active workers on the dashboard", async
   assert.match(dashboard, /activeWorkerNeedsReview/);
   assert.match(dashboard, /reviewRows = rows\.filter\(\(r\) => activeWorkerNeedsReview\(r\)\)/);
   assert.doesNotMatch(dashboard, /workerNeedsReview\(r\)/);
+});
+
+test("shows the install option only on the authentication screen", async () => {
+  const layout = await readFile(new URL("../app/layout.tsx", import.meta.url), "utf8");
+  const auth = await readFile(new URL("../app/auth-screen.tsx", import.meta.url), "utf8");
+  assert.doesNotMatch(layout, /AppInstallation/);
+  assert.match(auth, /import AppInstallation/);
+  assert.match(auth, /<AppInstallation \/>/);
 });
 
 test("supports registered employment links and multiple descriptions per CBO", async () => {
