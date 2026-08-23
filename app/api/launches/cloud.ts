@@ -132,6 +132,12 @@ export async function cloudLaunchesPost(request: Request) {
     if(body.action==="clone"){
       const source=String(body.sourceDate||""),target=String(body.targetDate||"");
       if(!/^20\d{2}-\d{2}-\d{2}$/.test(source)||!/^20\d{2}-\d{2}-\d{2}$/.test(target)||Number(target.slice(0,4))>2100||source===target)return Response.json({error:"Informe duas datas válidas e diferentes, entre os anos 2000 e 2100."},{status:400});
+      const companies=await supabaseAdmin.get<Array<{id:string}>>(`/rest/v1/companies?select=id&organization_id=eq.${config.organizationId}&legacy_id=eq.${companyLegacyId}&limit=1`),companyId=companies[0]?.id;
+      if(!companyId)return Response.json({error:"Empresa não encontrada."},{status:404});
+      const sourceRows=await supabaseAdmin.get<Row[]>(`/rest/v1/daily_entries?select=id,contract_id,service_id,quantity,unit_price_cents,amount_cents,discount_cents,notes&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&entry_date=eq.${source}`);
+      if(!sourceRows.length)return Response.json({error:"O dia de origem não possui lançamentos salvos."},{status:404});
+      await supabaseAdmin.post("/rest/v1/daily_entries?on_conflict=organization_id,company_id,entry_date,contract_id,service_id",sourceRows.map(row=>({organization_id:config.organizationId,company_id:companyId,entry_date:target,contract_id:row.contract_id,service_id:row.service_id,quantity:row.quantity,unit_price_cents:Number(row.unit_price_cents),amount_cents:Number(row.amount_cents),discount_cents:Number(row.discount_cents||0),notes:row.notes,cloned_from_id:row.id})),{Prefer:"resolution=merge-duplicates,return=minimal"});
+      return Response.json({ok:true,message:`${sourceRows.length} lançamentos clonados ou atualizados em ${target.split("-").reverse().join("/")}.`,affected:sourceRows.length});
     }
     if(body.action==="updateEntry"){
       const id=String(body.id||""),date=String(body.entryDate||""),contractId=String(body.contractId||""),serviceId=String(body.serviceId||""),quantity=Number(body.quantity),unit=Math.round(Number(body.unitPrice)*100);

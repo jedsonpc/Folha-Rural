@@ -18,7 +18,7 @@ test("keeps the installable app metadata and update worker", async () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
   assert.match(serviceWorker, /SKIP_WAITING/);
-  assert.match(serviceWorker, /folha-rural-shell-v31-versao-sincronizada/);
+  assert.match(serviceWorker, /folha-rural-shell-v32-clonagem-mesclada/);
   assert.match(serviceWorker, /skipWaiting/);
 });
 
@@ -125,7 +125,7 @@ test("uses a registered mother dependent to clear the worker mother-name issue",
     assert.match(source, /motherName: contract\.motherName \|\| motherByPerson\.get/);
   }
   const badge = await readFile(new URL("../app/version-badge.css", import.meta.url), "utf8");
-  assert.match(badge, /v1\.4\.23/);
+  assert.match(badge, /v1\.4\.24/);
 });
 
 test("keeps worker saves, termination dates and review alerts synchronized", async () => {
@@ -182,4 +182,13 @@ test("uses package version in the system version card", async () => {
   assert.match(page, /import packageInfo from "\.\.\/package\.json"/);
   assert.match(page, /SYSTEM_VERSION = packageInfo\.version/);
   assert.doesNotMatch(page, /SYSTEM_VERSION = "1\.4\.17"/);
+});
+
+test("clones day entries by merging with the selected destination", async () => {
+  const localApi = await readFile(new URL("../app/api/launches/route.ts", import.meta.url), "utf8");
+  const cloudApi = await readFile(new URL("../app/api/launches/cloud.ts", import.meta.url), "utf8");
+  assert.match(localApi, /onConflictDoUpdate/);
+  assert.match(localApi, /clonados ou atualizados no dia de destino/);
+  assert.match(cloudApi, /resolution=merge-duplicates/);
+  assert.match(cloudApi, /O dia de origem não possui lançamentos salvos/);
 });

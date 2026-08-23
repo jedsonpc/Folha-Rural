@@ -301,23 +301,6 @@ export async function POST(request: Request) {
           { error: "Informe duas datas válidas e diferentes, entre os anos 2000 e 2100." },
           { status: 400 },
         );
-      const existing = await db
-        .select()
-        .from(dailyEntries)
-        .where(
-          and(
-            eq(dailyEntries.tenantId, tenantId),
-            eq(dailyEntries.companySourceId, company),
-            eq(dailyEntries.entryDate, target),
-          ),
-        );
-      if (existing.length)
-        return Response.json(
-          {
-            error: "O dia de destino já possui lançamentos. Nada foi alterado.",
-          },
-          { status: 409 },
-        );
       const rows = await db
         .select()
         .from(dailyEntries)
@@ -333,8 +316,7 @@ export async function POST(request: Request) {
           { error: "O dia de origem não possui lançamentos." },
           { status: 404 },
         );
-      await db.insert(dailyEntries).values(
-        rows.map((r) => ({
+      for(const r of rows)await db.insert(dailyEntries).values({
           tenantId,
           companySourceId: company,
           entryDate: target,
@@ -345,11 +327,11 @@ export async function POST(request: Request) {
           amountCents: r.amountCents,
           notes: r.notes,
           clonedFromId: r.id,
-        })),
-      );
+        }).onConflictDoUpdate({target:[dailyEntries.tenantId,dailyEntries.companySourceId,dailyEntries.entryDate,dailyEntries.contractId,dailyEntries.serviceId],set:{quantity:r.quantity,unitPriceCents:r.unitPriceCents,amountCents:r.amountCents,notes:r.notes,clonedFromId:r.id}});
       return Response.json({
         ok: true,
-        message: `${rows.length} lançamentos clonados.`,
+        message: `${rows.length} lançamentos clonados ou atualizados no dia de destino.`,
+        affected:rows.length,
       });
     }
     return Response.json({ error: "Ação inválida." }, { status: 400 });
