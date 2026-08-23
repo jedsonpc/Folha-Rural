@@ -18,7 +18,7 @@ test("keeps the installable app metadata and update worker", async () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
   assert.match(serviceWorker, /SKIP_WAITING/);
-  assert.match(serviceWorker, /folha-rural-shell-v33-clonagem-intuitiva/);
+  assert.match(serviceWorker, /folha-rural-shell-v34-dsr-editavel/);
   assert.match(serviceWorker, /skipWaiting/);
 });
 
@@ -125,7 +125,7 @@ test("uses a registered mother dependent to clear the worker mother-name issue",
     assert.match(source, /motherName: contract\.motherName \|\| motherByPerson\.get/);
   }
   const badge = await readFile(new URL("../app/version-badge.css", import.meta.url), "utf8");
-  assert.match(badge, /v1\.4\.25/);
+  assert.match(badge, /v1\.4\.26/);
 });
 
 test("keeps worker saves, termination dates and review alerts synchronized", async () => {
@@ -195,4 +195,15 @@ test("clones day entries by merging with the selected destination", async () => 
   assert.match(module, /Clonar apontamentos deste dia/);
   assert.match(module, /Dia de destino/);
   assert.doesNotMatch(module, /setShowClone/);
+});
+
+test("calculates editable DSR entries on Sundays and holidays", async () => {
+  const module = await readFile(new URL("../app/launches-module.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/launches.css", import.meta.url), "utf8");
+  assert.match(module, /Calcular e lançar DSR no dia selecionado/);
+  assert.match(module, /Salvar\/atualizar DSR deste dia/);
+  assert.match(module, /item\?\.affectsDsr/);
+  assert.match(module, /<CurrencyInput/);
+  assert.match(styles, /\.batch-table\{width:100%;min-width:0;table-layout:fixed\}/);
+  assert.match(styles, /overflow-x:visible/);
 });

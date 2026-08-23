@@ -70,7 +70,7 @@ export default function LaunchesModule({ company }: { company: string }) {
     ),
     [gridRows, setGridRows] = useState<
       Record<number, { id?:number|string; serviceId: string; quantity: string; unitPrice: string }>
-    >({});
+    >({}),[dsrServiceId,setDsrServiceId]=useState(""),[dsrValues,setDsrValues]=useState<Record<number,string>>({});
   const [form, setForm] = useState({
       contractId: "",
       serviceId: "",
@@ -203,6 +203,17 @@ export default function LaunchesModule({ company }: { company: string }) {
       }
     return [...by.values()].sort((a, b) => a.name.localeCompare(b.name));
   }, [data, month]);
+  const dsrServices=useMemo(()=>data?.services.filter(item=>/\bDSR\b|DESCANSO.*REMUNERADO|REPOUSO.*REMUNERADO|DESCANSO SEMANAL|REPOUSO SEMANAL/i.test(`${item.description} ${item.formulaCode||""}`))||[],[data]);
+  useEffect(()=>{if(!dsrServiceId&&dsrServices[0])setDsrServiceId(String(dsrServices[0].id))},[dsrServices,dsrServiceId]);
+  const restDay=Boolean(data&&(new Date(`${date}T12:00:00`).getDay()===0||data.holidays.some(item=>item.holidayDate===date)));
+  const selectedWeekDsr=useMemo(()=>{
+    if(!data||!restDay)return[];
+    const key=weekKey(date),rows=new Map<number,{contractId:number;name:string;total:number;days:Set<string>;calculated:number}>();
+    for(const entry of data.entries){const item=data.services.find(service=>service.id===entry.serviceId),worker=data.contracts.find(contract=>contract.id===entry.contractId);if(weekKey(entry.entryDate)!==key||entry.entryDate===date||entry.sourceSequence!=null||!item?.affectsDsr||!worker)continue;const row=rows.get(entry.contractId)||{contractId:entry.contractId,name:worker.name,total:0,days:new Set<string>(),calculated:0};row.total+=entry.amountCents;row.days.add(entry.entryDate);rows.set(entry.contractId,row)}
+    return [...rows.values()].map(row=>({...row,calculated:row.days.size?Math.round(row.total/row.days.size):0})).filter(row=>row.calculated>0).sort((a,b)=>a.name.localeCompare(b.name));
+  },[data,date,restDay]);
+  useEffect(()=>{if(!data||!dsrServiceId)return;const values:Record<number,string>={};for(const row of selectedWeekDsr){const saved=data.entries.find(entry=>entry.entryDate===date&&entry.contractId===row.contractId&&String(entry.serviceId)===dsrServiceId);values[row.contractId]=((saved?.amountCents??row.calculated)/100).toFixed(2)}setDsrValues(values)},[data,date,dsrServiceId,selectedWeekDsr]);
+  const saveDsr=async()=>{if(!dsrServiceId){setNotice("Cadastre ou selecione o serviço correspondente ao DSR.");return}const rows=selectedWeekDsr.map(row=>({contractId:row.contractId,serviceId:dsrServiceId,quantity:"1",unitPrice:dsrValues[row.contractId]||"0"})).filter(row=>Number(row.unitPrice)>0);if(!rows.length){setNotice("Não há valores de DSR para salvar neste descanso.");return}await post({action:"saveBatch",entryDate:date,rows})};
   if (company === "all")
     return (
       <section className="module launch-empty">
@@ -442,6 +453,11 @@ export default function LaunchesModule({ company }: { company: string }) {
             Salvar planilha do dia
           </button>
         </div>
+      </article>
+      <article className="panel dsr-entry-panel">
+        <div className="panel-title"><div><small>DESCANSO SEMANAL REMUNERADO</small><h2>Calcular e lançar DSR no dia selecionado</h2></div><span className={`tag ${restDay?"":"muted"}`}>{restDay?`Descanso em ${dateBR(date)}`:"Selecione domingo ou feriado"}</span></div>
+        <div className="dsr-entry-config"><label>Serviço/código do DSR<select value={dsrServiceId} onChange={event=>setDsrServiceId(event.target.value)}><option value="">Selecione o código correspondente…</option>{dsrServices.length>0&&<optgroup label="Serviços identificados como DSR">{dsrServices.map(item=><option key={item.id} value={item.id}>{item.sourceId} · {item.description}</option>)}</optgroup>}<optgroup label="Todos os serviços cadastrados">{data.services.filter(item=>!dsrServices.some(candidate=>candidate.id===item.id)).map(item=><option key={item.id} value={item.id}>{item.sourceId} · {item.description}</option>)}</optgroup></select><small>O sistema sugere códigos identificados como DSR; se necessário, selecione manualmente outro serviço cadastrado.</small></label><p>Regra usada: produção da semana que compõe DSR ÷ dias com produção. O valor pode ser editado antes de gravar.</p></div>
+        {!restDay?<p className="sheet-empty">O lançamento de DSR é disponibilizado quando a data escolhida for domingo ou feriado cadastrado.</p>:selectedWeekDsr.length?<><div className="dsr-entry-list">{selectedWeekDsr.map(row=><div key={row.contractId}><div><b>{row.name}</b><small>Produção semanal: {money(row.total)} · {row.days.size} dia(s) com produção</small></div><label>DSR a lançar (R$)<CurrencyInput min="0" value={dsrValues[row.contractId]||""} onValueChange={value=>setDsrValues({...dsrValues,[row.contractId]:value})}/></label></div>)}</div><div className="batch-actions"><span>{selectedWeekDsr.length} colaborador(es) com DSR calculado</span><button type="button" className="primary" disabled={busy||!dsrServiceId} onClick={saveDsr}>Salvar/atualizar DSR deste dia</button></div></>:<p className="sheet-empty">Não há produção que componha DSR nesta semana.</p>}
       </article>
       <article className="panel completed-entries-panel">
         <div className="panel-title"><div><small>APONTAMENTOS REALIZADOS</small><h2>{modeDayEntries.length} registro(s) em {dateBR(date)}</h2></div><b>{entryMode==="monthly"?"Mensalistas":"Apontamento diário"}</b></div>
