@@ -25,7 +25,7 @@ type Service = {
   active: boolean;
 };
 type Entry = {
-  id: number;
+  id: number | string;
   entryDate: string;
   contractId: number;
   serviceId: number;
@@ -69,7 +69,7 @@ export default function LaunchesModule({ company }: { company: string }) {
       "production",
     ),
     [gridRows, setGridRows] = useState<
-      Record<number, { serviceId: string; quantity: string; unitPrice: string }>
+      Record<number, { id?:number|string; serviceId: string; quantity: string; unitPrice: string }>
     >({});
   const [form, setForm] = useState({
       contractId: "",
@@ -120,6 +120,13 @@ export default function LaunchesModule({ company }: { company: string }) {
   const dayEntries = data?.entries.filter((e) => e.entryDate === date) || [],
     contract = (id: number) => data?.contracts.find((c) => c.id === id),
     service = (id: number) => data?.services.find((s) => s.id === id);
+  useEffect(()=>{
+    if(!data)return;
+    const modeEntries=data.entries.filter(entry=>entry.entryDate===date&&data.contracts.find(item=>item.id===entry.contractId)?.paymentType===entryMode);
+    const rows:Record<number,{id?:number|string;serviceId:string;quantity:string;unitPrice:string}>={};
+    for(const entry of modeEntries)if(!rows[entry.contractId])rows[entry.contractId]={id:entry.id,serviceId:String(entry.serviceId),quantity:String(entry.quantity),unitPrice:(entry.unitPriceCents/100).toFixed(2)};
+    setGridRows(rows);
+  },[data,date,entryMode]);
   const days = useMemo(() => {
     if (!data) return [];
     const [y, m] = month.split("-").map(Number),
@@ -234,12 +241,16 @@ export default function LaunchesModule({ company }: { company: string }) {
       (a, b) =>
         (a.registrationNumber || 999999) - (b.registrationNumber || 999999),
     );
+  const modeDayEntries=dayEntries.filter(entry=>contract(entry.contractId)?.paymentType===entryMode);
+  const cloneEntry=async(entry:Entry)=>{const target=window.prompt("Data para clonar este apontamento (AAAA-MM-DD):",date);if(!target||target===date)return;if(!/^20\d{2}-\d{2}-\d{2}$/.test(target)||Number(target.slice(0,4))>2100){setNotice("Informe uma data válida entre 2000 e 2100.");return}if(await post({action:"save",entryDate:target,contractId:entry.contractId,serviceId:entry.serviceId,quantity:entry.quantity,unitPrice:(entry.unitPriceCents/100).toFixed(2),notes:entry.notes||""}))setNotice(`Apontamento clonado para ${dateBR(target)}.`)};
   const saveGrid = async () => {
     const rows = activeGrid
       .map((c) => ({ contractId: c.id, ...gridRows[c.id] }))
       .filter((r) => r.serviceId && Number(r.quantity) > 0);
-    if (await post({ action: "saveBatch", entryDate: date, rows }))
-      setGridRows({});
+    const existing=rows.filter(row=>row.id),fresh=rows.filter(row=>!row.id);
+    for(const row of existing)if(!await post({action:"updateEntry",id:row.id,entryDate:date,...row}))return;
+    if(fresh.length)await post({ action: "saveBatch", entryDate: date, rows:fresh });
+    else if(existing.length)setNotice(`${existing.length} apontamento(s) atualizado(s).`);
   };
   return (
     <section className="launches">
@@ -363,6 +374,7 @@ export default function LaunchesModule({ company }: { company: string }) {
                 <th>Produção</th>
                 <th>Preço</th>
                 <th>Valor</th>
+                <th>Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -436,6 +448,7 @@ export default function LaunchesModule({ company }: { company: string }) {
                     <td>
                       <b>{money(total)}</b>
                     </td>
+                    <td><div className="entry-row-actions">{row.id&&<><button type="button" className="secondary" onClick={()=>setGridRows({...gridRows,[c.id]:row})}>Editar</button><button type="button" className="secondary" onClick={async()=>{const target=window.prompt("Data para clonar este apontamento (AAAA-MM-DD):",date);if(!target||target===date)return;if(!/^20\d{2}-\d{2}-\d{2}$/.test(target)||Number(target.slice(0,4))>2100){setNotice("Informe uma data válida entre 2000 e 2100.");return}if(await post({action:"save",entryDate:target,contractId:c.id,serviceId:row.serviceId,quantity:row.quantity,unitPrice:row.unitPrice}))setNotice(`Apontamento clonado para ${dateBR(target)}.`)}}>Clonar</button><button type="button" className="danger" onClick={async()=>{if(window.confirm(`Excluir o apontamento de ${c.name}?`))await post({action:"delete",id:row.id})}}>Excluir</button></>}</div></td>
                   </tr>
                 );
               })}
@@ -449,7 +462,7 @@ export default function LaunchesModule({ company }: { company: string }) {
           </p>
         )}
         <div className="batch-actions">
-          <span>{activeGrid.length} colaboradores ativos</span>
+          <span>{activeGrid.length} colaboradores ativos · {dayEntries.filter(entry=>contract(entry.contractId)?.paymentType===entryMode).length} apontamento(s) nesta data</span>
           <button
             className="primary"
             disabled={busy || !activeGrid.length}
@@ -458,6 +471,10 @@ export default function LaunchesModule({ company }: { company: string }) {
             Salvar planilha do dia
           </button>
         </div>
+      </article>
+      <article className="panel completed-entries-panel">
+        <div className="panel-title"><div><small>APONTAMENTOS REALIZADOS</small><h2>{modeDayEntries.length} registro(s) em {dateBR(date)}</h2></div><b>{entryMode==="monthly"?"Mensalistas":"Apontamento diário"}</b></div>
+        {modeDayEntries.length?<div className="table-scroll"><table className="data-table completed-entries-table"><thead><tr><th>Colaborador</th><th>Serviço</th><th>Quantidade</th><th>Preço</th><th>Total</th><th>Ações</th></tr></thead><tbody>{modeDayEntries.map(entry=><tr key={entry.id}><td><b>{contract(entry.contractId)?.name}</b></td><td>{service(entry.serviceId)?.description}</td><td>{entry.quantity}</td><td>{money(entry.unitPriceCents)}</td><td><b>{money(entry.amountCents)}</b></td><td><div className="entry-row-actions"><button type="button" className="secondary" onClick={()=>setGridRows({...gridRows,[entry.contractId]:{id:entry.id,serviceId:String(entry.serviceId),quantity:String(entry.quantity),unitPrice:(entry.unitPriceCents/100).toFixed(2)}})}>Editar</button><button type="button" className="secondary" onClick={()=>cloneEntry(entry)}>Clonar</button><button type="button" className="danger" onClick={async()=>{if(window.confirm(`Excluir o apontamento de ${contract(entry.contractId)?.name}?`))await post({action:"delete",id:entry.id})}}>Excluir</button></div></td></tr>)}</tbody></table></div>:<p className="sheet-empty">Nenhum apontamento realizado para este grupo nesta data.</p>}
       </article>
       <div className="launch-grid legacy-entry-form">
         <article className="panel entry-panel">

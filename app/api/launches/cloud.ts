@@ -133,6 +133,14 @@ export async function cloudLaunchesPost(request: Request) {
       const source=String(body.sourceDate||""),target=String(body.targetDate||"");
       if(!/^20\d{2}-\d{2}-\d{2}$/.test(source)||!/^20\d{2}-\d{2}-\d{2}$/.test(target)||Number(target.slice(0,4))>2100||source===target)return Response.json({error:"Informe duas datas válidas e diferentes, entre os anos 2000 e 2100."},{status:400});
     }
+    if(body.action==="updateEntry"){
+      const id=String(body.id||""),date=String(body.entryDate||""),contractId=String(body.contractId||""),serviceId=String(body.serviceId||""),quantity=Number(body.quantity),unit=Math.round(Number(body.unitPrice)*100);
+      if(!id||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(date)||!contractId||!serviceId||quantity<=0||unit<0)return Response.json({error:"Preencha data, colaborador, serviço, quantidade e valor."},{status:400});
+      const companies=await supabaseAdmin.get<Array<{id:string}>>(`/rest/v1/companies?select=id&organization_id=eq.${config.organizationId}&legacy_id=eq.${companyLegacyId}&limit=1`),companyId=companies[0]?.id;
+      if(!companyId)return Response.json({error:"Empresa não encontrada."},{status:404});
+      await supabaseAdmin.patch(`/rest/v1/daily_entries?id=eq.${id}&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}`,{entry_date:date,contract_id:contractId,service_id:serviceId,quantity,unit_price_cents:unit,amount_cents:Math.round(quantity*unit)});
+      return Response.json({ok:true,message:"Apontamento atualizado."});
+    }
     const result = await supabaseAdmin.post<
       Array<{ ok: boolean; message: string; affected: number }>
     >("/rest/v1/rpc/folha_save_launches", {

@@ -257,3 +257,4 @@
     gap: 10px;
   }
 }
+.completed-entries-panel{margin-top:18px;padding:20px}.completed-entries-table{min-width:900px}.entry-row-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.entry-row-actions button{padding:6px 9px;font-size:11px}.batch-table th:last-child{min-width:210px}

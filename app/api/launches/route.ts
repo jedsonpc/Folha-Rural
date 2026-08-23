@@ -246,6 +246,12 @@ export async function POST(request: Request) {
         message: `${saved} apontamentos salvos na tabela.`,
       });
     }
+    if(action==="updateEntry"){
+      const id=Number(b.id),date=String(b.entryDate||""),contractId=Number(b.contractId),serviceId=Number(b.serviceId),quantity=Number(b.quantity),unit=Math.round(Number(b.unitPrice)*100);
+      if(!id||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(date)||!contractId||!serviceId||quantity<=0||unit<0)return Response.json({error:"Preencha data, colaborador, serviço, quantidade e valor."},{status:400});
+      await db.update(dailyEntries).set({entryDate:date,contractId,serviceId,quantity:String(quantity),unitPriceCents:unit,amountCents:Math.round(quantity*unit)}).where(and(eq(dailyEntries.id,id),eq(dailyEntries.tenantId,tenantId),eq(dailyEntries.companySourceId,company)));
+      return Response.json({ok:true,message:"Apontamento atualizado."});
+    }
     if (action === "delete") {
       await db
         .delete(dailyEntries)

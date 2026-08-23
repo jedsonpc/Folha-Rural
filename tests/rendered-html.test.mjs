@@ -18,7 +18,7 @@ test("keeps the installable app metadata and update worker", async () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
   assert.match(serviceWorker, /SKIP_WAITING/);
-  assert.match(serviceWorker, /folha-rural-shell-v29-salarios-e-clonagem/);
+  assert.match(serviceWorker, /folha-rural-shell-v30-edicao-apontamentos/);
   assert.match(serviceWorker, /skipWaiting/);
 });
 
@@ -125,7 +125,7 @@ test("uses a registered mother dependent to clear the worker mother-name issue",
     assert.match(source, /motherName: contract\.motherName \|\| motherByPerson\.get/);
   }
   const badge = await readFile(new URL("../app/version-badge.css", import.meta.url), "utf8");
-  assert.match(badge, /v1\.4\.21/);
+  assert.match(badge, /v1\.4\.22/);
 });
 
 test("keeps worker saves, termination dates and review alerts synchronized", async () => {
@@ -162,4 +162,17 @@ test("supports registered employment links and multiple descriptions per CBO", a
   assert.match(registrations, /saveLink/);
   assert.match(database, /job_functions_tenant_cbo_description_idx/);
   assert.match(route, /A função está vinculada a colaborador e não pode ser excluída/);
+});
+
+test("edits clones and deletes existing daily and monthly entries", async () => {
+  const module = await readFile(new URL("../app/launches-module.tsx", import.meta.url), "utf8");
+  const localApi = await readFile(new URL("../app/api/launches/route.ts", import.meta.url), "utf8");
+  const cloudApi = await readFile(new URL("../app/api/launches/cloud.ts", import.meta.url), "utf8");
+  assert.match(module, /APONTAMENTOS REALIZADOS/);
+  assert.match(module, /Editar/);
+  assert.match(module, /Clonar/);
+  assert.match(module, /Excluir/);
+  assert.match(module, /entryMode/);
+  assert.match(localApi, /action==="updateEntry"/);
+  assert.match(cloudApi, /body\.action==="updateEntry"/);
 });
