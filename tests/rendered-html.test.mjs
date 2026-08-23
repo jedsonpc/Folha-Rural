@@ -18,7 +18,7 @@ test("keeps the installable app metadata and update worker", async () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
   assert.match(serviceWorker, /SKIP_WAITING/);
-  assert.match(serviceWorker, /folha-rural-shell-v26-cadastros-sincronizados/);
+  assert.match(serviceWorker, /folha-rural-shell-v27-pendencias-ativas/);
   assert.match(serviceWorker, /skipWaiting/);
 });
 
@@ -125,7 +125,7 @@ test("uses a registered mother dependent to clear the worker mother-name issue",
     assert.match(source, /motherName: contract\.motherName \|\| motherByPerson\.get/);
   }
   const badge = await readFile(new URL("../app/version-badge.css", import.meta.url), "utf8");
-  assert.match(badge, /v1\.4\.18/);
+  assert.match(badge, /v1\.4\.19/);
 });
 
 test("keeps worker saves, termination dates and review alerts synchronized", async () => {
@@ -136,6 +136,13 @@ test("keeps worker saves, termination dates and review alerts synchronized", asy
   assert.match(data, /Data atual sugerida para o desligamento/);
   assert.match(data, /activeWorkerNeedsReview/);
   assert.match(review, /return !terminated && workerNeedsReview/);
+});
+
+test("shows registration issues only for active workers on the dashboard", async () => {
+  const dashboard = await readFile(new URL("../app/production-dashboard.tsx", import.meta.url), "utf8");
+  assert.match(dashboard, /activeWorkerNeedsReview/);
+  assert.match(dashboard, /reviewRows = rows\.filter\(\(r\) => activeWorkerNeedsReview\(r\)\)/);
+  assert.doesNotMatch(dashboard, /workerNeedsReview\(r\)/);
 });
 
 test("supports registered employment links and multiple descriptions per CBO", async () => {

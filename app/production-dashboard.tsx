@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { workerNeedsReview, workerReviewIssues } from "./worker-review";
+import { activeWorkerNeedsReview, workerReviewIssues } from "./worker-review";
 
 type Payload = {
   companies: Array<{ sourceId: number; name: string }>;
@@ -54,7 +54,7 @@ export default function ProductionDashboard({
   const people = new Set(rows.map((r) => r.personId)).size,
     active = rows.filter((r) => r.status === "active").length,
     ended = rows.filter((r) => r.status !== "active").length,
-    reviewRows = rows.filter((r: any) => workerNeedsReview(r)),
+    reviewRows = rows.filter((r) => activeWorkerNeedsReview(r)),
     reviews = reviewRows.length,
     recent = [...rows]
       .sort((a, b) =>
