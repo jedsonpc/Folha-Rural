@@ -13,6 +13,7 @@ import "./version-badge.css";
 import ProductionDashboard from "./production-dashboard";
 import AuthScreen from "./auth-screen";
 import { companyBrandImage } from "./company-branding";
+import packageInfo from "../package.json";
 
 const AccessImporter = lazy(() => import("./access-importer"));
 const DataModule = lazy(() => import("./data-module"));
@@ -94,7 +95,7 @@ const navGroups = [
       items: [["IA", "Importar Access"]],
     },
   ],
-  SYSTEM_VERSION = "1.4.17",
+  SYSTEM_VERSION = packageInfo.version,
   LAST_UPDATE = "22/08/2026";
 type Company = {
   sourceId: number;
