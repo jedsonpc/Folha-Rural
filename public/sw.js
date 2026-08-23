@@ -1,4 +1,4 @@
-const CACHE_NAME = "folha-rural-shell-v34-dsr-editavel";
+const CACHE_NAME = "folha-rural-shell-v35-dsr-automatico";
 const APP_SHELL = [
   "/",
   "/manifest.webmanifest",

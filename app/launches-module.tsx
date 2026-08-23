@@ -96,6 +96,16 @@ export default function LaunchesModule({ company }: { company: string }) {
   useEffect(() => {
     load();
   }, [company, month]);
+  const recalculateAppliedDsr=async(changedDate:string)=>{
+    if(!changedDate||company==="all")return 0;
+    const response=await fetch(`/api/launches?company=${company}&month=${changedDate.slice(0,7)}`,{cache:"no-store"});
+    if(!response.ok)return 0;
+    const current=await response.json() as Data,dsrIds=new Set(current.services.filter(item=>/\bDSR\b|DESCANSO.*REMUNERADO|REPOUSO.*REMUNERADO|DESCANSO SEMANAL|REPOUSO SEMANAL/i.test(`${item.description} ${item.formulaCode||""}`)).map(item=>String(item.id))),key=weekKey(changedDate);if(dsrServiceId)dsrIds.add(dsrServiceId);
+    const applied=current.entries.filter(entry=>weekKey(entry.entryDate)===key&&dsrIds.has(String(entry.serviceId))&&(new Date(`${entry.entryDate}T12:00:00`).getDay()===0||current.holidays.some(item=>item.holidayDate===entry.entryDate)));
+    const grouped=new Map<string,Array<Record<string,unknown>>>();
+    for(const dsrEntry of applied){const production=current.entries.filter(entry=>entry.contractId===dsrEntry.contractId&&weekKey(entry.entryDate)===key&&entry.entryDate!==dsrEntry.entryDate&&entry.sourceSequence==null&&!dsrIds.has(String(entry.serviceId))&&current.services.find(item=>item.id===entry.serviceId)?.affectsDsr),days=new Set(production.map(entry=>entry.entryDate)),total=production.reduce((sum,entry)=>sum+entry.amountCents,0),value=days.size?Math.round(total/days.size):0;if(value<=0)continue;const rows=grouped.get(dsrEntry.entryDate)||[];rows.push({contractId:dsrEntry.contractId,serviceId:dsrEntry.serviceId,quantity:"1",unitPrice:(value/100).toFixed(2)});grouped.set(dsrEntry.entryDate,rows)}
+    let updated=0;for(const [entryDate,rows] of grouped){const saved=await queueableLaunchFetch("/api/launches",{action:"saveBatch",automaticDsr:true,companySourceId:Number(company),entryDate,rows});if(saved.ok)updated+=rows.length}return updated;
+  };
   const post = async (body: object) => {
     setBusy(true);
     setNotice("");
@@ -106,7 +116,9 @@ export default function LaunchesModule({ company }: { company: string }) {
         }),
         b = await r.json();
       if (!r.ok) throw new Error(b.error);
-      setNotice(b.message || "Operação concluída.");
+      const payload=body as Record<string,unknown>,deletedDate=payload.action==="delete"?data?.entries.find(entry=>String(entry.id)===String(payload.id))?.entryDate:"",changedDate=String(payload.targetDate||payload.entryDate||deletedDate||"");
+      const recalculated=payload.automaticDsr?0:await recalculateAppliedDsr(changedDate);
+      setNotice(`${b.message || "Operação concluída."}${recalculated?` DSR recalculado automaticamente para ${recalculated} colaborador(es).`:""}`);
       const targetDate=String((body as Record<string,unknown>).targetDate||"");
       await load(targetDate?targetDate.slice(0,7):month);
       return true;
@@ -213,7 +225,7 @@ export default function LaunchesModule({ company }: { company: string }) {
     return [...rows.values()].map(row=>({...row,calculated:row.days.size?Math.round(row.total/row.days.size):0})).filter(row=>row.calculated>0).sort((a,b)=>a.name.localeCompare(b.name));
   },[data,date,restDay]);
   useEffect(()=>{if(!data||!dsrServiceId)return;const values:Record<number,string>={};for(const row of selectedWeekDsr){const saved=data.entries.find(entry=>entry.entryDate===date&&entry.contractId===row.contractId&&String(entry.serviceId)===dsrServiceId);values[row.contractId]=((saved?.amountCents??row.calculated)/100).toFixed(2)}setDsrValues(values)},[data,date,dsrServiceId,selectedWeekDsr]);
-  const saveDsr=async()=>{if(!dsrServiceId){setNotice("Cadastre ou selecione o serviço correspondente ao DSR.");return}const rows=selectedWeekDsr.map(row=>({contractId:row.contractId,serviceId:dsrServiceId,quantity:"1",unitPrice:dsrValues[row.contractId]||"0"})).filter(row=>Number(row.unitPrice)>0);if(!rows.length){setNotice("Não há valores de DSR para salvar neste descanso.");return}await post({action:"saveBatch",entryDate:date,rows})};
+  const saveDsr=async()=>{if(!dsrServiceId){setNotice("Cadastre ou selecione o serviço correspondente ao DSR.");return}const rows=selectedWeekDsr.map(row=>({contractId:row.contractId,serviceId:dsrServiceId,quantity:"1",unitPrice:dsrValues[row.contractId]||"0"})).filter(row=>Number(row.unitPrice)>0);if(!rows.length){setNotice("Não há valores de DSR para salvar neste descanso.");return}await post({action:"saveBatch",automaticDsr:true,entryDate:date,rows})};
   if (company === "all")
     return (
       <section className="module launch-empty">

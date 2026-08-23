@@ -18,7 +18,7 @@ test("keeps the installable app metadata and update worker", async () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
   assert.match(serviceWorker, /SKIP_WAITING/);
-  assert.match(serviceWorker, /folha-rural-shell-v34-dsr-editavel/);
+  assert.match(serviceWorker, /folha-rural-shell-v35-dsr-automatico/);
   assert.match(serviceWorker, /skipWaiting/);
 });
 
@@ -125,7 +125,7 @@ test("uses a registered mother dependent to clear the worker mother-name issue",
     assert.match(source, /motherName: contract\.motherName \|\| motherByPerson\.get/);
   }
   const badge = await readFile(new URL("../app/version-badge.css", import.meta.url), "utf8");
-  assert.match(badge, /v1\.4\.26/);
+  assert.match(badge, /v1\.4\.27/);
 });
 
 test("keeps worker saves, termination dates and review alerts synchronized", async () => {
@@ -206,4 +206,7 @@ test("calculates editable DSR entries on Sundays and holidays", async () => {
   assert.match(module, /<CurrencyInput/);
   assert.match(styles, /\.batch-table\{width:100%;min-width:0;table-layout:fixed\}/);
   assert.match(styles, /overflow-x:visible/);
+  assert.match(module, /recalculateAppliedDsr/);
+  assert.match(module, /DSR recalculado automaticamente/);
+  assert.match(module, /automaticDsr:true/);
 });
