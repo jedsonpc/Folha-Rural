@@ -63,10 +63,33 @@ export async function POST(r: Request) {
     if (action === "saveProfile") {
       const contractId=Number(b.contractId), salary=money(b.baseSalary), daily=Math.round(salary/30);
       if (!contractId || !salary) return Response.json({error:"Informe o salário-base."},{status:400});
+      const current=await db.prepare("SELECT base_salary_cents FROM worker_payroll_profiles WHERE tenant_id=? AND contract_id=?").bind(t,contractId).first<{base_salary_cents:number}>();
+      if(current&&salary<current.base_salary_cents)return Response.json({error:"O novo salário não pode ser inferior ao salário atual."},{status:409});
       await db.prepare(`INSERT INTO worker_payroll_profiles (tenant_id,contract_id,employment_link_code,employment_link_description,contract_term,salary_type,base_salary_cents,daily_rate_cents,advance_rate_basis_points,updated_at)
         VALUES (?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(tenant_id,contract_id) DO UPDATE SET salary_type=excluded.salary_type,base_salary_cents=excluded.base_salary_cents,daily_rate_cents=excluded.daily_rate_cents,advance_rate_basis_points=excluded.advance_rate_basis_points,updated_at=CURRENT_TIMESTAMP`)
         .bind(t,contractId,"","", "indefinite",b.salaryType==="daily"?"daily":"monthly",salary,daily,Math.round(Number(b.advanceRate||40)*100)).run();
-      if (validDate(b.effectiveDate)) await db.prepare("INSERT INTO salary_history (tenant_id,contract_id,effective_date,salary_cents,reason,source) VALUES (?,?,?,?,?,'individual')").bind(t,contractId,b.effectiveDate,salary,String(b.reason||"Cadastro/alteração salarial")).run();
+      await db.prepare("UPDATE employment_contracts SET payment_type=? WHERE tenant_id=? AND id=?").bind(b.salaryType==="monthly"?"monthly":"production",t,contractId).run();
+      if ((!current||salary!==current.base_salary_cents)&&validDate(b.effectiveDate)) await db.prepare("INSERT INTO salary_history (tenant_id,contract_id,effective_date,salary_cents,reason,source) VALUES (?,?,?,?,?,'individual')").bind(t,contractId,b.effectiveDate,salary,String(b.reason||"Cadastro/alteração salarial")).run();
+      return Response.json({ok:true,message:current&&salary===current.base_salary_cents?"Configuração atualizada sem criar nova alteração salarial.":"Alteração salarial registrada com sucesso."});
+    } else if(action==="updateSalaryHistory"){
+      const id=Number(b.id),contractId=Number(b.contractId),salary=money(b.baseSalary);
+      if(!id||!contractId||!salary||!validDate(b.effectiveDate))return Response.json({error:"Informe valor e vigência válidos."},{status:400});
+      const previous=await db.prepare("SELECT salary_cents FROM salary_history WHERE tenant_id=? AND contract_id=? AND id<>? AND (effective_date<? OR (effective_date=? AND id<?)) ORDER BY effective_date DESC,id DESC LIMIT 1").bind(t,contractId,id,b.effectiveDate,b.effectiveDate,id).first<{salary_cents:number}>();
+      const next=await db.prepare("SELECT salary_cents FROM salary_history WHERE tenant_id=? AND contract_id=? AND id<>? AND (effective_date>? OR (effective_date=? AND id>?)) ORDER BY effective_date,id LIMIT 1").bind(t,contractId,id,b.effectiveDate,b.effectiveDate,id).first<{salary_cents:number}>();
+      if((previous&&salary<previous.salary_cents)||(next&&salary>next.salary_cents))return Response.json({error:"A edição deve manter a evolução salarial sem redução entre as vigências."},{status:409});
+      await db.prepare("UPDATE salary_history SET effective_date=?,salary_cents=?,reason=? WHERE tenant_id=? AND contract_id=? AND id=?").bind(b.effectiveDate,salary,String(b.reason||"Alteração salarial"),t,contractId,id).run();
+      const latest=await db.prepare("SELECT salary_cents FROM salary_history WHERE tenant_id=? AND contract_id=? ORDER BY effective_date DESC,id DESC LIMIT 1").bind(t,contractId).first<{salary_cents:number}>();
+      if(latest)await db.prepare("UPDATE worker_payroll_profiles SET base_salary_cents=?,daily_rate_cents=ROUND(?/30.0),updated_at=CURRENT_TIMESTAMP WHERE tenant_id=? AND contract_id=?").bind(latest.salary_cents,latest.salary_cents,t,contractId).run();
+      return Response.json({ok:true,message:"Registro salarial atualizado."});
+    } else if(action==="deleteSalaryHistory"){
+      const id=Number(b.id),contractId=Number(b.contractId);
+      const count=await db.prepare("SELECT COUNT(*) total FROM salary_history WHERE tenant_id=? AND contract_id=?").bind(t,contractId).first<{total:number}>();
+      if(!id||!contractId)return Response.json({error:"Registro salarial inválido."},{status:400});
+      if(Number(count?.total||0)<=1)return Response.json({error:"Não é possível excluir o único registro salarial do colaborador."},{status:409});
+      await db.prepare("DELETE FROM salary_history WHERE tenant_id=? AND contract_id=? AND id=?").bind(t,contractId,id).run();
+      const latest=await db.prepare("SELECT salary_cents FROM salary_history WHERE tenant_id=? AND contract_id=? ORDER BY effective_date DESC,id DESC LIMIT 1").bind(t,contractId).first<{salary_cents:number}>();
+      if(latest)await db.prepare("UPDATE worker_payroll_profiles SET base_salary_cents=?,daily_rate_cents=ROUND(?/30.0),updated_at=CURRENT_TIMESTAMP WHERE tenant_id=? AND contract_id=?").bind(latest.salary_cents,latest.salary_cents,t,contractId).run();
+      return Response.json({ok:true,message:"Registro salarial excluído."});
     } else if (action === "saveVacation") {
       if (![b.accrualStart,b.accrualEnd,b.concessionDeadline].every(validDate)) return Response.json({error:"Informe o período aquisitivo e o prazo concessivo."},{status:400});
       const absences=Math.max(0,Number(b.unjustifiedAbsences)||0),days=vacationEntitlement(absences,b.lossReason);
@@ -119,7 +142,7 @@ export async function POST(r: Request) {
         : table==="employment_links" ? await db.prepare("SELECT 1 FROM employment_contracts c JOIN employment_links l ON l.tenant_id=c.tenant_id AND c.employment_link_code=l.code WHERE l.tenant_id=? AND l.id=? LIMIT 1").bind(t,Number(b.id)).first()
         : table==="cost_centers" ? await db.prepare("SELECT 1 FROM services WHERE tenant_id=? AND group_source_id=? LIMIT 1").bind(t,Number(b.id)).first()
         : table==="safety_items" ? await db.prepare("SELECT 1 FROM item_issues WHERE tenant_id=? AND item_id=? LIMIT 1").bind(t,Number(b.id)).first() : null;
-      if (usage) return Response.json({error:"O registro possui vínculos e não pode ser excluído."},{status:409});
+      if (usage) return Response.json({error:table==="employment_links"?"O vínculo faz parte do cadastro de colaborador e não pode ser excluído.":"O registro possui vínculos e não pode ser excluído."},{status:409});
       await db.prepare(`DELETE FROM ${table} WHERE tenant_id=? AND id=?`).bind(t,Number(b.id)).run();
     } else return Response.json({error:"Ação inválida."},{status:400});
     return Response.json({ok:true,message:"Registro salvo com sucesso."});
@@ -355,6 +378,26 @@ async function cloudHrPost(request: Request, user: CloudUser | null) {
       return Response.json({ok:true,message:"Vínculo excluído."});
     }
 
+    if(action==="updateSalaryHistory"||action==="deleteSalaryHistory"){
+      const contractId=String(body.contractId||""),id=String(body.id||"");
+      if(!contractId||!id)return Response.json({error:"Registro salarial inválido."},{status:400});
+      const histories=await supabaseAdmin.get<CloudRow[]>(`/rest/v1/salary_history?select=*&organization_id=eq.${config.organizationId}&contract_id=eq.${contractId}&order=effective_date.asc,created_at.asc`);
+      if(action==="deleteSalaryHistory"){
+        if(histories.length<=1)return Response.json({error:"Não é possível excluir o único registro salarial do colaborador."},{status:409});
+        await supabaseAdmin.delete(`/rest/v1/salary_history?id=eq.${id}&organization_id=eq.${config.organizationId}&contract_id=eq.${contractId}`);
+      }else{
+        const salaryCents=money(body.baseSalary),effectiveDate=String(body.effectiveDate||"");
+        if(!salaryCents||!validDate(effectiveDate))return Response.json({error:"Informe valor e vigência válidos."},{status:400});
+        const remaining=histories.filter(row=>String(row.id)!==id).sort((a,b)=>String(a.effective_date).localeCompare(String(b.effective_date))||String(a.created_at).localeCompare(String(b.created_at)));
+        const previous=[...remaining].reverse().find(row=>String(row.effective_date)<=effectiveDate),next=remaining.find(row=>String(row.effective_date)>effectiveDate);
+        if((previous&&salaryCents<Number(previous.salary_cents))||(next&&salaryCents>Number(next.salary_cents)))return Response.json({error:"A edição deve manter a evolução salarial sem redução entre as vigências."},{status:409});
+        await supabaseAdmin.patch(`/rest/v1/salary_history?id=eq.${id}&organization_id=eq.${config.organizationId}&contract_id=eq.${contractId}`,{effective_date:effectiveDate,salary_cents:salaryCents,reason:String(body.reason||"Alteração salarial")});
+      }
+      const updated=await supabaseAdmin.get<CloudRow[]>(`/rest/v1/salary_history?select=salary_cents&organization_id=eq.${config.organizationId}&contract_id=eq.${contractId}&order=effective_date.desc,created_at.desc&limit=1`);
+      if(updated[0])await supabaseAdmin.patch(`/rest/v1/worker_payroll_profiles?organization_id=eq.${config.organizationId}&contract_id=eq.${contractId}`,{base_salary_cents:Number(updated[0].salary_cents),daily_rate_cents:Math.round(Number(updated[0].salary_cents)/30),updated_at:new Date().toISOString()});
+      return Response.json({ok:true,message:action==="deleteSalaryHistory"?"Registro salarial excluído.":"Registro salarial atualizado."});
+    }
+
     if (
       [
         "saveProfile",
@@ -379,6 +422,10 @@ async function cloudHrPost(request: Request, user: CloudUser | null) {
           Number(body.advanceRate || 40) * 100,
         );
         payload.salaryType = body.salaryType === "daily" ? "daily" : "monthly";
+        const current=await supabaseAdmin.get<CloudRow[]>(`/rest/v1/worker_payroll_profiles?select=base_salary_cents&organization_id=eq.${config.organizationId}&contract_id=eq.${body.contractId}&limit=1`);
+        if(current[0]&&baseSalaryCents<Number(current[0].base_salary_cents))return Response.json({error:"O novo salário não pode ser inferior ao salário atual."},{status:409});
+        if(current[0]&&baseSalaryCents===Number(current[0].base_salary_cents))delete payload.effectiveDate;
+        await supabaseAdmin.patch(`/rest/v1/employment_contracts?organization_id=eq.${config.organizationId}&id=eq.${body.contractId}`,{payment_type:body.salaryType==="monthly"?"monthly":"production"});
       } else if (action === "saveVacation") {
         if (
           ![body.accrualStart, body.accrualEnd, body.concessionDeadline].every(

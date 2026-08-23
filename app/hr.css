@@ -23,3 +23,4 @@
 @media(max-width:800px){.vacation-step{padding:12px}.vacation-entitlement{align-items:flex-start;flex-direction:column}.vacation-check{padding-top:8px}}
 @media(max-width:900px){.salary-grid-main,.salary-grid-details{grid-template-columns:1fr 1fr}.salary-reason{grid-column:1/-1}}
 @media(max-width:600px){.salary-card{padding:14px}.salary-grid-main,.salary-grid-details{grid-template-columns:1fr}.salary-reason{grid-column:auto}.salary-actions .primary{width:100%;min-width:0}.salary-history>div{align-items:flex-start;flex-direction:column}.salary-heading,.salary-history-heading{align-items:flex-start}}
+.salary-actions{gap:10px}.salary-history>div>div:first-child{display:grid;gap:4px;min-width:0}.salary-history-actions{display:flex;gap:8px;flex:0 0 auto}.salary-history-actions button{padding:7px 10px}.worker-role-cell{min-width:180px;max-width:320px;white-space:normal;overflow-wrap:anywhere}.worker-admission-cell{min-width:112px;white-space:nowrap}

@@ -18,7 +18,7 @@ test("keeps the installable app metadata and update worker", async () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
   assert.match(serviceWorker, /SKIP_WAITING/);
-  assert.match(serviceWorker, /folha-rural-shell-v28-instalacao-na-entrada/);
+  assert.match(serviceWorker, /folha-rural-shell-v29-salarios-e-clonagem/);
   assert.match(serviceWorker, /skipWaiting/);
 });
 
@@ -125,7 +125,7 @@ test("uses a registered mother dependent to clear the worker mother-name issue",
     assert.match(source, /motherName: contract\.motherName \|\| motherByPerson\.get/);
   }
   const badge = await readFile(new URL("../app/version-badge.css", import.meta.url), "utf8");
-  assert.match(badge, /v1\.4\.20/);
+  assert.match(badge, /v1\.4\.21/);
 });
 
 test("keeps worker saves, termination dates and review alerts synchronized", async () => {

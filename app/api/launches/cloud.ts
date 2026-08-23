@@ -36,9 +36,12 @@ export async function cloudLaunchesGet(request: Request) {
       );
     const start = `${month}-01`;
     const end = nextMonth(month);
-    const [contracts, services, entries, holidays] = await Promise.all([
+    const [contracts, profiles, services, entries, holidays] = await Promise.all([
       supabaseAdmin.get<Row[]>(
         `/rest/v1/employment_contracts?select=*,people(full_name,cpf,pis,birth_date,identity_number)&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&order=created_at.asc`,
+      ),
+      supabaseAdmin.get<Row[]>(
+        `/rest/v1/worker_payroll_profiles?select=contract_id,salary_type&organization_id=eq.${config.organizationId}`,
       ),
       supabaseAdmin.get<Row[]>(
         `/rest/v1/services?select=*&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&order=description.asc`,
@@ -65,7 +68,7 @@ export async function cloudLaunchesGet(request: Request) {
         admissionDate: row.admission_date,
         terminationDate: row.termination_date,
         role: row.role_name,
-        paymentType: row.payment_type,
+        paymentType: profiles.find(profile=>profile.contract_id===row.id)?.salary_type==="monthly"?"monthly":"production",
       })),
       services: services.map((row) => ({
         id: row.id,
@@ -126,6 +129,10 @@ export async function cloudLaunchesPost(request: Request) {
     if (access.response) return access.response;
     if (!companyLegacyId)
       return Response.json({ error: "Selecione uma empresa." }, { status: 400 });
+    if(body.action==="clone"){
+      const source=String(body.sourceDate||""),target=String(body.targetDate||"");
+      if(!/^20\d{2}-\d{2}-\d{2}$/.test(source)||!/^20\d{2}-\d{2}-\d{2}$/.test(target)||Number(target.slice(0,4))>2100||source===target)return Response.json({error:"Informe duas datas válidas e diferentes, entre os anos 2000 e 2100."},{status:400});
+    }
     const result = await supabaseAdmin.post<
       Array<{ ok: boolean; message: string; affected: number }>
     >("/rest/v1/rpc/folha_save_launches", {

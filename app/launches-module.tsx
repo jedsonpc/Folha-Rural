@@ -81,10 +81,10 @@ export default function LaunchesModule({ company }: { company: string }) {
     [cloneDate, setCloneDate] = useState(""),
     [holiday, setHoliday] = useState({ date: iso(), name: "" });
   const month = date.slice(0, 7);
-  const load = async () => {
+  const load = async (requestedMonth=month) => {
     if (company === "all") return;
     try {
-      const r = await cachedApiFetch(`/api/launches?company=${company}&month=${month}`),
+      const r = await cachedApiFetch(`/api/launches?company=${company}&month=${requestedMonth}`,{cache:"no-store"}),
         b = await r.json();
       if (!r.ok) throw new Error(b.error);
       setData(b);
@@ -107,7 +107,8 @@ export default function LaunchesModule({ company }: { company: string }) {
         b = await r.json();
       if (!r.ok) throw new Error(b.error);
       setNotice(b.message || "Operação concluída.");
-      await load();
+      const targetDate=String((body as Record<string,unknown>).targetDate||"");
+      await load(targetDate?targetDate.slice(0,7):month);
       return true;
     } catch (e) {
       setNotice(e instanceof Error ? e.message : "Falha na operação.");
@@ -277,6 +278,7 @@ export default function LaunchesModule({ company }: { company: string }) {
             className="primary"
             disabled={busy}
             onClick={async () => {
+              if(!/^20\d{2}-\d{2}-\d{2}$/.test(cloneDate)||Number(cloneDate.slice(0,4))>2100){setNotice("Informe uma data de destino válida entre os anos 2000 e 2100.");return}
               if (
                 await post({
                   action: "clone",

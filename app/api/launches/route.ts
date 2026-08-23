@@ -290,9 +290,9 @@ export async function POST(request: Request) {
     if (action === "clone") {
       const source = String(b.sourceDate || ""),
         target = String(b.targetDate || "");
-      if (!source || !target || source === target)
+      if (!/^20\d{2}-\d{2}-\d{2}$/.test(source) || !/^20\d{2}-\d{2}-\d{2}$/.test(target) || Number(target.slice(0,4))>2100 || source === target)
         return Response.json(
-          { error: "Informe duas datas diferentes." },
+          { error: "Informe duas datas válidas e diferentes, entre os anos 2000 e 2100." },
           { status: 400 },
         );
       const existing = await db

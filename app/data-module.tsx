@@ -791,6 +791,7 @@ export default function DataModule({
                 <th>Colaborador</th>
                 <th>Função</th>
                 <th>Admissão</th>
+                <th>Tipo de salário</th>
                 <th>Situação</th>
                 <th>Ações</th>
               </tr>
@@ -828,8 +829,9 @@ export default function DataModule({
                       </div>
                     )}
                   </td>
-                  <td>{r.role || "—"}</td>
-                  <td>{showDate(r.admissionDate)}</td>
+                  <td className="worker-role-cell">{r.role || "—"}</td>
+                  <td className="worker-admission-cell">{showDate(r.admissionDate)}</td>
+                  <td>{r.paymentType === "monthly" ? "Mensalista" : "Apontamento diário"}</td>
                   <td>
                     <span className={`status-chip ${normalizedContractStatus(r)}`}>
                       {normalizedContractStatus(r) === "active" ? "Ativo" : "Desligado"}

@@ -16,14 +16,18 @@ export type WorkerHrTabsHandle = { saveSalary: () => Promise<boolean> };
 
 const WorkerHrTabs = forwardRef<WorkerHrTabsHandle, {contractId:number;kind:"salary"|"vacation"}>(function WorkerHrTabs({contractId,kind}, ref) {
   const [data,setData]=useState<any>({profile:null,salaries:[],vacations:[],contract:null}),[msg,setMsg]=useState("");
-  const [salary,setSalary]=useState<any>({salaryType:"monthly",baseSalary:"",dailyRate:"",advanceRate:40,effectiveDate:isoToday(),reason:""});
+  const [salary,setSalary]=useState<any>({salaryType:"daily",baseSalary:"",dailyRate:"",advanceRate:40,effectiveDate:isoToday(),reason:""});
+  const [editingSalaryId,setEditingSalaryId]=useState<string|number|null>(null);
   const [vac,setVac]=useState<any>(emptyVacation);
   const deriveVacation=(next:any)=>{const absences=Math.max(0,Number(next.unjustifiedAbsences)||0),days=vacationDays(absences,next.lossReason),soldDays=next.sellAllowance&&days?Math.floor(days/3):0,scheduledEnd=next.scheduledStart&&days?addDays(next.scheduledStart,Math.max(1,days-soldDays)-1):"";return{...next,unjustifiedAbsences:absences,days,soldDays,accrualEnd:addYears(next.accrualStart,1,true),concessionDeadline:addYears(addYears(next.accrualStart,1,true),1),scheduledEnd,paymentDate:next.paymentDate||(next.scheduledStart?addDays(next.scheduledStart,-2):"")}};
   const suggestedAccrualStart=(payload:any)=>{const latest=payload.vacations?.[0];return latest?.accrual_end?addDays(latest.accrual_end,1):payload.contract?.admission_date||""};
   const load=()=>fetch(`/api/hr?contractId=${contractId}`).then(r=>r.json()).then(b=>{setData(b);if(b.profile){const base=(b.profile.base_salary_cents/100).toFixed(2);setSalary((s:any)=>({...s,salaryType:b.profile.salary_type,baseSalary:base,dailyRate:(Number(base)/30).toFixed(2),advanceRate:b.profile.advance_rate_basis_points/100}))}setVac((current:any)=>{if(current.accrualStart)return current;const start=suggestedAccrualStart(b);return start?deriveVacation({...current,accrualStart:start}):current})});
   useEffect(()=>{void load()},[contractId]);
   const save=async(body:any)=>{setMsg("");try{const r=await fetch("/api/hr",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}),b=await r.json();setMsg(b.error||b.message);if(r.ok){await load();if(body.action==="saveVacation")setVac(emptyVacation)}return r.ok}catch{setMsg("Falha ao salvar as informações salariais.");return false}};
-  const saveSalary=()=>save({action:"saveProfile",contractId,...salary,dailyRate:salary.baseSalary?(Number(salary.baseSalary)/30).toFixed(2):""});
+  const saveSalary=async()=>{const ok=await save({action:editingSalaryId?"updateSalaryHistory":"saveProfile",id:editingSalaryId,contractId,...salary,dailyRate:salary.baseSalary?(Number(salary.baseSalary)/30).toFixed(2):""});if(ok)setEditingSalaryId(null);return ok};
+  const editSalary=(item:any)=>{setEditingSalaryId(item.id);setSalary((current:any)=>({...current,baseSalary:(Number(item.salary_cents)/100).toFixed(2),dailyRate:(Number(item.salary_cents)/3000).toFixed(2),effectiveDate:item.effective_date,reason:item.reason||""}));setMsg("Editando o registro selecionado.")};
+  const cancelSalaryEdit=()=>{setEditingSalaryId(null);void load();setMsg("")};
+  const deleteSalary=async(item:any)=>{if(!window.confirm(`Excluir o registro salarial de ${item.effective_date}?`))return;await save({action:"deleteSalaryHistory",id:item.id,contractId})};
   useImperativeHandle(ref,()=>({saveSalary}),[contractId,salary]);
   const updateVacation=(change:any)=>setVac((current:any)=>deriveVacation({...current,...change}));
   const alerts=(data.vacations||[]).filter((v:any)=>v.status!=="paid"&&new Date(v.concession_deadline).getTime()-Date.now()<=122*86400000);
@@ -46,8 +50,8 @@ const WorkerHrTabs = forwardRef<WorkerHrTabsHandle, {contractId:number;kind:"sal
         <label className="salary-reason">Motivo ou observação<input placeholder="Ex.: admissão, reajuste anual ou promoção" value={salary.reason} onChange={e=>setSalary({...salary,reason:e.target.value})}/></label>
       </div>
     </section>
-    <div className="salary-actions"><button type="button" className="primary" onClick={saveSalary}>Salvar configuração salarial</button></div>{msg&&<div className="inline-notice">{msg}</div>}
-    <div className="salary-history-heading"><div><h3>Histórico salarial</h3><p className="helper">Alterações registradas para este colaborador.</p></div><span>{data.salaries.length} registro(s)</span></div><div className="compact-list salary-history">{data.salaries.map((s:any)=><div key={s.id}><b>{brl(s.salary_cents)}</b><span>{s.effective_date} · {s.reason||"Sem observação"}</span></div>)}</div>
+    <div className="salary-actions"><button type="button" className="primary" onClick={saveSalary}>{editingSalaryId?"Salvar edição":"Salvar configuração salarial"}</button>{editingSalaryId&&<button type="button" className="secondary" onClick={cancelSalaryEdit}>Cancelar edição</button>}</div>{msg&&<div className="inline-notice">{msg}</div>}
+    <div className="salary-history-heading"><div><h3>Histórico salarial</h3><p className="helper">Alterações registradas para este colaborador.</p></div><span>{data.salaries.length} registro(s)</span></div><div className="compact-list salary-history">{data.salaries.map((s:any)=><div key={s.id}><div><b>{brl(s.salary_cents)}</b><span>{s.effective_date} · {s.reason||"Sem observação"}</span></div><div className="salary-history-actions"><button type="button" className="secondary" onClick={()=>editSalary(s)}>Editar</button><button type="button" className="danger" onClick={()=>deleteSalary(s)}>Excluir</button></div></div>)}</div>
   </div>;
 
   return <div className="hr-pane vacation-pane"><div className="vacation-heading"><div><h3>Gestão de férias</h3><p className="helper">Apuração orientada pelos arts. 130, 133, 134, 143 e 145 da CLT.</p></div><span className="legal-badge">Cálculo assistido</span></div>{alerts.length>0&&<div className="vacation-alert"><b>⚠ Férias exigem programação</b><span>Há período vencido ou a até quatro meses do fim do período concessivo.</span></div>}
