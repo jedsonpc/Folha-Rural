@@ -4,19 +4,19 @@ import { useEffect, useMemo, useState } from "react";
 import "./inventory.css";
 import "./inventory-enhancements.css";
 import "./inventory-movements.css";
+import "./inventory-revenues.css";
 import CurrencyInput from "./currency-input";
 
 type AnyRow = Record<string, any>;
-type InventorySection = "dashboard" | "products" | "partners" | "crops" | "movements" | "reports";
+type InventorySection = "dashboard" | "products" | "partners" | "crops" | "movements" | "revenues" | "reports";
 
 const brl = (c: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format((c || 0) / 100);
 const formatDocument=(d:string)=>d.length<=11?d.replace(/(\d{3})(\d)/,"$1.$2").replace(/(\d{3})(\d)/,"$1.$2").replace(/(\d{3})(\d{1,2})$/,"$1-$2"):d.replace(/(\d{2})(\d)/,"$1.$2").replace(/(\d{3})(\d)/,"$1.$2").replace(/(\d{3})(\d)/,"$1/$2").replace(/(\d{4})(\d{1,2})$/,"$1-$2");
 
 const movementNames: Record<string, string> = {
-  purchase: "Compra / entrada",
-  consumption: "Consumo na lavoura",
-  sale: "Venda / receita",
+  purchase: "Entrada",
+  sale: "Saída",
   positive_adjustment: "Ajuste positivo",
   negative_adjustment: "Ajuste negativo",
 };
@@ -27,13 +27,14 @@ const sectionContent: Record<InventorySection, { eyebrow: string; title: string;
   partners: { eyebrow: "CADASTROS", title: "Clientes e fornecedores", description: "Centralize os dados comerciais de quem compra, vende ou fornece para a propriedade." },
   crops: { eyebrow: "CADASTROS", title: "Culturas", description: "Cadastre as culturas utilizadas nas entradas e saídas de produtos da empresa." },
   movements: { eyebrow: "OPERAÇÃO", title: "Entradas e saídas", description: "Registre compras, consumo por cultura ou talhão, vendas e ajustes de inventário." },
+  revenues: { eyebrow: "OPERAÇÃO", title: "Receitas", description: "Registre e consulte as receitas da atividade agrícola." },
   reports: { eyebrow: "RELATÓRIOS GERENCIAIS", title: "Custos, receitas e movimentações", description: "Acompanhe os resultados da operação e gere relatórios para impressão ou PDF." },
 };
 
 export default function InventoryModule({ company, section }:{ company:string; section:InventorySection }) {
   const [data, setData] = useState<AnyRow>({ products: [], partners: [], movements: [], metrics: {} });
   const [message, setMessage] = useState("");
-  const [movementValue,setMovementValue]=useState({quantity:"",unit:"",total:""}),[filters,setFilters]=useState({from:"",to:"",type:"",product:""});
+  const [movementValue,setMovementValue]=useState({quantity:"",unit:"",total:""}),[movementType,setMovementType]=useState("purchase"),[movementProduct,setMovementProduct]=useState(""),[revenueValue,setRevenueValue]=useState({quantity:"",unit:"",total:""}),[filters,setFilters]=useState({from:"",to:"",type:"",product:""}),[revenueFilters,setRevenueFilters]=useState({from:"",to:""});
   const content = sectionContent[section];
   const load = () => fetch(`/api/inventory?company=${company}`, { cache: "no-store" })
     .then(r => r.json()).then(b => { setData(b); setMessage(b.error || ""); });
@@ -50,12 +51,13 @@ export default function InventoryModule({ company, section }:{ company:string; s
     e.preventDefault();
     const form = e.currentTarget;
     const body = Object.fromEntries(new FormData(form));
-    const response = await fetch("/api/inventory", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...body, action, company,quantity:movementValue.quantity||body.quantity,unitValue:movementValue.unit||body.unitValue,totalValue:movementValue.total }) });
+    const values=action==="saveRevenue"?revenueValue:movementValue;
+    const response = await fetch("/api/inventory", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...body, action, company,quantity:values.quantity||body.quantity,unitValue:values.unit||body.unitValue,totalValue:values.total }) });
     const result = await response.json();
     setMessage(result.message || result.error);
-    if (response.ok) { form.reset(); load(); }
+    if (response.ok) { form.reset(); if(action==="saveRevenue")setRevenueValue({quantity:"",unit:"",total:""});else setMovementValue({quantity:"",unit:"",total:""}); load(); }
   }
-  async function act(action:string,row:AnyRow){let payload:AnyRow={action,company,id:row.id};if(action==="saveProduct"){const description=prompt("Produto",row.description);if(!description)return;payload={...payload,description,sku:prompt("Código/SKU",row.sku||"")||"",unit:prompt("Unidade",row.unit||"UN")||"UN",minimumStock:prompt("Estoque mínimo",row.minimum_stock||"0")||"0"}}else if(action==="savePartner"){const name=prompt("Nome/Razão social",row.name);if(!name)return;payload={...payload,name,tradeName:prompt("Nome fantasia",row.trade_name||"")||"",document:prompt("CPF/CNPJ",row.document||"")||"",phone:prompt("Telefone",row.phone||"")||"",email:prompt("E-mail",row.email||"")||"",partnerType:row.partner_type}}else if(action==="saveCrop"){const name=prompt("Cultura",row.name);if(!name)return;payload={...payload,name}}else if(action.startsWith("delete")&&!confirm("Confirma a exclusão?"))return;const r=await fetch("/api/inventory",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}),b=await r.json();setMessage(b.message||b.error);if(r.ok)load()}
+  async function act(action:string,row:AnyRow){let payload:AnyRow={action,company,id:row.id};if(action==="saveProduct"){const description=prompt("Produto",row.description);if(!description)return;payload={...payload,description,sku:prompt("Código/SKU",row.sku||"")||"",unit:prompt("Unidade",row.unit||"UN")||"UN",minimumStock:prompt("Estoque mínimo",row.minimum_stock||"0")||"0"}}else if(action==="savePartner"){const name=prompt("Nome/Razão social",row.name);if(!name)return;payload={...payload,name,tradeName:prompt("Nome fantasia",row.trade_name||"")||"",document:prompt("CPF/CNPJ",row.document||"")||"",phone:prompt("Telefone",row.phone||"")||"",email:prompt("E-mail",row.email||"")||"",partnerType:row.partner_type}}else if(action==="saveCrop"){const name=prompt("Cultura",row.name);if(!name)return;payload={...payload,name}}else if(action==="saveRevenue"){const quantity=prompt("Quantidade",String(row.quantity));if(!quantity)return;const unitValue=prompt("Preço",(Number(row.unit_value_cents)/100).toFixed(2));if(!unitValue)return;payload={...payload,date:row.movement_date,partnerId:row.partner_id,quantity,unitValue}}else if(action.startsWith("delete")&&!confirm("Confirma a exclusão?"))return;const r=await fetch("/api/inventory",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}),b=await r.json();setMessage(b.message||b.error);if(r.ok)load()}
   const reportRows=(data.movements||[]).filter((r:AnyRow)=>(!filters.from||r.movement_date>=filters.from)&&(!filters.to||r.movement_date<=filters.to)&&(!filters.type||r.movement_type===filters.type)&&(!filters.product||String(r.product_id)===filters.product));
 
   return <section className="module inventory-module">
@@ -87,7 +89,8 @@ export default function InventoryModule({ company, section }:{ company:string; s
       <div className="inventory-list"><SectionTitle title="Produtos cadastrados" description={`${(data.products || []).length} item(ns) nesta empresa.`} /><ProductTable rows={data.products || []} edit={r=>act("saveProduct",r)} remove={r=>act("deleteProduct",r)} /></div>
     </div>}
 
-    {section === "partners" && <div className="inventory-workspace">
+    {section === "partners" && <div className="inventory-workspace expanded-workspace">
+      <div className="inventory-list"><SectionTitle title="Clientes e fornecedores cadastrados" description={`${partners.length} parceiro(s) nesta empresa.`} /><PartnerTable rows={partners} edit={r=>act("savePartner",r)} remove={r=>act("deletePartner",r)} /></div>
       <form onSubmit={e => submit(e, "savePartner")} className="inventory-form">
         <div className="form-heading"><small>NOVO CADASTRO</small><h3>Cliente ou fornecedor</h3><p>Identifique o relacionamento para facilitar compras, vendas e relatórios.</p></div>
         <label>Tipo de parceiro<select name="partnerType"><option value="supplier">Fornecedor</option><option value="customer">Cliente</option><option value="both">Cliente e fornecedor</option></select></label>
@@ -97,7 +100,6 @@ export default function InventoryModule({ company, section }:{ company:string; s
         <div className="inventory-form-row"><label>Telefone<input name="phone" placeholder="(00) 00000-0000" /></label><label>E-mail<input name="email" type="email" placeholder="contato@empresa.com" /></label></div>
         <button className="primary">Salvar cadastro</button>
       </form>
-      <div className="inventory-list"><SectionTitle title="Clientes e fornecedores cadastrados" description={`${partners.length} parceiro(s) nesta empresa.`} /><PartnerTable rows={partners} edit={r=>act("savePartner",r)} remove={r=>act("deletePartner",r)} /></div>
     </div>}
 
     {section === "crops" && <div className="inventory-workspace">
@@ -113,13 +115,28 @@ export default function InventoryModule({ company, section }:{ company:string; s
       <div className="inventory-list"><SectionTitle title="Movimentações recentes" description="Histórico de entradas, saídas, vendas e ajustes." /><MovementTable rows={data.movements || []} remove={r=>act("deleteMovement",r)} /></div>
       <form onSubmit={e => submit(e, "saveMovement")} className="inventory-form">
         <div className="form-heading"><small>NOVO LANÇAMENTO</small><h3>Movimentação de estoque</h3><p>Informe a origem ou o destino para compor corretamente custos e receitas.</p></div>
-        <label>Tipo de movimentação<select name="movementType"><option value="purchase">Compra / entrada</option><option value="consumption">Consumo na lavoura</option><option value="sale">Venda / receita</option><option value="positive_adjustment">Ajuste positivo</option><option value="negative_adjustment">Ajuste negativo</option></select></label>
-        <label>Produto<select name="productId" required><option value="">Selecione o produto</option>{(data.products || []).map((p: AnyRow) => <option value={p.id} key={p.id}>{p.description}</option>)}</select></label>
+        <div className="inventory-form-row"><label>Data<input name="date" type="date" required /></label><label>Documento<input name="documentNumber" placeholder="NF ou documento" /></label></div>
+        <label>Tipo de movimentação<select name="movementType" value={movementType} onChange={e=>setMovementType(e.target.value)}><option value="purchase">Entrada</option><option value="sale">Saída</option></select></label>
         <label>Cliente ou fornecedor<select name="partnerId"><option value="">Sem parceiro vinculado</option>{availablePartners.map((p: AnyRow) => <option value={p.id} key={p.id}>{p.name}</option>)}</select></label>
-        <div className="inventory-form-row"><label>Data<input name="date" type="date" required /></label><label>Quantidade<input name="quantity" type="number" min="0.0001" step="0.0001" value={movementValue.quantity} onChange={e=>{const quantity=e.target.value;setMovementValue({...movementValue,quantity,total:quantity&&movementValue.unit?(Number(quantity)*Number(movementValue.unit)).toFixed(2):movementValue.total})}} required /></label></div>
-        <div className="inventory-form-row"><label>Preço unitário (R$)<CurrencyInput name="unitValue" value={movementValue.unit} onValueChange={unit=>setMovementValue({...movementValue,unit,total:movementValue.quantity&&unit?(Number(movementValue.quantity)*Number(unit)).toFixed(2):movementValue.total})}/></label><label>Valor total (R$)<CurrencyInput value={movementValue.total} onValueChange={total=>setMovementValue({...movementValue,total,unit:movementValue.quantity&&total?(Number(total)/Number(movementValue.quantity)).toFixed(2):movementValue.unit})}/></label></div><label>Documento<input name="documentNumber" placeholder="NF ou documento" /></label>
-        <div className="inventory-form-row"><label>Cultura<select name="crop"><option value="">Sem cultura vinculada</option>{(data.crops || []).map((crop: AnyRow) => <option value={crop.name} key={crop.id}>{crop.name}</option>)}</select></label><label>Talhão / centro de custo<input name="costCenter" placeholder="Local da aplicação" /></label></div>
+        <label>Produto<select name="productId" required value={movementProduct} onChange={e=>setMovementProduct(e.target.value)}><option value="">Selecione o produto ou insumo cadastrado</option>{(data.products || []).filter((p:AnyRow)=>p.sku!=="__RECEITA__").map((p: AnyRow) => <option value={p.id} key={p.id}>{p.description}</option>)}</select></label>
+        <label>Quantidade<input name="quantity" type="number" min="0.0001" step="0.0001" value={movementValue.quantity} onChange={e=>{const quantity=e.target.value;setMovementValue({...movementValue,quantity,total:quantity&&movementValue.unit?(Number(quantity)*Number(movementValue.unit)).toFixed(2):movementValue.total})}} required /></label>
+        {movementType==="purchase"?<div className="inventory-form-row"><label>Preço unitário (R$)<CurrencyInput name="unitValue" value={movementValue.unit} onValueChange={unit=>setMovementValue({...movementValue,unit,total:movementValue.quantity&&unit?(Number(movementValue.quantity)*Number(unit)).toFixed(2):movementValue.total})}/></label><label>Valor total (R$)<CurrencyInput value={movementValue.total} onValueChange={total=>setMovementValue({...movementValue,total,unit:movementValue.quantity&&total?(Number(total)/Number(movementValue.quantity)).toFixed(2):movementValue.unit})}/></label></div>:<div className="stock-box"><small>ESTOQUE DISPONÍVEL</small><b>{Number((data.products||[]).find((p:AnyRow)=>String(p.id)===movementProduct)?.stock||0).toLocaleString("pt-BR")}</b></div>}
+        <label>Cultura<select name="crop"><option value="">Sem cultura vinculada</option>{(data.crops || []).map((crop: AnyRow) => <option value={crop.name} key={crop.id}>{crop.name}</option>)}</select></label>
         <button className="primary">Registrar movimentação</button>
+      </form>
+    </div>}
+
+    {section === "revenues" && <div className="revenue-workspace">
+      <div className="report-filters revenue-filters"><label>Data inicial<input type="date" value={revenueFilters.from} onChange={e=>setRevenueFilters({...revenueFilters,from:e.target.value})}/></label><label>Data final<input type="date" value={revenueFilters.to} onChange={e=>setRevenueFilters({...revenueFilters,to:e.target.value})}/></label></div>
+      <div className="inventory-list"><RevenueTable rows={(data.movements||[]).filter((r:AnyRow)=>r.notes==="RECEITA::"&&(!revenueFilters.from||r.movement_date>=revenueFilters.from)&&(!revenueFilters.to||r.movement_date<=revenueFilters.to))} edit={r=>act("saveRevenue",r)} remove={r=>act("deleteMovement",r)}/></div>
+      <form onSubmit={e=>submit(e,"saveRevenue")} className="inventory-form revenue-form">
+        <div className="form-heading"><small>NOVA RECEITA</small><h3>Lançamento de receita</h3></div>
+        <label>Data<input name="date" type="date" required/></label>
+        <label>Cliente<select name="partnerId" required><option value="">Selecione o cliente</option>{partners.filter((p:AnyRow)=>p.partner_type!=="supplier").map((p:AnyRow)=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+        <label>Quantidade<input name="quantity" type="number" min="0.0001" step="0.0001" value={revenueValue.quantity} onChange={e=>{const quantity=e.target.value;setRevenueValue({...revenueValue,quantity,total:quantity&&revenueValue.unit?(Number(quantity)*Number(revenueValue.unit)).toFixed(2):revenueValue.total})}} required/></label>
+        <label>Preço (R$)<CurrencyInput name="unitValue" value={revenueValue.unit} onValueChange={unit=>setRevenueValue({...revenueValue,unit,total:revenueValue.quantity&&unit?(Number(revenueValue.quantity)*Number(unit)).toFixed(2):revenueValue.total})}/></label>
+        <label>Valor (R$)<CurrencyInput name="totalValue" value={revenueValue.total} onValueChange={total=>setRevenueValue({...revenueValue,total,unit:revenueValue.quantity&&total?(Number(total)/Number(revenueValue.quantity)).toFixed(2):revenueValue.unit})}/></label>
+        <button className="primary">Salvar receita</button>
       </form>
     </div>}
 
@@ -140,3 +157,4 @@ function ProductTable({rows,empty="Nenhum produto cadastrado.",edit,remove}:{row
 function PartnerTable({rows,edit,remove}:{rows:AnyRow[];edit:(r:AnyRow)=>void;remove:(r:AnyRow)=>void}){if(!rows.length)return <Empty text="Nenhum cliente ou fornecedor cadastrado."/>;return <div className="record-grid">{rows.map(r=><article key={r.id}><header><b>{r.name}</b><span>{r.partner_type==="supplier"?"Fornecedor":r.partner_type==="customer"?"Cliente":"Ambos"}</span></header><p>{r.trade_name||""} {r.document?`· ${formatDocument(r.document)}`:""} · {r.phone||r.email||"Sem contato"}</p><Actions row={r} edit={edit} remove={remove}/></article>)}</div>}
 function CropTable({rows,edit,remove}:{rows:AnyRow[];edit:(r:AnyRow)=>void;remove:(r:AnyRow)=>void}){if(!rows.length)return <Empty text="Nenhuma cultura cadastrada."/>;return <div className="record-grid">{rows.map(r=><article key={r.id}><header><b>{r.name}</b></header><Actions row={r} edit={edit} remove={remove}/></article>)}</div>}
 function MovementTable({rows,remove}:{rows:AnyRow[];remove?:(r:AnyRow)=>void}){if(!rows.length)return <Empty text="Nenhuma movimentação registrada."/>;return <div className="table-scroll"><table className="data-table"><thead><tr><th>Data</th><th>Movimento</th><th>Parceiro</th><th>Produto</th><th>Quantidade</th><th>Preço</th><th>Total</th><th>Cultura / Centro</th>{remove&&<th>Ações</th>}</tr></thead><tbody>{rows.map(r=><tr key={r.id}><td>{String(r.movement_date).split("-").reverse().join("/")}</td><td><span className={`movement-badge ${r.movement_type}`}>{movementNames[r.movement_type]||r.movement_type}</span></td><td>{r.business_partners?.name||"—"}</td><td><b>{r.inventory_products?.description}</b></td><td>{Number(r.quantity).toLocaleString("pt-BR")} {r.inventory_products?.unit}</td><td>{brl(Number(r.unit_value_cents))}</td><td>{brl(Number(r.quantity)*Number(r.unit_value_cents))}</td><td>{[r.crop,r.cost_center].filter(Boolean).join(" · ")||"—"}</td>{remove&&<td><Actions row={r} remove={remove}/></td>}</tr>)}</tbody></table></div>}
+function RevenueTable({rows,edit,remove}:{rows:AnyRow[];edit:(r:AnyRow)=>void;remove:(r:AnyRow)=>void}){const q=rows.reduce((s,r)=>s+Number(r.quantity),0),v=rows.reduce((s,r)=>s+Number(r.quantity)*Number(r.unit_value_cents),0);return <div className="revenue-table"><table className="data-table"><thead><tr><th>Data</th><th>Cliente</th><th>Quantidade</th><th>Preço</th><th>Valor</th><th>Ações</th></tr></thead><tbody>{rows.map(r=><tr key={r.id}><td>{String(r.movement_date).split("-").reverse().join("/")}</td><td>{r.business_partners?.name||"—"}</td><td>{Number(r.quantity).toLocaleString("pt-BR")}</td><td>{brl(Number(r.unit_value_cents))}</td><td>{brl(Number(r.quantity)*Number(r.unit_value_cents))}</td><td><Actions row={r} edit={edit} remove={remove}/></td></tr>)}</tbody><tfoot><tr><th colSpan={2}>Totais</th><th>{q.toLocaleString("pt-BR")}</th><th>—</th><th>{brl(v)}</th><th/></tr></tfoot></table></div>}

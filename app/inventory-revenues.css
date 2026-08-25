@@ -1,0 +1,13 @@
+.expanded-workspace,.revenue-workspace{grid-template-columns:1fr}
+.expanded-workspace .inventory-list,.expanded-workspace .inventory-form,.revenue-workspace .inventory-list,.revenue-workspace .inventory-form{width:100%;max-width:none}
+.revenue-workspace{display:grid;gap:18px}
+.revenue-form{grid-template-columns:repeat(5,minmax(0,1fr));align-items:end}
+.revenue-form .form-heading,.revenue-form button{grid-column:1/-1}
+.revenue-table,.movements-workspace .table-scroll{overflow-x:hidden}
+.revenue-table .data-table,.movements-workspace .data-table{width:100%;min-width:0;table-layout:fixed}
+.revenue-table th,.revenue-table td{white-space:normal;overflow-wrap:anywhere;padding:8px 6px}
+.revenue-filters{grid-template-columns:repeat(2,minmax(180px,260px));justify-content:start}
+.stock-box{display:grid;gap:5px;padding:12px;border-radius:10px;background:#edf7f1;color:#173b2b}
+.stock-box small{font-size:.7rem;font-weight:800}.stock-box b{font-size:1.25rem}
+@media(max-width:1050px){.revenue-form{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:620px){.revenue-form,.revenue-filters{grid-template-columns:1fr}}

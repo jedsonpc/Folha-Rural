@@ -54,9 +54,9 @@
 .closing-cards .net small {
   color: #fff;
 }
-.closing-table {
-  min-width: 1200px;
-}
+.closing-module .table-scroll { overflow-x: hidden; }
+.closing-table { min-width: 0; table-layout: fixed; }
+.closing-table th,.closing-table td { padding: 8px 5px; white-space: normal; overflow-wrap: anywhere; font-size: 10px; }
 @media (max-width: 1000px) {
   .closing-filters {
     grid-template-columns: 1fr 1fr;

@@ -37,6 +37,7 @@ const navGroups = [
         ["CF", "Clientes e fornecedores"],
         ["CU", "Culturas"],
         ["ME", "Entradas e saídas"],
+        ["RC", "Receitas"],
         ["RG", "Relatórios"],
       ],
     },
@@ -545,6 +546,8 @@ export default function Home() {
             <InventoryModule company={company} section="crops" />
           ) : active === "Entradas e saídas" ? (
             <InventoryModule company={company} section="movements" />
+          ) : active === "Receitas" ? (
+            <InventoryModule company={company} section="revenues" />
           ) : active === "Relatórios" ? (
             <InventoryModule company={company} section="reports" />
           ) : active === "Relatórios Analíticos" ? (

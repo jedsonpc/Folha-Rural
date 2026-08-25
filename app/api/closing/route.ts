@@ -80,8 +80,10 @@ async function calculate(
   const entries = await db
     .select({
       contractId: dailyEntries.contractId,
+      entryDate: dailyEntries.entryDate,
       amountCents: dailyEntries.amountCents,
       discountCents: dailyEntries.discountCents,
+      notes: dailyEntries.notes,
       inss: services.inss,
       irrf: services.irrf,
       serviceDescription: services.description,
@@ -104,6 +106,7 @@ async function calculate(
   const monthlyEntries = await db
     .select({
       contractId: dailyEntries.contractId,
+      entryDate: dailyEntries.entryDate,
       amountCents: dailyEntries.amountCents,
       inss: services.inss,
       serviceDescription: services.description,
@@ -163,7 +166,13 @@ async function calculate(
           (d) => d.personId === c.personId && d.irrfDependent,
         ).length,
         gross = own.reduce((a, e) => a + e.amountCents, 0),
-        existingDiscounts = own.reduce((a, e) => a + e.discountCents, 0),
+        firstHalfGross = monthlyEntries
+          .filter((e) => e.contractId === c.id && e.entryDate < `${month}-16`)
+          .reduce((a, e) => a + e.amountCents, 0),
+        advanceDiscount = period === "balance" ? firstHalfGross : 0,
+        existingDiscounts = own
+          .filter((e) => !String(e.notes || "").startsWith("Gerado automaticamente -"))
+          .reduce((a, e) => a + e.discountCents, 0),
         inssBase = own
           .filter((e) => e.inss)
           .reduce((a, e) => a + e.amountCents, 0),
@@ -181,7 +190,7 @@ async function calculate(
           )
           .reduce((a, e) => a + e.amountCents, 0),
         inssFull = inssRows.length ? progressive(inssBase, inssRows) : 0,
-        priorInss = period === "balance" ? own.filter(e=>/\bINSS\b/i.test(e.serviceDescription) && e.discountCents>0 && e!==undefined).reduce((a,e)=>a+e.discountCents,0) : 0,
+        priorInss = period === "balance" ? own.filter(e=>e.entryDate<`${month}-16` && /\bINSS\b/i.test(e.serviceDescription) && e.discountCents>0).reduce((a,e)=>a+e.discountCents,0) : 0,
         inss = Math.max(0,inssFull-priorInss),
         legalDeduction = inssFull + irrfDependentCount * 18959,
         irrfBase = Math.max(0, irrfGross - Math.max(60720, legalDeduction)),
@@ -207,7 +216,7 @@ async function calculate(
                 )
               : 0,
         irrfFull = Math.max(0, irrfBeforeReduction - irrfReduction),
-        priorIrrf = period === "balance" ? own.filter(e=>/IRRF|IMPOSTO.*RENDA/i.test(e.serviceDescription) && e.discountCents>0).reduce((a,e)=>a+e.discountCents,0) : 0,
+        priorIrrf = period === "balance" ? own.filter(e=>e.entryDate<`${month}-16` && /IRRF|IMPOSTO.*RENDA/i.test(e.serviceDescription) && e.discountCents>0).reduce((a,e)=>a+e.discountCents,0) : 0,
         irrf = Math.max(0,irrfFull-priorIrrf),
         admissionDay = c.admissionDate?.startsWith(month)
           ? Number(c.admissionDate.slice(8, 10))
@@ -246,10 +255,11 @@ async function calculate(
             : period === "balance"
               ? fullUnionContribution
               : 0,
-        net = gross + salaryFamily - existingDiscounts - inss - irrf - union;
+        net = gross + salaryFamily - existingDiscounts - advanceDiscount - inss - irrf - union;
       return {
         ...c,
         gross,
+        advanceDiscount,
         inssBase,
         irrfBase,
         inss,
@@ -288,11 +298,11 @@ async function calculate(
 async function saveTaxEntries(request:Request,company:number,month:string,period:string,result:Awaited<ReturnType<typeof calculate>>){
   const db=getDb(),tenantId=tenant(request),serviceRows=await db.select({id:services.id,description:services.description,entryType:services.entryType}).from(services).where(eq(services.tenantId,tenantId));
   const find=(pattern:RegExp)=>serviceRows.find(s=>s.entryType==="deduction"&&pattern.test(s.description))?.id;
-  const ids={inss:find(/\bINSS\b/i),irrf:find(/IRRF|IMPOSTO.*RENDA/i),union:find(/CONTRIBUI.*SINDICAL|SINDICATO/i)};
-  const required=[result.rows.some(r=>r.inss>0)&&!ids.inss&&"INSS",result.rows.some(r=>r.irrf>0)&&!ids.irrf&&"IRRF",result.rows.some(r=>r.union>0)&&!ids.union&&"Contribuição sindical"].filter(Boolean);
+  const ids={inss:find(/\bINSS\b/i),irrf:find(/IRRF|IMPOSTO.*RENDA/i),union:find(/CONTRIBUI.*SINDICAL|SINDICATO/i),advance:find(/ADIANTAMENTO|VALE\s*SAL[AÁ]RIO/i)};
+  const required=[result.rows.some(r=>r.inss>0)&&!ids.inss&&"INSS",result.rows.some(r=>r.irrf>0)&&!ids.irrf&&"IRRF",result.rows.some(r=>r.union>0)&&!ids.union&&"Contribuição sindical",period!=="advance"&&result.rows.some(r=>r.advanceDiscount>0)&&!ids.advance&&"Adiantamento salarial"].filter(Boolean);
   if(required.length)throw new Error(`Cadastre como desconto o(s) serviço(s): ${required.join(", ")}.`);
   const [year,value]=month.split("-").map(Number),lastDay=new Date(Date.UTC(year,value,0)).getUTCDate(),entryDate=period==="advance"?`${month}-15`:`${month}-${String(lastDay).padStart(2,"0")}`;
-  for(const row of result.rows)for(const [kind,amount] of [["inss",row.inss],["irrf",row.irrf],["union",row.union]] as const){const serviceId=ids[kind];if(!serviceId||amount<=0)continue;await db.insert(dailyEntries).values({tenantId,companySourceId:company,entryDate,contractId:row.id,serviceId,quantity:"1",unitPriceCents:0,amountCents:0,discountCents:amount,notes:`Gerado automaticamente - ${kind.toUpperCase()} ${period==="advance"?"quinzenal":"mensal"}`}).onConflictDoUpdate({target:[dailyEntries.tenantId,dailyEntries.companySourceId,dailyEntries.entryDate,dailyEntries.contractId,dailyEntries.serviceId],set:{quantity:"1",unitPriceCents:0,amountCents:0,discountCents:amount,notes:`Gerado automaticamente - ${kind.toUpperCase()} ${period==="advance"?"quinzenal":"mensal"}`}})}
+  for(const row of result.rows)for(const [kind,amount] of [["inss",row.inss],["irrf",row.irrf],["union",row.union],["advance",row.advanceDiscount]] as const){const serviceId=ids[kind];if(!serviceId||(kind==="advance"&&period==="advance"))continue;await db.insert(dailyEntries).values({tenantId,companySourceId:company,entryDate,contractId:row.id,serviceId,quantity:"1",unitPriceCents:0,amountCents:0,discountCents:amount,notes:`Gerado automaticamente - ${kind.toUpperCase()} ${period==="advance"?"quinzenal":"mensal"}`}).onConflictDoUpdate({target:[dailyEntries.tenantId,dailyEntries.companySourceId,dailyEntries.entryDate,dailyEntries.contractId,dailyEntries.serviceId],set:{quantity:"1",unitPriceCents:0,amountCents:0,discountCents:amount,notes:`Gerado automaticamente - ${kind.toUpperCase()} ${period==="advance"?"quinzenal":"mensal"}`}})}
 }
 export async function GET(request: Request) {
   const access = await authorizeCloud(request, "Fechamento");

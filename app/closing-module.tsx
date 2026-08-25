@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import "./closing.css";
 type Row = {
   id: number;
@@ -13,6 +13,7 @@ type Row = {
   salaryFamily: number;
   union: number;
   existingDiscounts: number;
+  advanceDiscount: number;
   net: number;
 };
 type Result = {
@@ -33,13 +34,15 @@ export default function ClosingModule({ company }: { company: string }) {
     [result, setResult] = useState<Result | null>(null),
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false);
-  const run = async (close = false) => {
+  const requestId = useRef(0);
+  const run = useCallback(async (close = false, silent = false) => {
     if (company === "all") {
       setMessage("Selecione uma empresa para realizar o fechamento.");
       return;
     }
-    setBusy(true);
-    setMessage("");
+    const currentRequest = ++requestId.current;
+    if (!silent) setBusy(true);
+    if (!silent) setMessage("");
     try {
       const url = `/api/closing?company=${company}&month=${month}&period=${period}`,
         r = await fetch(
@@ -58,14 +61,23 @@ export default function ClosingModule({ company }: { company: string }) {
         ),
         b = await r.json();
       if (!r.ok) throw new Error(b.error);
+      if (currentRequest !== requestId.current) return;
       setResult(b.result || b);
-      setMessage(b.message || "Prévia calculada.");
+      if (!silent) setMessage(b.message || "Prévia calculada.");
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : "Falha no fechamento.");
+      if (currentRequest === requestId.current && !silent)
+        setMessage(e instanceof Error ? e.message : "Falha no fechamento.");
     } finally {
-      setBusy(false);
+      if (currentRequest === requestId.current && !silent) setBusy(false);
     }
-  };
+  }, [company, month, period]);
+  useEffect(() => {
+    if (!result) return;
+    const refresh = () => void run(false, true);
+    const timer = window.setInterval(refresh, 15000);
+    window.addEventListener("focus", refresh);
+    return () => { window.clearInterval(timer); window.removeEventListener("focus", refresh); };
+  }, [result, run]);
   if (company === "all")
     return (
       <section className="module launch-empty">
@@ -103,12 +115,12 @@ export default function ClosingModule({ company }: { company: string }) {
             <input
               type="month"
               value={month}
-              onChange={(e) => setMonth(e.target.value)}
+              onChange={(e) => { setMonth(e.target.value); setResult(null); }}
             />
           </label>
           <label>
             Período
-            <select value={period} onChange={(e) => setPeriod(e.target.value)}>
+            <select value={period} onChange={(e) => { setPeriod(e.target.value); setResult(null); }}>
               <option value="advance">Quinzenal — lançamentos até o dia 15</option>
               <option value="monthly">Mensal — até o último dia, compensando a quinzena</option>
             </select>
@@ -178,6 +190,7 @@ export default function ClosingModule({ company }: { company: string }) {
                     <th>Matrícula</th>
                     <th>Colaborador</th>
                     <th>Bruto</th>
+                    <th>Adiantamento</th>
                     <th>Base INSS</th>
                     <th>INSS</th>
                     <th>Base IRRF</th>
@@ -195,6 +208,7 @@ export default function ClosingModule({ company }: { company: string }) {
                         <b>{r.name}</b>
                       </td>
                       <td>{money(r.gross)}</td>
+                      <td>{money(r.advanceDiscount || 0)}</td>
                       <td>{money(r.inssBase)}</td>
                       <td>{money(r.inss)}</td>
                       <td>{money(r.irrfBase)}</td>
