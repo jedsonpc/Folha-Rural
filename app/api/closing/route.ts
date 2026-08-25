@@ -301,11 +301,12 @@ async function calculate(
   };
 }
 async function saveTaxEntries(request:Request,company:number,month:string,period:string,result:Awaited<ReturnType<typeof calculate>>){
-  const db=getDb(),tenantId=tenant(request),serviceRows=await db.select({id:services.id,description:services.description,entryType:services.entryType}).from(services).where(eq(services.tenantId,tenantId));
+  const db=getDb(),tenantId=tenant(request),serviceRows=await db.select({id:services.id,sourceId:services.sourceId,description:services.description,entryType:services.entryType}).from(services).where(eq(services.tenantId,tenantId));
   const find=(pattern:RegExp)=>serviceRows.find(s=>s.entryType==="deduction"&&pattern.test(s.description))?.id;
-  const ids={inss:find(/\bINSS\b/i),irrf:find(/IRRF|IMPOSTO.*RENDA/i),union:find(/CONTRIBUI.*SINDICAL|SINDICATO/i),advance:find(/ADIANTAMENTO|VALE\s*SAL[AÁ]RIO/i)};
-  const required=[result.rows.some(r=>r.inss>0)&&!ids.inss&&"INSS",result.rows.some(r=>r.irrf>0)&&!ids.irrf&&"IRRF",result.rows.some(r=>r.union>0)&&!ids.union&&"Contribuição sindical",period!=="advance"&&result.rows.some(r=>r.advanceDiscount>0)&&!ids.advance&&"Adiantamento salarial"].filter(Boolean);
-  if(required.length)throw new Error(`Cadastre como desconto o(s) serviço(s): ${required.join(", ")}.`);
+  const ids:Record<"inss"|"irrf"|"union"|"advance",number|undefined>={inss:find(/\bINSS\b/i),irrf:find(/IRRF|IMPOSTO.*RENDA/i),union:find(/CONTRIBUI.*SINDICAL|SINDICATO/i),advance:find(/ADIANTAMENTO|VALE\s*SAL[AÁ]RIO/i)};
+  const needed=[{kind:"inss" as const,description:"INSS",use:result.rows.some(r=>r.inss>0)},{kind:"irrf" as const,description:"IRRF",use:result.rows.some(r=>r.irrf>0)},{kind:"union" as const,description:"Contribuição sindical",use:result.rows.some(r=>r.union>0)},{kind:"advance" as const,description:"Adiantamento salarial",use:period!=="advance"&&result.rows.some(r=>r.advanceDiscount>0)}];
+  let nextSource=Math.max(0,...serviceRows.map(row=>row.sourceId))+1;
+  for(const item of needed)if(item.use&&!ids[item.kind]){const created=await db.insert(services).values({tenantId,sourceId:nextSource++,description:item.description,entryType:"deduction"}).returning({id:services.id});ids[item.kind]=created[0]?.id}
   const [year,value]=month.split("-").map(Number),lastDay=new Date(Date.UTC(year,value,0)).getUTCDate(),entryDate=period==="advance"?`${month}-15`:`${month}-${String(lastDay).padStart(2,"0")}`;
   for(const row of result.rows)for(const [kind,amount] of [["inss",row.inss],["irrf",row.irrf],["union",row.union],["advance",row.advanceDiscount]] as const){const serviceId=ids[kind];if(!serviceId||(kind==="advance"&&period==="advance"))continue;await db.insert(dailyEntries).values({tenantId,companySourceId:company,entryDate,contractId:row.id,serviceId,quantity:"1",unitPriceCents:0,amountCents:0,discountCents:amount,notes:`Gerado automaticamente - ${kind.toUpperCase()} ${period==="advance"?"quinzenal":"mensal"}`}).onConflictDoUpdate({target:[dailyEntries.tenantId,dailyEntries.companySourceId,dailyEntries.entryDate,dailyEntries.contractId,dailyEntries.serviceId],set:{quantity:"1",unitPriceCents:0,amountCents:0,discountCents:amount,notes:`Gerado automaticamente - ${kind.toUpperCase()} ${period==="advance"?"quinzenal":"mensal"}`}})}
 }
