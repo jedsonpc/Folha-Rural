@@ -18,7 +18,7 @@ test("keeps the installable app metadata and update worker", async () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
   assert.match(serviceWorker, /SKIP_WAITING/);
-  assert.match(serviceWorker, /folha-rural-shell-v38-folha-rural-1\.4\.30/);
+  assert.match(serviceWorker, /folha-rural-shell-v39-folha-rural-1\.4\.31/);
   assert.match(serviceWorker, /skipWaiting/);
 });
 
@@ -207,6 +207,9 @@ test("calculates editable DSR entries on Sundays and holidays", async () => {
   assert.match(module, /Gerar feriado\(s\) e depois DSR/);
   assert.match(module, /weekHolidays/);
   assert.match(module, /holidayServiceId/);
+  assert.match(module, /Buscar por código, serviço ou fórmula/);
+  assert.match(module, /Todos os serviços cadastrados/);
+  assert.match(module, /selectableHolidayServices/);
   assert.match(module, /setHoliday\(\{date,name:holiday\.name\}\)/);
   assert.match(module, /item\?\.affectsDsr/);
   assert.match(module, /<CurrencyInput/);
