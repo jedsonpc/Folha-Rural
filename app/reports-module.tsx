@@ -4,6 +4,7 @@ import "./reports.css";
 import "./reports-print111.css";
 import "./reports-compact112.css";
 import "./reports-period113.css";
+import "./reports-layout-fix.css";
 type Company = {
   sourceId: number;
   name: string;
@@ -66,7 +67,7 @@ const money = (c: number) =>
       maximumFractionDigits: 2,
     }).format(c / 100),
   nowMonth = () => new Date().toISOString().slice(0, 7);
-async function fetchJson(url: string, timeoutMs = 30000) {
+async function fetchJson(url: string, timeoutMs = 15000) {
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -154,7 +155,7 @@ export default function ReportsModule({
         const entries: Entry[] = [];
         const monthResults = await Promise.all(
           monthsBetween(start, end).map((targetMonth) =>
-            fetchJson(`/api/launches?company=${c.sourceId}&month=${targetMonth}`),
+            fetchJson(`/api/launches?company=${c.sourceId}&month=${targetMonth}&report=1`),
           ),
         );
         for (const b of monthResults) {
@@ -277,9 +278,9 @@ export default function ReportsModule({
             ? [
                 ["receipts", "Recibos de pagamento"],
                 ["detailed", "Folha de pagamento"],
-                ["events", "Lançamentos por evento"],
-                ["timecard", "Cartão de Ponto"],
-                ["financial", "Ficha financeira"],
+                ["events", "Lançamentos"],
+                ["timecard", "Cartão ponto"],
+                ["financial", "Financeira"],
               ]
             : [
                 ["summary", "Folha Resumida"],
@@ -448,7 +449,7 @@ export default function ReportsModule({
               <option value="registration">Matrícula</option>
             </select>
           </label>
-          <button className="primary" onClick={load} disabled={busy}>
+          <button type="button" className="primary report-generate" onClick={load} disabled={busy}>
             {busy ? "Carregando…" : "Gerar prévia"}
           </button>
         </div>
@@ -506,7 +507,7 @@ export default function ReportsModule({
             O comprovante de depósito bancário também pode ter força de recibo,
             conforme art. 464 da CLT.
           </span>
-          <button
+          {workers.length > 0 && <button
             className="primary"
             disabled={!chosen.length}
             onClick={() =>
@@ -516,7 +517,7 @@ export default function ReportsModule({
             }
           >
             Imprimir selecionados
-          </button>
+          </button>}
         </div>
       </div>
       {copyChoiceOpen && (

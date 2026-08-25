@@ -16,6 +16,7 @@ export async function cloudLaunchesGet(request: Request) {
   const companyLegacyId = Number(url.searchParams.get("company"));
   const month =
     url.searchParams.get("month") || new Date().toISOString().slice(0, 7);
+  const reportOnly = url.searchParams.get("report") === "1";
   const access = await authorizeCloud(
     request,
     "Apontamentos",
@@ -40,7 +41,7 @@ export async function cloudLaunchesGet(request: Request) {
       supabaseAdmin.get<Row[]>(
         `/rest/v1/employment_contracts?select=*,people(full_name,cpf,pis,birth_date,identity_number)&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&order=created_at.asc`,
       ),
-      supabaseAdmin.get<Row[]>(
+      reportOnly ? Promise.resolve([]) : supabaseAdmin.get<Row[]>(
         `/rest/v1/worker_payroll_profiles?select=contract_id,salary_type,base_salary_cents,daily_rate_cents&organization_id=eq.${config.organizationId}`,
       ),
       supabaseAdmin.get<Row[]>(
@@ -49,7 +50,7 @@ export async function cloudLaunchesGet(request: Request) {
       supabaseAdmin.get<Row[]>(
         `/rest/v1/daily_entries?select=*&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&entry_date=gte.${start}&entry_date=lt.${end}&order=entry_date.asc`,
       ),
-      supabaseAdmin.get<Row[]>(
+      reportOnly ? Promise.resolve([]) : supabaseAdmin.get<Row[]>(
         `/rest/v1/holidays?select=*&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&holiday_date=gte.${start}&holiday_date=lt.${end}&order=holiday_date.asc`,
       ),
     ]);
