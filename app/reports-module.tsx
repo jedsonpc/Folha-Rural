@@ -58,6 +58,7 @@ type Pack = {
   contracts: Contract[];
   services: Service[];
   entries: Entry[];
+  competenceEntries?: Entry[];
 };
 const money = (c: number) =>
     new Intl.NumberFormat("pt-BR", {
@@ -156,6 +157,7 @@ export default function ReportsModule({
         let contracts: Contract[] = [];
         let services: Service[] = [];
         const entries: Entry[] = [];
+        const competenceEntries: Entry[] = [];
         const monthResults = await Promise.all(
           monthsBetween(start, end).map((targetMonth) =>
             fetchJson(`/api/launches?company=${c.sourceId}&month=${targetMonth}&report=1`),
@@ -164,6 +166,7 @@ export default function ReportsModule({
         for (const b of monthResults) {
           contracts = b.contracts || contracts;
           services = b.services || services;
+          competenceEntries.push(...(b.entries || []));
           entries.push(
             ...(b.entries || []).filter(
               (entry: Entry) =>
@@ -173,7 +176,7 @@ export default function ReportsModule({
             ),
           );
         }
-        loaded.push({ company: c, contracts, services, entries });
+        loaded.push({ company: c, contracts, services, entries, competenceEntries });
       }
       if (sequence !== loadSequence.current) return;
       setPacks(loaded);
@@ -813,8 +816,9 @@ function Receipt({
   period: string;
 }) {
   const t = totals(p, c.id),service=(id:string)=>p.services.find(item=>item.id===id),
-    inssBase=t.es.filter(entry=>service(entry.serviceId)?.inssIncidence).reduce((sum,entry)=>sum+entry.amountCents,0),
-    fgtsBase=t.es.filter(entry=>service(entry.serviceId)?.fgtsIncidence).reduce((sum,entry)=>sum+entry.amountCents,0),
+    competenceEntries=(p.competenceEntries||t.es).filter(entry=>entry.contractId===c.id&&entry.entryDate.slice(0,7)===month),
+    inssBase=competenceEntries.filter(entry=>service(entry.serviceId)?.inssIncidence).reduce((sum,entry)=>sum+entry.amountCents,0),
+    fgtsBase=competenceEntries.filter(entry=>service(entry.serviceId)?.fgtsIncidence).reduce((sum,entry)=>sum+entry.amountCents,0),
     fgtsValue=Math.round(fgtsBase*.08);
   return (
     <article className="receipt">
