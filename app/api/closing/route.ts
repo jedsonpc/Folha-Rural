@@ -22,7 +22,7 @@ const bounds = (month: string, period: string) => {
     next = `${m === 12 ? y + 1 : y}-${String(m === 12 ? 1 : m + 1).padStart(2, "0")}-01`;
   return period === "advance"
     ? [`${month}-01`, `${month}-16`]
-    : [`${month}-16`, next];
+    : [`${month}-01`, next];
 };
 const progressive = (
   base: number,
@@ -84,6 +84,7 @@ async function calculate(
       discountCents: dailyEntries.discountCents,
       inss: services.inss,
       irrf: services.irrf,
+      serviceDescription: services.description,
     })
     .from(dailyEntries)
     .innerJoin(services, eq(dailyEntries.serviceId, services.id))
@@ -179,8 +180,10 @@ async function calculate(
               /sal[aá]rio\s*[- ]?fam[ií]lia/i.test(e.serviceDescription),
           )
           .reduce((a, e) => a + e.amountCents, 0),
-        inss = inssRows.length ? progressive(inssBase, inssRows) : 0,
-        legalDeduction = inss + irrfDependentCount * 18959,
+        inssFull = inssRows.length ? progressive(inssBase, inssRows) : 0,
+        priorInss = period === "balance" ? own.filter(e=>/\bINSS\b/i.test(e.serviceDescription) && e.discountCents>0 && e!==undefined).reduce((a,e)=>a+e.discountCents,0) : 0,
+        inss = Math.max(0,inssFull-priorInss),
+        legalDeduction = inssFull + irrfDependentCount * 18959,
         irrfBase = Math.max(0, irrfGross - Math.max(60720, legalDeduction)),
         irrfBracket = [...irrfRows]
           .reverse()
@@ -203,7 +206,9 @@ async function calculate(
                   Math.max(0, 97862 - Math.round(irrfGross * 0.133145)),
                 )
               : 0,
-        irrf = Math.max(0, irrfBeforeReduction - irrfReduction),
+        irrfFull = Math.max(0, irrfBeforeReduction - irrfReduction),
+        priorIrrf = period === "balance" ? own.filter(e=>/IRRF|IMPOSTO.*RENDA/i.test(e.serviceDescription) && e.discountCents>0).reduce((a,e)=>a+e.discountCents,0) : 0,
+        irrf = Math.max(0,irrfFull-priorIrrf),
         admissionDay = c.admissionDate?.startsWith(month)
           ? Number(c.admissionDate.slice(8, 10))
           : 1,
@@ -248,7 +253,11 @@ async function calculate(
         inssBase,
         irrfBase,
         inss,
+        inssFull,
+        priorInss,
         irrf,
+        irrfFull,
+        priorIrrf,
         irrfBeforeReduction,
         irrfReduction,
         salaryFamily,
@@ -275,6 +284,15 @@ async function calculate(
       salaryFamily: Boolean(family),
     },
   };
+}
+async function saveTaxEntries(request:Request,company:number,month:string,period:string,result:Awaited<ReturnType<typeof calculate>>){
+  const db=getDb(),tenantId=tenant(request),serviceRows=await db.select({id:services.id,description:services.description,entryType:services.entryType}).from(services).where(eq(services.tenantId,tenantId));
+  const find=(pattern:RegExp)=>serviceRows.find(s=>s.entryType==="deduction"&&pattern.test(s.description))?.id;
+  const ids={inss:find(/\bINSS\b/i),irrf:find(/IRRF|IMPOSTO.*RENDA/i),union:find(/CONTRIBUI.*SINDICAL|SINDICATO/i)};
+  const required=[result.rows.some(r=>r.inss>0)&&!ids.inss&&"INSS",result.rows.some(r=>r.irrf>0)&&!ids.irrf&&"IRRF",result.rows.some(r=>r.union>0)&&!ids.union&&"Contribuição sindical"].filter(Boolean);
+  if(required.length)throw new Error(`Cadastre como desconto o(s) serviço(s): ${required.join(", ")}.`);
+  const [year,value]=month.split("-").map(Number),lastDay=new Date(Date.UTC(year,value,0)).getUTCDate(),entryDate=period==="advance"?`${month}-15`:`${month}-${String(lastDay).padStart(2,"0")}`;
+  for(const row of result.rows)for(const [kind,amount] of [["inss",row.inss],["irrf",row.irrf],["union",row.union]] as const){const serviceId=ids[kind];if(!serviceId||amount<=0)continue;await db.insert(dailyEntries).values({tenantId,companySourceId:company,entryDate,contractId:row.id,serviceId,quantity:"1",unitPriceCents:0,amountCents:0,discountCents:amount,notes:`Gerado automaticamente - ${kind.toUpperCase()} ${period==="advance"?"quinzenal":"mensal"}`}).onConflictDoUpdate({target:[dailyEntries.tenantId,dailyEntries.companySourceId,dailyEntries.entryDate,dailyEntries.contractId,dailyEntries.serviceId],set:{quantity:"1",unitPriceCents:0,amountCents:0,discountCents:amount,notes:`Gerado automaticamente - ${kind.toUpperCase()} ${period==="advance"?"quinzenal":"mensal"}`}})}
 }
 export async function GET(request: Request) {
   const access = await authorizeCloud(request, "Fechamento");
@@ -353,9 +371,10 @@ export async function POST(request: Request) {
         ],
         set: { totalsJson: JSON.stringify(result), status: "closed" },
       });
+    await saveTaxEntries(request,Number(b.companySourceId),b.month,b.period,result);
     return Response.json({
       ok: true,
-      message: "Folha fechada e memória de cálculo registrada.",
+      message: "Tributos gerados, lançados na folha e memória de cálculo registrada.",
       result,
     });
   } catch (e) {

@@ -37,7 +37,7 @@ const navGroups = [
         ["CF", "Clientes e fornecedores"],
         ["CU", "Culturas"],
         ["ME", "Entradas e saídas"],
-        ["RG", "Relatórios agrícolas"],
+        ["RG", "Relatórios"],
       ],
     },
     {
@@ -79,7 +79,7 @@ const navGroups = [
     {
       label: "Tributos",
       icon: "TR",
-      items: [["TB", "Tabelas oficiais"]],
+      items: [["GT", "Gerar tributos"], ["TB", "Tabelas oficiais"]],
     },
     {
       label: "Relatórios",
@@ -354,7 +354,7 @@ export default function Home() {
               "Clientes e fornecedores",
               "Culturas",
               "Entradas e saídas",
-              "Relatórios agrícolas",
+              "Relatórios",
             ];
             const items = group.items.filter(
               ([, label]) =>
@@ -532,7 +532,7 @@ export default function Home() {
             <TaxTablesModule />
           ) : active === "Apontamentos" ? (
             <LaunchesModule company={company} />
-          ) : active === "Fechamento" ? (
+          ) : active === "Fechamento" || active === "Gerar tributos" ? (
             <ClosingModule company={company} />
           ) : active === "Painel agrícola" ? (
             <InventoryModule company={company} section="dashboard" />
@@ -544,7 +544,7 @@ export default function Home() {
             <InventoryModule company={company} section="crops" />
           ) : active === "Entradas e saídas" ? (
             <InventoryModule company={company} section="movements" />
-          ) : active === "Relatórios agrícolas" ? (
+          ) : active === "Relatórios" ? (
             <InventoryModule company={company} section="reports" />
           ) : active === "Relatórios Analíticos" ? (
             <ReportsModule selectedCompany={company} category="analytical" />

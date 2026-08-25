@@ -91,9 +91,9 @@ export default function ClosingModule({ company }: { company: string }) {
           <span>✓</span>
           <div>
             <small>PROCESSAMENTO DA COMPETÊNCIA</small>
-            <h2>Fechamento da folha</h2>
+            <h2>Gerar tributos e descontos da folha</h2>
             <p>
-              Prévia dos tributos, benefícios e descontos antes de confirmar.
+              Gere INSS, IRPF e contribuição sindical até o dia 15 ou até o último dia da competência.
             </p>
           </div>
         </div>
@@ -109,8 +109,8 @@ export default function ClosingModule({ company }: { company: string }) {
           <label>
             Período
             <select value={period} onChange={(e) => setPeriod(e.target.value)}>
-              <option value="advance">Adiantamento</option>
-              <option value="monthly">Fechamento mensal</option>
+              <option value="advance">Quinzenal — lançamentos até o dia 15</option>
+              <option value="monthly">Mensal — até o último dia, compensando a quinzena</option>
             </select>
           </label>
           <button
@@ -125,7 +125,7 @@ export default function ClosingModule({ company }: { company: string }) {
             disabled={busy || !result}
             onClick={() => run(true)}
           >
-            Confirmar fechamento
+            Gerar e confirmar descontos
           </button>
         </div>
         {message && <div className="inline-notice">{message}</div>}

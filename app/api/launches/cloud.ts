@@ -41,7 +41,7 @@ export async function cloudLaunchesGet(request: Request) {
         `/rest/v1/employment_contracts?select=*,people(full_name,cpf,pis,birth_date,identity_number)&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&order=created_at.asc`,
       ),
       supabaseAdmin.get<Row[]>(
-        `/rest/v1/worker_payroll_profiles?select=contract_id,salary_type&organization_id=eq.${config.organizationId}`,
+        `/rest/v1/worker_payroll_profiles?select=contract_id,salary_type,base_salary_cents,daily_rate_cents&organization_id=eq.${config.organizationId}`,
       ),
       supabaseAdmin.get<Row[]>(
         `/rest/v1/services?select=*&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&order=description.asc`,
@@ -69,6 +69,8 @@ export async function cloudLaunchesGet(request: Request) {
         terminationDate: row.termination_date,
         role: row.role_name,
         paymentType: profiles.find(profile=>profile.contract_id===row.id)?.salary_type==="monthly"?"monthly":"production",
+        baseSalaryCents: Number(profiles.find(profile=>profile.contract_id===row.id)?.base_salary_cents || 0),
+        dailyRateCents: Number(profiles.find(profile=>profile.contract_id===row.id)?.daily_rate_cents || 0),
       })),
       services: services.map((row) => ({
         id: row.id,

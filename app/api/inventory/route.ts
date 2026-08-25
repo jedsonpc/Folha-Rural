@@ -1,56 +1,19 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { authorizeCloud } from "../../auth-cloud";
 import { getSupabaseConfig, supabaseAdmin } from "../../../db/supabase";
-
-type Row = Record<string, any>;
-const cents = (v: unknown) => Math.round(Number(v || 0) * 100);
-async function companyId(sourceId: number) {
-  const config = getSupabaseConfig()!;
-  const rows = await supabaseAdmin.get<Row[]>(`/rest/v1/companies?select=id&organization_id=eq.${config.organizationId}&legacy_id=eq.${sourceId}&limit=1`);
-  return rows[0]?.id as string | undefined;
-}
-export async function GET(request: Request) {
-  const access = await authorizeCloud(request, "Estoque e custos");
-  if (access.response) return access.response;
-  if (!getSupabaseConfig()) return Response.json({ error: "O módulo de estoque requer a configuração de nuvem." }, { status: 503 });
-  const sourceId = Number(new URL(request.url).searchParams.get("company"));
-  if (!sourceId || (access.user?.companyIds && !access.user.companyIds.includes(sourceId))) return Response.json({ error: "Empresa não autorizada." }, { status: 403 });
-  const config = getSupabaseConfig()!, id = await companyId(sourceId);
-  if (!id) return Response.json({ error: "Empresa não encontrada." }, { status: 404 });
-  const base = `organization_id=eq.${config.organizationId}&company_id=eq.${id}`;
-  const [products, partners, movements, categories] = await Promise.all([
-    supabaseAdmin.get<Row[]>(`/rest/v1/inventory_products?select=*,inventory_categories(name)&${base}&order=description.asc`),
-    supabaseAdmin.get<Row[]>(`/rest/v1/business_partners?select=*&${base}&order=name.asc`),
-    supabaseAdmin.get<Row[]>(`/rest/v1/inventory_movements?select=*,inventory_products(description,unit),business_partners(name)&${base}&order=movement_date.desc,created_at.desc&limit=1000`),
-    supabaseAdmin.get<Row[]>(`/rest/v1/inventory_categories?select=*&${base}&order=name.asc`),
-  ]);
-  const stock = new Map<string, number>();
-  for (const m of movements) stock.set(m.product_id, (stock.get(m.product_id) || 0) + (["purchase","positive_adjustment"].includes(m.movement_type) ? 1 : -1) * Number(m.quantity));
-  const productRows: Row[] = products.map(p => ({ ...p, stock: stock.get(p.id) || 0 }));
-  const inventoryValue = productRows.reduce((s,p) => s + Number(p.stock) * Number(p.average_cost_cents), 0);
-  const revenue = movements.filter(m => m.movement_type === "sale").reduce((s,m) => s + Number(m.quantity) * Number(m.unit_value_cents), 0);
-  const purchases = movements.filter(m => m.movement_type === "purchase").reduce((s,m) => s + Number(m.quantity) * Number(m.unit_value_cents), 0);
-  const crops = categories.filter(c => String(c.name).startsWith("CULTURA::")).map(c => ({ ...c, name: String(c.name).slice(9) }));
-  return Response.json({ products: productRows, partners, movements, categories: categories.filter(c => !String(c.name).startsWith("CULTURA::")), crops, metrics: { inventoryValue, revenue, purchases, lowStock: productRows.filter(p => Number(p.stock) <= Number(p.minimum_stock)).length } }, { headers: { "Cache-Control": "no-store" } });
-}
-export async function POST(request: Request) {
-  const access = await authorizeCloud(request, "Estoque e custos");
-  if (access.response) return access.response;
-  const config = getSupabaseConfig();
-  if (!config) return Response.json({ error: "O módulo de estoque requer a configuração de nuvem." }, { status: 503 });
-  const b = await request.json() as Row, sourceId = Number(b.company), id = await companyId(sourceId);
-  if (!id || (access.user?.companyIds && !access.user.companyIds.includes(sourceId))) return Response.json({ error: "Empresa não autorizada." }, { status: 403 });
-  const common = { organization_id: config.organizationId, company_id: id };
-  if (b.action === "partner") await supabaseAdmin.post("/rest/v1/business_partners", { ...common, partner_type: b.partnerType, name: String(b.name || "").trim(), trade_name: b.tradeName || null, document: b.document || null, phone: b.phone || null, email: b.email || null }, { prefer: "return=minimal" });
-  else if (b.action === "crop") {
-    const name = String(b.name || "").trim();
-    if (!name) return Response.json({ error: "Informe o nome da cultura." }, { status: 400 });
-    const existing = await supabaseAdmin.get<Row[]>(`/rest/v1/inventory_categories?select=id&organization_id=eq.${config.organizationId}&company_id=eq.${id}&name=eq.${encodeURIComponent(`CULTURA::${name}`)}&limit=1`);
-    if (existing.length) return Response.json({ error: "Esta cultura já está cadastrada." }, { status: 409 });
-    await supabaseAdmin.post("/rest/v1/inventory_categories", { ...common, name: `CULTURA::${name}` }, { prefer: "return=minimal" });
-  }
-  else if (b.action === "product") await supabaseAdmin.post("/rest/v1/inventory_products", { ...common, description: String(b.description || "").trim(), sku: b.sku || null, unit: b.unit || "UN", minimum_stock: Number(b.minimumStock || 0), sale_price_cents: cents(b.salePrice) }, { prefer: "return=minimal" });
-  else if (b.action === "movement") await supabaseAdmin.post("/rest/v1/inventory_movements", { ...common, product_id: b.productId, partner_id: b.partnerId || null, movement_type: b.movementType, movement_date: b.date, quantity: Number(b.quantity), unit_value_cents: cents(b.unitValue), document_number: b.documentNumber || null, crop: b.crop || null, cost_center: b.costCenter || null, notes: b.notes || null }, { prefer: "return=minimal" });
-  else return Response.json({ error: "Operação inválida." }, { status: 400 });
-  return Response.json({ ok: true, message: "Registro salvo com sucesso." });
-}
+type Row=Record<string,any>&{average_cost_cents?:number;minimum_stock?:number;id:string};
+const cents=(v:unknown)=>Math.round(Number(v||0)*100),digits=(v:unknown)=>String(v||"").replace(/\D/g,"");
+const validCpf=(v:string)=>{if(!/^\d{11}$/.test(v)||/^(\d)\1+$/.test(v))return false;for(const n of [9,10]){let s=0;for(let i=0;i<n;i++)s+=Number(v[i])*(n+1-i);if((s*10)%11%10!==Number(v[n]))return false}return true};
+const validCnpj=(v:string)=>{if(!/^\d{14}$/.test(v)||/^(\d)\1+$/.test(v))return false;const c=(n:number)=>{let s=0,p=n-7;for(let i=n;i>=1;i--){s+=Number(v[n-i])*p--;if(p<2)p=9}const r=s%11;return r<2?0:11-r};return c(12)===Number(v[12])&&c(13)===Number(v[13])};
+async function companyId(source:number){const c=getSupabaseConfig()!,r=await supabaseAdmin.get<Row[]>(`/rest/v1/companies?select=id&organization_id=eq.${c.organizationId}&legacy_id=eq.${source}&limit=1`);return r[0]?.id as string|undefined}
+const scope=(org:string,company:string)=>`organization_id=eq.${org}&company_id=eq.${company}`;
+export async function GET(request:Request){const access=await authorizeCloud(request,"Estoque e custos");if(access.response)return access.response;const config=getSupabaseConfig();if(!config)return Response.json({error:"O módulo de estoque requer a configuração de nuvem."},{status:503});const url=new URL(request.url),source=Number(url.searchParams.get("company")),company=await companyId(source);if(!company||(access.user?.companyIds&&!access.user.companyIds.includes(source)))return Response.json({error:"Empresa não autorizada."},{status:403});const base=scope(config.organizationId,company),[products,partners,movements,categories]=await Promise.all([supabaseAdmin.get<Row[]>(`/rest/v1/inventory_products?select=*,inventory_categories(name)&${base}&order=description.asc`),supabaseAdmin.get<Row[]>(`/rest/v1/business_partners?select=*&${base}&order=name.asc`),supabaseAdmin.get<Row[]>(`/rest/v1/inventory_movements?select=*,inventory_products(description,unit),business_partners(name)&${base}&order=movement_date.desc,created_at.desc&limit=2000`),supabaseAdmin.get<Row[]>(`/rest/v1/inventory_categories?select=*&${base}&order=name.asc`)]),stock=new Map<string,number>();for(const m of movements)stock.set(m.product_id,(stock.get(m.product_id)||0)+(["purchase","positive_adjustment"].includes(m.movement_type)?1:-1)*Number(m.quantity));const productRows=products.map(p=>({...p,stock:stock.get(p.id)||0})),revenue=movements.filter(m=>m.movement_type==="sale").reduce((s,m)=>s+Number(m.quantity)*Number(m.unit_value_cents),0),purchases=movements.filter(m=>m.movement_type==="purchase").reduce((s,m)=>s+Number(m.quantity)*Number(m.unit_value_cents),0),inventoryValue=productRows.reduce((s,p)=>s+Number(p.stock)*Number(p.average_cost_cents),0),crops=categories.filter(c=>String(c.name).startsWith("CULTURA::")).map(c=>({...c,name:String(c.name).slice(9)}));return Response.json({products:productRows,partners,movements,crops,metrics:{inventoryValue,revenue,purchases,lowStock:productRows.filter(p=>Number(p.stock)<=Number(p.minimum_stock)).length}},{headers:{"Cache-Control":"no-store"}})}
+export async function POST(request:Request){const access=await authorizeCloud(request,"Estoque e custos");if(access.response)return access.response;const config=getSupabaseConfig();if(!config)return Response.json({error:"O módulo de estoque requer a configuração de nuvem."},{status:503});const b=await request.json() as Row,source=Number(b.company),company=await companyId(source);if(!company||(access.user?.companyIds&&!access.user.companyIds.includes(source)))return Response.json({error:"Empresa não autorizada."},{status:403});const common={organization_id:config.organizationId,company_id:company},base=scope(config.organizationId,company),id=String(b.id||"");
+ if(b.action==="saveProduct"){const p={...common,description:String(b.description||"").trim(),sku:String(b.sku||"").trim()||null,unit:String(b.unit||"UN"),minimum_stock:Number(b.minimumStock||0)};if(!p.description)return Response.json({error:"Informe o produto."},{status:400});if(id)await supabaseAdmin.patch(`/rest/v1/inventory_products?id=eq.${id}&${base}`,p);else await supabaseAdmin.post("/rest/v1/inventory_products",p,{prefer:"return=minimal"})}
+ else if(b.action==="savePartner"){const d=digits(b.document);if(d&&d.length!==11&&d.length!==14)return Response.json({error:"Informe CPF ou CNPJ completo."},{status:400});if(d.length===11&&!validCpf(d))return Response.json({error:"CPF inválido."},{status:400});if(d.length===14&&!validCnpj(d))return Response.json({error:"CNPJ inválido."},{status:400});const p={...common,partner_type:b.partnerType||"supplier",name:String(b.name||"").trim(),trade_name:String(b.tradeName||"").trim()||null,document:d||null,phone:String(b.phone||"").trim()||null,email:String(b.email||"").trim()||null};if(!p.name)return Response.json({error:"Informe o nome ou razão social."},{status:400});if(id)await supabaseAdmin.patch(`/rest/v1/business_partners?id=eq.${id}&${base}`,p);else await supabaseAdmin.post("/rest/v1/business_partners",p,{prefer:"return=minimal"})}
+ else if(b.action==="saveCrop"){const name=String(b.name||"").trim();if(!name)return Response.json({error:"Informe a cultura."},{status:400});if(id)await supabaseAdmin.patch(`/rest/v1/inventory_categories?id=eq.${id}&${base}`,{name:`CULTURA::${name}`});else await supabaseAdmin.post("/rest/v1/inventory_categories",{...common,name:`CULTURA::${name}`},{prefer:"return=minimal"})}
+ else if(b.action==="saveMovement"){const quantity=Number(b.quantity),total=cents(b.totalValue),unit=String(b.unitValue||"")?cents(b.unitValue):quantity>0?Math.round(total/quantity):0;if(!b.productId||!b.date||quantity<=0)return Response.json({error:"Informe data, produto e quantidade."},{status:400});const p={...common,product_id:b.productId,partner_id:b.partnerId||null,movement_type:b.movementType||"sale",movement_date:b.date,quantity,unit_value_cents:unit,document_number:b.documentNumber||null,crop: b.crop || null,cost_center:b.costCenter||null,notes:b.notes||null};if(id)await supabaseAdmin.patch(`/rest/v1/inventory_movements?id=eq.${id}&${base}`,p);else await supabaseAdmin.post("/rest/v1/inventory_movements",p,{prefer:"return=minimal"})}
+ else if(b.action==="deleteProduct"){const u=await supabaseAdmin.get<Row[]>(`/rest/v1/inventory_movements?select=id&${base}&product_id=eq.${id}&limit=1`);if(u.length)return Response.json({error:"Produto com lançamentos vinculados não pode ser excluído."},{status:409});await supabaseAdmin.delete(`/rest/v1/inventory_products?id=eq.${id}&${base}`)}
+ else if(b.action==="deletePartner"){const u=await supabaseAdmin.get<Row[]>(`/rest/v1/inventory_movements?select=id&${base}&partner_id=eq.${id}&limit=1`);if(u.length)return Response.json({error:"Cliente/fornecedor com lançamentos não pode ser excluído."},{status:409});await supabaseAdmin.delete(`/rest/v1/business_partners?id=eq.${id}&${base}`)}
+ else if(b.action==="deleteCrop"){const r=await supabaseAdmin.get<Row[]>(`/rest/v1/inventory_categories?select=name&id=eq.${id}&${base}&limit=1`),name=String(r[0]?.name||"").replace("CULTURA::","");const u=name?await supabaseAdmin.get<Row[]>(`/rest/v1/inventory_movements?select=id&${base}&crop=eq.${encodeURIComponent(name)}&limit=1`):[];if(u.length)return Response.json({error:"Cultura com lançamentos não pode ser excluída."},{status:409});await supabaseAdmin.delete(`/rest/v1/inventory_categories?id=eq.${id}&${base}`)}
+ else if(b.action==="deleteMovement")await supabaseAdmin.delete(`/rest/v1/inventory_movements?id=eq.${id}&${base}`);else return Response.json({error:"Operação inválida."},{status:400});return Response.json({ok:true,message:String(b.action).startsWith("delete")?"Registro excluído.":id?"Registro atualizado.":"Registro salvo."})}

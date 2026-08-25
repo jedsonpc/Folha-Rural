@@ -23,7 +23,7 @@ const nextMonth = (month: string) => {
 const bounds = (month: string, period: string) =>
   period === "advance"
     ? [`${month}-01`, `${month}-16`]
-    : [`${month}-16`, nextMonth(month)];
+    : [`${month}-01`, nextMonth(month)];
 
 const progressive = (
   base: number,
@@ -185,8 +185,10 @@ async function calculateCloud(
           ),
         )
         .reduce((sum, entry) => sum + Number(entry.amount_cents), 0);
-      const inss = inssRows.length ? progressive(inssBase, inssRows) : 0;
-      const legalDeduction = inss + irrfDependentCount * 18959;
+      const inssFull = inssRows.length ? progressive(inssBase, inssRows) : 0;
+      const priorInss = period === "balance" ? own.filter(entry=>/\bINSS\b/i.test(String(serviceById.get(entry.service_id)?.description||""))&&Number(entry.discount_cents)>0).reduce((sum,entry)=>sum+Number(entry.discount_cents),0):0;
+      const inss = Math.max(0,inssFull-priorInss);
+      const legalDeduction = inssFull + irrfDependentCount * 18959;
       const irrfBase = Math.max(0, irrfGross - Math.max(60720, legalDeduction));
       const irrfBracket = [...irrfRows]
         .reverse()
@@ -209,7 +211,9 @@ async function calculateCloud(
                 Math.max(0, 97862 - Math.round(irrfGross * 0.133145)),
               )
             : 0;
-      const irrf = Math.max(0, irrfBeforeReduction - irrfReduction);
+      const irrfFull = Math.max(0, irrfBeforeReduction - irrfReduction);
+      const priorIrrf = period === "balance" ? own.filter(entry=>/IRRF|IMPOSTO.*RENDA/i.test(String(serviceById.get(entry.service_id)?.description||""))&&Number(entry.discount_cents)>0).reduce((sum,entry)=>sum+Number(entry.discount_cents),0):0;
+      const irrf = Math.max(0,irrfFull-priorIrrf);
       const admissionDay = contract.admission_date?.startsWith(month)
         ? Number(contract.admission_date.slice(8, 10))
         : 1;
@@ -270,7 +274,11 @@ async function calculateCloud(
         inssBase,
         irrfBase,
         inss,
+        inssFull,
+        priorInss,
         irrf,
+        irrfFull,
+        priorIrrf,
         irrfBeforeReduction,
         irrfReduction,
         salaryFamily,
@@ -299,6 +307,14 @@ async function calculateCloud(
     },
     dataSource: "supabase",
   };
+}
+async function saveCloudTaxEntries(companyLegacyId:number,month:string,period:string,result:Awaited<ReturnType<typeof calculateCloud>>){
+ const config=getSupabaseConfig()!,resolvedCompanyId=await companyId(config.organizationId,companyLegacyId);if(!resolvedCompanyId)throw new Error("Empresa não encontrada.");
+ const serviceRows=await pagedGet(`/rest/v1/services?select=id,description,entry_type&organization_id=eq.${config.organizationId}&company_id=eq.${resolvedCompanyId}`),find=(pattern:RegExp)=>serviceRows.find(s=>s.entry_type==="deduction"&&pattern.test(String(s.description)))?.id,ids={inss:find(/\bINSS\b/i),irrf:find(/IRRF|IMPOSTO.*RENDA/i),union:find(/CONTRIBUI.*SINDICAL|SINDICATO/i)};
+ const required=[result.rows.some(r=>r.inss>0)&&!ids.inss&&"INSS",result.rows.some(r=>r.irrf>0)&&!ids.irrf&&"IRRF",result.rows.some(r=>r.union>0)&&!ids.union&&"Contribuição sindical"].filter(Boolean);if(required.length)throw new Error(`Cadastre como desconto o(s) serviço(s): ${required.join(", ")}.`);
+ const [year,value]=month.split("-").map(Number),lastDay=new Date(Date.UTC(year,value,0)).getUTCDate(),entryDate=period==="advance"?`${month}-15`:`${month}-${String(lastDay).padStart(2,"0")}`,rows=[] as Row[];
+ for(const row of result.rows)for(const [kind,amount] of [["inss",row.inss],["irrf",row.irrf],["union",row.union]] as const){const serviceId=ids[kind];if(serviceId&&amount>0)rows.push({organization_id:config.organizationId,company_id:resolvedCompanyId,entry_date:entryDate,contract_id:row.id,service_id:serviceId,quantity:1,unit_price_cents:0,amount_cents:0,discount_cents:amount,notes:`Gerado automaticamente - ${kind.toUpperCase()} ${period==="advance"?"quinzenal":"mensal"}`})}
+ if(rows.length)await supabaseAdmin.post("/rest/v1/daily_entries?on_conflict=organization_id,company_id,entry_date,contract_id,service_id",rows,{prefer:"resolution=merge-duplicates,return=minimal"});
 }
 
 export async function cloudClosingGet(request: Request) {
@@ -353,8 +369,9 @@ export async function cloudClosingPost(request: Request) {
       p_period_type: period,
       p_totals: result,
     });
+    await saveCloudTaxEntries(company,body.month,period,result);
     return Response.json({
-      ...(saved[0] || { ok: true }),
+      ...(saved[0] || { ok: true }),message:"Tributos gerados e lançados automaticamente na folha.",
       result,
     });
   } catch (error) {
