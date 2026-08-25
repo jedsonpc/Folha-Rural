@@ -9,6 +9,8 @@ type Row = {
   inssBase: number;
   irrfBase: number;
   inss: number;
+  inssFull: number;
+  priorInss: number;
   irrf: number;
   salaryFamily: number;
   union: number;
@@ -192,7 +194,9 @@ export default function ClosingModule({ company }: { company: string }) {
                     <th>Bruto</th>
                     <th>Adiantamento</th>
                     <th>Base INSS</th>
-                    <th>INSS</th>
+                    <th>INSS total</th>
+                    <th>INSS compensado</th>
+                    <th>INSS saldo</th>
                     <th>Base IRRF</th>
                     <th>IRRF</th>
                     <th>Salário-família</th>
@@ -210,6 +214,8 @@ export default function ClosingModule({ company }: { company: string }) {
                       <td>{money(r.gross)}</td>
                       <td>{money(r.advanceDiscount || 0)}</td>
                       <td>{money(r.inssBase)}</td>
+                      <td>{money(r.inssFull || r.inss)}</td>
+                      <td>{money(r.priorInss || 0)}</td>
                       <td>{money(r.inss)}</td>
                       <td>{money(r.irrfBase)}</td>
                       <td>{money(r.irrf)}</td>

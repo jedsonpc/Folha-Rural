@@ -108,6 +108,7 @@ async function calculate(
       contractId: dailyEntries.contractId,
       entryDate: dailyEntries.entryDate,
       amountCents: dailyEntries.amountCents,
+      discountCents: dailyEntries.discountCents,
       inss: services.inss,
       serviceDescription: services.description,
     })
@@ -169,7 +170,10 @@ async function calculate(
         firstHalfGross = monthlyEntries
           .filter((e) => e.contractId === c.id && e.entryDate < `${month}-16`)
           .reduce((a, e) => a + e.amountCents, 0),
-        advanceDiscount = period === "balance" ? firstHalfGross : 0,
+        firstHalfDiscounts = monthlyEntries
+          .filter((e) => e.contractId === c.id && e.entryDate < `${month}-16`)
+          .reduce((a, e) => a + e.discountCents, 0),
+        advanceDiscount = period === "balance" ? Math.max(0, firstHalfGross - firstHalfDiscounts) : 0,
         existingDiscounts = own
           .filter((e) => !String(e.notes || "").startsWith("Gerado automaticamente -"))
           .reduce((a, e) => a + e.discountCents, 0),
@@ -260,6 +264,7 @@ async function calculate(
         ...c,
         gross,
         advanceDiscount,
+        firstHalfDiscounts,
         inssBase,
         irrfBase,
         inss,

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "./reports.css";
 import "./reports-print111.css";
 import "./reports-compact112.css";
@@ -66,6 +66,22 @@ const money = (c: number) =>
       maximumFractionDigits: 2,
     }).format(c / 100),
   nowMonth = () => new Date().toISOString().slice(0, 7);
+async function fetchJson(url: string, timeoutMs = 30000) {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { cache: "no-store", signal: controller.signal });
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.error || "Não foi possível consultar os dados do relatório.");
+    return body;
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError")
+      throw new Error("A consulta demorou além do esperado. Tente novamente ou selecione uma empresa e um período menor.");
+    throw error;
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
 export default function ReportsModule({
   selectedCompany,
   category,
@@ -95,6 +111,7 @@ export default function ReportsModule({
     [notice, setNotice] = useState(""),
     [copyChoiceOpen, setCopyChoiceOpen] = useState(false),
     [printCopies, setPrintCopies] = useState<1 | 2>(1);
+  const loadSequence = useRef(0);
   useEffect(() => {
     setType(category === "summary" ? "summary" : "receipts");
     setPacks([]);
@@ -113,6 +130,7 @@ export default function ReportsModule({
       .then((b) => setReportServices(b.services || []));
   }, []);
   async function load() {
+    const sequence = ++loadSequence.current;
     setBusy(true);
     setNotice("");
     try {
@@ -134,15 +152,12 @@ export default function ReportsModule({
         let contracts: Contract[] = [];
         let services: Service[] = [];
         const entries: Entry[] = [];
-        for (const targetMonth of monthsBetween(start, end)) {
-          const r = await fetch(
-              `/api/launches?company=${c.sourceId}&month=${targetMonth}`,
-            ),
-            b = await r.json();
-          if (!r.ok)
-            throw new Error(
-              b.error || `Não foi possível consultar os dados de ${c.name}.`,
-            );
+        const monthResults = await Promise.all(
+          monthsBetween(start, end).map((targetMonth) =>
+            fetchJson(`/api/launches?company=${c.sourceId}&month=${targetMonth}`),
+          ),
+        );
+        for (const b of monthResults) {
           contracts = b.contracts || contracts;
           services = b.services || services;
           entries.push(
@@ -156,6 +171,7 @@ export default function ReportsModule({
         }
         loaded.push({ company: c, contracts, services, entries });
       }
+      if (sequence !== loadSequence.current) return;
       setPacks(loaded);
       const ids = new Set<string>();
       loaded.forEach((p) =>
@@ -178,6 +194,7 @@ export default function ReportsModule({
           : "Nenhum lançamento encontrado no período selecionado. Confira os filtros ou registre os apontamentos antes de gerar o relatório.",
       );
     } catch (error) {
+      if (sequence !== loadSequence.current) return;
       setPacks([]);
       setSelected(new Set());
       setNotice(
@@ -186,7 +203,7 @@ export default function ReportsModule({
           : "Não foi possível gerar os relatórios.",
       );
     } finally {
-      setBusy(false);
+      if (sequence === loadSequence.current) setBusy(false);
     }
   }
   const workers = useMemo(

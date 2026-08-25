@@ -3,6 +3,14 @@
   gap: 18px;
   min-width: 0;
 }
+.report-controls,.report-types,.report-filters,.report-actions{min-width:0;max-width:100%}
+.report-category-types{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));width:100%}
+.report-category-types button{min-width:0;width:100%;white-space:normal;overflow-wrap:anywhere}
+.report-filters>*{min-width:0}
+.report-filters input,.report-filters select{min-width:0;width:100%;text-overflow:ellipsis}
+.report-filters .primary{min-width:0;white-space:normal;padding-inline:12px}
+.report-actions{flex-wrap:wrap}
+.report-actions .primary{max-width:100%;white-space:normal}
 .reports-module,.print-area,.receipt,.detail-block,.summary-report,.financial-report{max-width:100%;overflow-x:hidden}
 .reports-module .pay-table{width:100%;table-layout:fixed}
 .reports-module .pay-table th,.reports-module .pay-table td{white-space:normal;overflow-wrap:anywhere;padding:6px 4px}

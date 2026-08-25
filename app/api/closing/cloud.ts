@@ -165,7 +165,10 @@ async function calculateCloud(
       const firstHalfGross = monthlyEntries
         .filter((entry) => entry.contract_id === contract.id && entry.entry_date < `${month}-16`)
         .reduce((sum, entry) => sum + Number(entry.amount_cents), 0);
-      const advanceDiscount = period === "balance" ? firstHalfGross : 0;
+      const firstHalfDiscounts = monthlyEntries
+        .filter((entry) => entry.contract_id === contract.id && entry.entry_date < `${month}-16`)
+        .reduce((sum, entry) => sum + Number(entry.discount_cents || 0), 0);
+      const advanceDiscount = period === "balance" ? Math.max(0, firstHalfGross - firstHalfDiscounts) : 0;
       const existingDiscounts = own.reduce(
         (sum, entry) => String(entry.notes || "").startsWith("Gerado automaticamente -") ? sum : sum + Number(entry.discount_cents || 0),
         0,
@@ -276,6 +279,7 @@ async function calculateCloud(
         irrfDependents: Number(contract.irrf_dependents),
         gross,
         advanceDiscount,
+        firstHalfDiscounts,
         inssBase,
         irrfBase,
         inss,
