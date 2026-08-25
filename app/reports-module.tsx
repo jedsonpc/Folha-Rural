@@ -166,7 +166,7 @@ export default function ReportsModule({
               (entry: Entry) =>
                 entry.entryDate >= start &&
                 entry.entryDate <= end &&
-                (usesRange || entryMatchesPeriod(entry.entryDate, period)),
+                (usesRange || entryMatchesPayrollPeriod(entry, period)),
             ),
           );
         }
@@ -694,6 +694,13 @@ function entryMatchesPeriod(entryDate: string, period: string) {
   if (period === "full") return true;
   const day = Number(entryDate.slice(8, 10));
   return period === "advance" ? day >= 1 && day <= 15 : day >= 16;
+}
+function entryMatchesPayrollPeriod(entry: Entry, period: string) {
+  if (period !== "balance") return entryMatchesPeriod(entry.entryDate, period);
+  const day = Number(entry.entryDate.slice(8, 10));
+  // No saldo mensal, os proventos formam o bruto do mês inteiro. Os descontos
+  // anteriores ao dia 16 já compõem o líquido usado como adiantamento.
+  return entry.amountCents > 0 || day >= 16;
 }
 function monthsBetween(start: string, end: string) {
   if (!start || !end || start > end) return [];

@@ -56,7 +56,9 @@
 }
 .closing-module .table-scroll { overflow-x: hidden; }
 .closing-table { min-width: 0; table-layout: fixed; }
-.closing-table th,.closing-table td { padding: 8px 5px; white-space: normal; overflow-wrap: anywhere; font-size: 10px; }
+.closing-table th,.closing-table td { padding: 9px 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: clamp(8px,.72vw,10px); }
+.closing-table .col-registration{width:6%}.closing-table .col-worker{width:15%}.closing-table .col-money{width:7.18%}
+.closing-table .worker-name b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @media (max-width: 1000px) {
   .closing-filters {
     grid-template-columns: 1fr 1fr;

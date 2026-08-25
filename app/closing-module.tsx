@@ -187,20 +187,24 @@ export default function ClosingModule({ company }: { company: string }) {
             </div>
             <div className="table-scroll">
               <table className="data-table closing-table">
+                <colgroup>
+                  <col className="col-registration"/><col className="col-worker"/>
+                  {Array.from({length:11},(_,index)=><col key={index} className="col-money"/>)}
+                </colgroup>
                 <thead>
                   <tr>
-                    <th>Matrícula</th>
+                    <th title="Matrícula">Matr.</th>
                     <th>Colaborador</th>
                     <th>Bruto</th>
-                    <th>Adiantamento</th>
+                    <th title="Adiantamento">Adiant.</th>
                     <th>Base INSS</th>
                     <th>INSS total</th>
-                    <th>INSS compensado</th>
-                    <th>INSS saldo</th>
+                    <th title="INSS compensado">Comp. INSS</th>
+                    <th title="Saldo de INSS">Saldo INSS</th>
                     <th>Base IRRF</th>
                     <th>IRRF</th>
-                    <th>Salário-família</th>
-                    <th>Sindicato</th>
+                    <th title="Salário-família">Sal.-fam.</th>
+                    <th title="Sindicato">Sind.</th>
                     <th>Líquido</th>
                   </tr>
                 </thead>
@@ -208,7 +212,7 @@ export default function ClosingModule({ company }: { company: string }) {
                   {result.rows.map((r) => (
                     <tr key={r.id}>
                       <td>{r.registrationNumber || "—"}</td>
-                      <td>
+                      <td className="worker-name" title={r.name}>
                         <b>{r.name}</b>
                       </td>
                       <td>{money(r.gross)}</td>
