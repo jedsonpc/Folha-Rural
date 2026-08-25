@@ -76,6 +76,8 @@ export async function GET(request: Request) {
         description: services.description,
         formulaCode: services.formulaCode,
         entryType: services.entryType,
+        inssIncidence: services.inss,
+        fgtsIncidence: services.fgts,
         unitName: services.unitName,
         affectsDsr: services.affectsDsr,
         composesProductionAverage: services.composesProductionAverage,

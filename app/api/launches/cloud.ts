@@ -41,7 +41,7 @@ export async function cloudLaunchesGet(request: Request) {
       supabaseAdmin.get<Row[]>(
         `/rest/v1/employment_contracts?select=*,people(full_name,cpf,pis,birth_date,identity_number)&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&order=created_at.asc`,
       ),
-      reportOnly ? Promise.resolve([]) : supabaseAdmin.get<Row[]>(
+      supabaseAdmin.get<Row[]>(
         `/rest/v1/worker_payroll_profiles?select=contract_id,salary_type,base_salary_cents,daily_rate_cents&organization_id=eq.${config.organizationId}`,
       ),
       supabaseAdmin.get<Row[]>(
@@ -79,6 +79,8 @@ export async function cloudLaunchesGet(request: Request) {
         description: row.description,
         formulaCode: row.formula_code,
         entryType: row.entry_type,
+        inssIncidence: Boolean(row.inss_incidence),
+        fgtsIncidence: Boolean(row.fgts_incidence),
         unitName: row.unit_name,
         affectsDsr: row.affects_dsr,
         composesProductionAverage: row.composes_production_average,

@@ -8,7 +8,7 @@ import "./inventory-revenues.css";
 import CurrencyInput from "./currency-input";
 
 type AnyRow = Record<string, any>;
-type InventorySection = "dashboard" | "products" | "partners" | "crops" | "movements" | "revenues" | "reports";
+type InventorySection = "dashboard" | "products" | "partners" | "crops" | "movements" | "revenues" | "cashflow" | "reports";
 
 const brl = (c: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format((c || 0) / 100);
@@ -28,13 +28,14 @@ const sectionContent: Record<InventorySection, { eyebrow: string; title: string;
   crops: { eyebrow: "CADASTROS", title: "Culturas", description: "Cadastre as culturas utilizadas nas entradas e saídas de produtos da empresa." },
   movements: { eyebrow: "OPERAÇÃO", title: "Entradas e saídas", description: "Registre compras, consumo por cultura ou talhão, vendas e ajustes de inventário." },
   revenues: { eyebrow: "OPERAÇÃO", title: "Receitas", description: "Registre e consulte as receitas da atividade agrícola." },
+  cashflow: { eyebrow: "FINANCEIRO", title: "Fluxo de Caixa", description: "Acompanhe entradas, saídas e saldo do período selecionado." },
   reports: { eyebrow: "RELATÓRIOS GERENCIAIS", title: "Custos, receitas e movimentações", description: "Acompanhe os resultados da operação e gere relatórios para impressão ou PDF." },
 };
 
 export default function InventoryModule({ company, section }:{ company:string; section:InventorySection }) {
   const [data, setData] = useState<AnyRow>({ products: [], partners: [], movements: [], metrics: {} });
   const [message, setMessage] = useState("");
-  const [movementValue,setMovementValue]=useState({quantity:"",unit:"",total:""}),[movementType,setMovementType]=useState("purchase"),[movementProduct,setMovementProduct]=useState(""),[revenueValue,setRevenueValue]=useState({quantity:"",unit:"",total:""}),[filters,setFilters]=useState({from:"",to:"",type:"",product:""}),[revenueFilters,setRevenueFilters]=useState({from:"",to:""});
+  const currentYear=new Date().getFullYear(),[movementValue,setMovementValue]=useState({quantity:"",unit:"",total:""}),[movementType,setMovementType]=useState("purchase"),[movementProduct,setMovementProduct]=useState(""),[revenueValue,setRevenueValue]=useState({quantity:"",unit:"",total:""}),[filters,setFilters]=useState({from:"",to:"",type:"",product:""}),[revenueFilters,setRevenueFilters]=useState({from:"",to:""}),[cashFilters,setCashFilters]=useState({from:`${currentYear}-01-01`,to:`${currentYear}-12-31`});
   const content = sectionContent[section];
   const load = () => fetch(`/api/inventory?company=${company}`, { cache: "no-store" })
     .then(r => r.json()).then(b => { setData(b); setMessage(b.error || ""); });
@@ -140,6 +141,11 @@ export default function InventoryModule({ company, section }:{ company:string; s
       </form>
     </div>}
 
+    {section === "cashflow" && <div className="revenue-workspace cashflow-workspace">
+      <div className="report-filters revenue-filters"><label>Data inicial<input type="date" value={cashFilters.from} onChange={e=>setCashFilters({...cashFilters,from:e.target.value})}/></label><label>Data final<input type="date" value={cashFilters.to} onChange={e=>setCashFilters({...cashFilters,to:e.target.value})}/></label></div>
+      <div className="inventory-list"><CashFlowTable rows={(data.movements||[]).filter((r:AnyRow)=>(!cashFilters.from||r.movement_date>=cashFilters.from)&&(!cashFilters.to||r.movement_date<=cashFilters.to))}/></div>
+    </div>}
+
     {section === "reports" && <>
       <div className="report-callout"><div><small>RELATÓRIO CONSOLIDADO</small><h3>Posição gerencial da empresa</h3><p>Indicadores de compras, estoque, faturamento e movimentações detalhadas.</p></div><button className="secondary" onClick={() => window.print()}>Imprimir ou salvar em PDF</button></div>
       <div className="report-filters"><label>De<input type="date" value={filters.from} onChange={e=>setFilters({...filters,from:e.target.value})}/></label><label>Até<input type="date" value={filters.to} onChange={e=>setFilters({...filters,to:e.target.value})}/></label><label>Movimento<select value={filters.type} onChange={e=>setFilters({...filters,type:e.target.value})}><option value="">Todos</option>{Object.entries(movementNames).map(([v,n])=><option key={v} value={v}>{n}</option>)}</select></label><label>Produto<select value={filters.product} onChange={e=>setFilters({...filters,product:e.target.value})}><option value="">Todos</option>{(data.products||[]).map((p:AnyRow)=><option key={p.id} value={p.id}>{p.description}</option>)}</select></label></div>
@@ -158,3 +164,4 @@ function PartnerTable({rows,edit,remove}:{rows:AnyRow[];edit:(r:AnyRow)=>void;re
 function CropTable({rows,edit,remove}:{rows:AnyRow[];edit:(r:AnyRow)=>void;remove:(r:AnyRow)=>void}){if(!rows.length)return <Empty text="Nenhuma cultura cadastrada."/>;return <div className="record-grid">{rows.map(r=><article key={r.id}><header><b>{r.name}</b></header><Actions row={r} edit={edit} remove={remove}/></article>)}</div>}
 function MovementTable({rows,remove}:{rows:AnyRow[];remove?:(r:AnyRow)=>void}){if(!rows.length)return <Empty text="Nenhuma movimentação registrada."/>;return <div className="table-scroll"><table className="data-table"><thead><tr><th>Data</th><th>Movimento</th><th>Parceiro</th><th>Produto</th><th>Quantidade</th><th>Preço</th><th>Total</th><th>Cultura / Centro</th>{remove&&<th>Ações</th>}</tr></thead><tbody>{rows.map(r=><tr key={r.id}><td>{String(r.movement_date).split("-").reverse().join("/")}</td><td><span className={`movement-badge ${r.movement_type}`}>{movementNames[r.movement_type]||r.movement_type}</span></td><td>{r.business_partners?.name||"—"}</td><td><b>{r.inventory_products?.description}</b></td><td>{Number(r.quantity).toLocaleString("pt-BR")} {r.inventory_products?.unit}</td><td>{brl(Number(r.unit_value_cents))}</td><td>{brl(Number(r.quantity)*Number(r.unit_value_cents))}</td><td>{[r.crop,r.cost_center].filter(Boolean).join(" · ")||"—"}</td>{remove&&<td><Actions row={r} remove={remove}/></td>}</tr>)}</tbody></table></div>}
 function RevenueTable({rows,edit,remove}:{rows:AnyRow[];edit:(r:AnyRow)=>void;remove:(r:AnyRow)=>void}){const q=rows.reduce((s,r)=>s+Number(r.quantity),0),v=rows.reduce((s,r)=>s+Number(r.quantity)*Number(r.unit_value_cents),0);return <div className="revenue-table"><table className="data-table"><thead><tr><th>Data</th><th>Cliente</th><th>Quantidade</th><th>Preço</th><th>Valor</th><th>Ações</th></tr></thead><tbody>{rows.map(r=><tr key={r.id}><td>{String(r.movement_date).split("-").reverse().join("/")}</td><td>{r.business_partners?.name||"—"}</td><td>{Number(r.quantity).toLocaleString("pt-BR")}</td><td>{brl(Number(r.unit_value_cents))}</td><td>{brl(Number(r.quantity)*Number(r.unit_value_cents))}</td><td><Actions row={r} edit={edit} remove={remove}/></td></tr>)}</tbody><tfoot><tr><th colSpan={2}>Totais</th><th>{q.toLocaleString("pt-BR")}</th><th>—</th><th>{brl(v)}</th><th/></tr></tfoot></table></div>}
+function CashFlowTable({rows}:{rows:AnyRow[]}){let balance=0;const ordered=[...rows].sort((a,b)=>String(a.movement_date).localeCompare(String(b.movement_date))),mapped:AnyRow[]=ordered.map(r=>{const value=Number(r.quantity)*Number(r.unit_value_cents),income=r.movement_type==="sale"?value:0,outcome=r.movement_type==="purchase"?value:0;balance+=income-outcome;return{...r,income,outcome,balance}}),income=mapped.reduce((s,r)=>s+r.income,0),outcome=mapped.reduce((s,r)=>s+r.outcome,0);return <div className="revenue-table"><table className="data-table"><thead><tr><th>Data</th><th>Histórico</th><th>Cliente/Fornecedor</th><th>Entrada</th><th>Saída</th><th>Saldo</th></tr></thead><tbody>{mapped.map(r=><tr key={r.id}><td>{String(r.movement_date).split("-").reverse().join("/")}</td><td>{r.notes==="RECEITA::"?"Receita":movementNames[r.movement_type]||r.movement_type} · {r.inventory_products?.description||"—"}</td><td>{r.business_partners?.name||"—"}</td><td>{r.income?brl(r.income):"—"}</td><td>{r.outcome?brl(r.outcome):"—"}</td><td><b>{brl(r.balance)}</b></td></tr>)}</tbody><tfoot><tr><th colSpan={3}>Totais do período</th><th>{brl(income)}</th><th>{brl(outcome)}</th><th>{brl(income-outcome)}</th></tr></tfoot></table></div>}

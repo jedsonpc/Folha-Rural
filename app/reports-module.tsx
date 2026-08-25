@@ -32,6 +32,7 @@ type Contract = {
   terminationDate?: string | null;
   role?: string | null;
   paymentType?: string | null;
+  baseSalaryCents?: number;
 };
 type Service = {
   id: string;
@@ -39,6 +40,8 @@ type Service = {
   description: string;
   formulaCode?: string | null;
   entryType?: "earning" | "deduction" | "special";
+  inssIncidence?: boolean;
+  fgtsIncidence?: boolean;
 };
 type Entry = {
   id: string;
@@ -166,7 +169,7 @@ export default function ReportsModule({
               (entry: Entry) =>
                 entry.entryDate >= start &&
                 entry.entryDate <= end &&
-                (usesRange || entryMatchesPayrollPeriod(entry, period)),
+                (usesRange || entryMatchesPayrollPeriod(entry, period, b.services || [])),
             ),
           );
         }
@@ -695,12 +698,11 @@ function entryMatchesPeriod(entryDate: string, period: string) {
   const day = Number(entryDate.slice(8, 10));
   return period === "advance" ? day >= 1 && day <= 15 : day >= 16;
 }
-function entryMatchesPayrollPeriod(entry: Entry, period: string) {
+function entryMatchesPayrollPeriod(entry: Entry, period: string, services: Service[]) {
   if (period !== "balance") return entryMatchesPeriod(entry.entryDate, period);
   const day = Number(entry.entryDate.slice(8, 10));
-  // No saldo mensal, os proventos formam o bruto do mês inteiro. Os descontos
-  // anteriores ao dia 16 já compõem o líquido usado como adiantamento.
-  return entry.amountCents > 0 || day >= 16;
+  const description=services.find(service=>service.id===entry.serviceId)?.description||"";
+  return day >= 16 && !/ADIANTAMENTO|VALE\s*SAL[AÁ]RIO/i.test(description);
 }
 function monthsBetween(start: string, end: string) {
   if (!start || !end || start > end) return [];
@@ -810,7 +812,10 @@ function Receipt({
   month: string;
   period: string;
 }) {
-  const t = totals(p, c.id);
+  const t = totals(p, c.id),service=(id:string)=>p.services.find(item=>item.id===id),
+    inssBase=t.es.filter(entry=>service(entry.serviceId)?.inssIncidence).reduce((sum,entry)=>sum+entry.amountCents,0),
+    fgtsBase=t.es.filter(entry=>service(entry.serviceId)?.fgtsIncidence).reduce((sum,entry)=>sum+entry.amountCents,0),
+    fgtsValue=Math.round(fgtsBase*.08);
   return (
     <article className="receipt">
       <Header
@@ -843,6 +848,12 @@ function Receipt({
           <small>Valor líquido</small>
           <b>{money(t.gross - t.discount)}</b>
         </div>
+      </div>
+      <div className="receipt-bases">
+        <div><small>Salário-base</small><b>{money(c.baseSalaryCents||0)}</b></div>
+        <div><small>Base de contribuição INSS</small><b>{money(inssBase)}</b></div>
+        <div><small>Base de cálculo FGTS</small><b>{money(fgtsBase)}</b></div>
+        <div><small>Valor do FGTS (8%)</small><b>{money(fgtsValue)}</b></div>
       </div>
       <p className="receipt-text">
         Recebi da empresa acima identificada o valor líquido discriminado neste
@@ -1071,11 +1082,8 @@ function FinancialReport({
                 Number(b.code || Number.MAX_SAFE_INTEGER) ||
               a.description.localeCompare(b.description, "pt-BR"),
           );
-        const columnTotals = monthKeys.map((_, monthIndex) =>
-          serviceRows.reduce(
-            (sum, service) => sum + service.monthly[monthIndex],
-            0,
-          ),
+        const columnTotals = monthKeys.map((monthKey) =>
+          entries.filter(entry=>entry.entryDate.slice(0,7)===monthKey).reduce((sum,entry)=>sum+entry.amountCents,0),
         );
         const grandTotal = columnTotals.reduce((sum, value) => sum + value, 0);
         return (

@@ -311,6 +311,9 @@
   margin-top: 12px;
   border: 1px solid #bbb;
 }
+.receipt-bases{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;margin-top:8px;border:1px solid #bbb;background:#bbb}
+.receipt-bases>div{display:grid;gap:3px;min-width:0;padding:8px 10px;background:#fff}
+.receipt-bases small{font-size:8px;color:#555}.receipt-bases b{font-size:11px;white-space:nowrap}
 .select-all-print {
   display: flex;
   align-items: center;
