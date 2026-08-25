@@ -40,6 +40,7 @@ type Entry = {
   notes: string | null;
 };
 type Holiday = { id: number; holidayDate: string; name: string };
+type GridRow = { id?: number | string; serviceId: string; quantity: string; unitPrice: string };
 type Data = {
   contracts: Contract[];
   services: Service[];
@@ -59,7 +60,17 @@ const iso = () => new Date().toISOString().slice(0, 10),
       day = (d.getDay() + 6) % 7;
     d.setDate(d.getDate() - day);
     return d.toISOString().slice(0, 10);
-  };
+  },
+  rowKey = (contractId: number, slot = 0) => `${contractId}:${slot}`,
+  formulaFactor = (formula: string | null) => {
+    if (!formula) return 1;
+    const normalized = formula.replace(/\s/g, "").replace(",", ".");
+    const match = normalized.match(/-?\d+(?:\.\d+)?/);
+    if (!match) return 1;
+    const value = Math.abs(Number(match[0]));
+    return normalized.includes("%") || value > 1 ? value / 100 : value;
+  },
+  isDailyAdditional = (service?: Service) => Boolean(service && /INSALUBR|PERICULOS|GRATIFICA/i.test(service.description));
 export default function LaunchesModule({ company }: { company: string }) {
   const [date, setDate] = useState(iso()),
     [consultDate, setConsultDate] = useState<string | null>(null),
@@ -71,9 +82,7 @@ export default function LaunchesModule({ company }: { company: string }) {
   const [entryMode, setEntryMode] = useState<"production" | "monthly">(
       "production",
     ),
-    [gridRows, setGridRows] = useState<
-      Record<number, { id?:number|string; serviceId: string; quantity: string; unitPrice: string }>
-    >({}),[dsrServiceId,setDsrServiceId]=useState(""),[dsrValues,setDsrValues]=useState<Record<number,string>>({}),[holidayServiceId,setHolidayServiceId]=useState(""),[holidayServiceSearch,setHolidayServiceSearch]=useState(""),[holidayValues,setHolidayValues]=useState<Record<number,string>>({});
+    [gridRows, setGridRows] = useState<Record<string, GridRow>>({}),[dsrServiceId,setDsrServiceId]=useState(""),[dsrValues,setDsrValues]=useState<Record<number,string>>({}),[holidayServiceId,setHolidayServiceId]=useState(""),[holidayServiceSearch,setHolidayServiceSearch]=useState(""),[holidayValues,setHolidayValues]=useState<Record<number,string>>({});
   const [form, setForm] = useState({
       contractId: "",
       serviceId: "",
@@ -138,8 +147,9 @@ export default function LaunchesModule({ company }: { company: string }) {
   useEffect(()=>{
     if(!data)return;
     const modeEntries=data.entries.filter(entry=>entry.entryDate===date&&data.contracts.find(item=>item.id===entry.contractId)?.paymentType===entryMode);
-    const rows:Record<number,{id?:number|string;serviceId:string;quantity:string;unitPrice:string}>={};
-    for(const entry of modeEntries)if(!rows[entry.contractId])rows[entry.contractId]={id:entry.id,serviceId:String(entry.serviceId),quantity:String(entry.quantity),unitPrice:(entry.unitPriceCents/100).toFixed(2)};
+    const rows:Record<string,GridRow>={};
+    const slots=new Map<number,number>();
+    for(const entry of modeEntries){const slot=slots.get(entry.contractId)||0;if(entryMode==="production"&&slot>0)continue;if(entryMode==="monthly"&&slot>2)continue;rows[rowKey(entry.contractId,slot)]={id:entry.id,serviceId:String(entry.serviceId),quantity:String(entry.quantity),unitPrice:(entry.unitPriceCents/100).toFixed(2)};slots.set(entry.contractId,slot+1)}
     setGridRows(rows);
   },[data,date,entryMode]);
   const days = useMemo(() => {
@@ -286,7 +296,7 @@ export default function LaunchesModule({ company }: { company: string }) {
   const cloneEntry=async(entry:Entry)=>{const target=window.prompt("Data para clonar este apontamento (AAAA-MM-DD):",date);if(!target||target===date)return;if(!/^20\d{2}-\d{2}-\d{2}$/.test(target)||Number(target.slice(0,4))>2100){setNotice("Informe uma data válida entre 2000 e 2100.");return}if(await post({action:"save",entryDate:target,contractId:entry.contractId,serviceId:entry.serviceId,quantity:entry.quantity,unitPrice:(entry.unitPriceCents/100).toFixed(2),notes:entry.notes||""}))setNotice(`Apontamento clonado para ${dateBR(target)}.`)};
   const saveGrid = async () => {
     const rows = activeGrid
-      .map((c) => ({ contractId: c.id, ...gridRows[c.id] }))
+      .flatMap((c) => Array.from({length:entryMode==="monthly"?3:1},(_,slot)=>{const row=gridRows[rowKey(c.id,slot)],selected=data.services.find(service=>String(service.id)===row?.serviceId),daily=c.dailyRateCents||Math.round(c.baseSalaryCents/30),unitPrice=entryMode==="monthly"?((daily*(isDailyAdditional(selected)?formulaFactor(selected?.formulaCode||null):1))/100).toFixed(2):row?.unitPrice;return { contractId:c.id,...row,unitPrice }}))
       .filter((r) => r.serviceId && Number(r.quantity) > 0);
     const existing=rows.filter(row=>row.id),fresh=rows.filter(row=>!row.id);
     for(const row of existing)if(!await post({action:"updateEntry",id:row.id,entryDate:date,...row}))return;
@@ -390,35 +400,22 @@ export default function LaunchesModule({ company }: { company: string }) {
               </tr>
             </thead>
             <tbody>
-              {activeGrid.map((c) => {
-                const row = gridRows[c.id] || {
-                    serviceId: "",
-                    quantity: "",
-                    unitPrice: "",
-                  },
-                  total = Math.round(
-                    Number(row.quantity || 0) *
-                      Number(row.unitPrice || 0) *
-                      100,
-                  );
+              {activeGrid.flatMap((c) => Array.from({length:entryMode==="monthly"?3:1},(_,slot) => {
+                const key=rowKey(c.id,slot),row = gridRows[key] || {serviceId:"",quantity:"",unitPrice:""},
+                  selectedService=data.services.find((s)=>String(s.id)===row.serviceId),
+                  dailyCents=c.dailyRateCents||Math.round(c.baseSalaryCents/30),
+                  automaticUnitCents=entryMode==="monthly"?Math.round(dailyCents*(isDailyAdditional(selectedService)?formulaFactor(selectedService?.formulaCode||null):1)):Math.round(Number(row.unitPrice||0)*100),
+                  displayedUnit=entryMode==="monthly"?(automaticUnitCents/100).toFixed(2):row.unitPrice,
+                  total = Math.round(Number(row.quantity || 0)*automaticUnitCents);
                 return (
-                  <tr key={c.id}>
-                    <td>
-                      <b>{c.registrationNumber || c.legacyCode}</b>
-                    </td>
-                    <td>
-                      <b>{c.name}</b>
-                    </td>
-                    <td>{c.role || "—"}</td>
+                  <tr key={key} className={entryMode==="monthly"?"monthly-entry-row":""}>
+                    <td>{slot===0&&<b>{c.registrationNumber || c.legacyCode}</b>}</td>
+                    <td>{slot===0&&<div className="worker-cell"><b>{c.name}</b><small>{c.role || "Função não informada"}</small></div>}</td>
+                    <td>{slot===0&&(c.role || "—")}</td>
                     <td>
                       <select
                         value={row.serviceId}
-                        onChange={(e) =>
-                          setGridRows({
-                            ...gridRows,
-                            [c.id]: { ...row, serviceId: e.target.value },
-                          })
-                        }
+                        onChange={(e) => {const service=data.services.find(item=>String(item.id)===e.target.value),unit=entryMode==="monthly"?((dailyCents*(isDailyAdditional(service)?formulaFactor(service?.formulaCode||null):1))/100).toFixed(2):row.unitPrice;setGridRows({...gridRows,[key]:{...row,serviceId:e.target.value,unitPrice:unit}})}}
                       >
                         <option value="">Selecione…</option>
                         {data.services.map((s) => (
@@ -437,33 +434,25 @@ export default function LaunchesModule({ company }: { company: string }) {
                         min="0"
                         step="0.001"
                         value={row.quantity}
-                        onChange={(e) =>
-                          setGridRows({
-                            ...gridRows,
-                            [c.id]: { ...row, quantity: e.target.value },
-                          })
-                        }
+                        onChange={(e) => setGridRows({...gridRows,[key]:{...row,quantity:e.target.value,unitPrice:displayedUnit}})}
                       />
                     </td>
                     <td>
                       <CurrencyInput
                         min="0"
-                        value={row.unitPrice}
-                        onValueChange={(value) =>
-                          setGridRows({
-                            ...gridRows,
-                            [c.id]: { ...row, unitPrice: value },
-                          })
-                        }
+                        disabled={entryMode==="monthly"}
+                        value={displayedUnit}
+                        onValueChange={(value) => setGridRows({...gridRows,[key]:{...row,unitPrice:value}})}
                       />
+                      {entryMode==="monthly"&&<small>{isDailyAdditional(selectedService)?"Diária × fórmula":"Salário-base ÷ 30"}</small>}
                     </td>
                     <td>
                       <b>{money(total)}</b>
                     </td>
-                    <td><div className="entry-row-actions">{row.id&&<><button type="button" className="secondary" onClick={()=>setGridRows({...gridRows,[c.id]:row})}>Editar</button><button type="button" className="secondary" onClick={async()=>{const target=window.prompt("Data para clonar este apontamento (AAAA-MM-DD):",date);if(!target||target===date)return;if(!/^20\d{2}-\d{2}-\d{2}$/.test(target)||Number(target.slice(0,4))>2100){setNotice("Informe uma data válida entre 2000 e 2100.");return}if(await post({action:"save",entryDate:target,contractId:c.id,serviceId:row.serviceId,quantity:row.quantity,unitPrice:row.unitPrice}))setNotice(`Apontamento clonado para ${dateBR(target)}.`)}}>Clonar</button><button type="button" className="danger" onClick={async()=>{if(window.confirm(`Excluir o apontamento de ${c.name}?`))await post({action:"delete",id:row.id})}}>Excluir</button></>}</div></td>
+                    <td><div className="entry-row-actions">{row.id&&<><button type="button" className="secondary">Editar</button><button type="button" className="secondary" onClick={async()=>{const target=window.prompt("Data para clonar este apontamento (AAAA-MM-DD):",date);if(!target||target===date)return;if(!/^20\d{2}-\d{2}-\d{2}$/.test(target)||Number(target.slice(0,4))>2100){setNotice("Informe uma data válida entre 2000 e 2100.");return}if(await post({action:"save",entryDate:target,contractId:c.id,serviceId:row.serviceId,quantity:row.quantity,unitPrice:displayedUnit}))setNotice(`Apontamento clonado para ${dateBR(target)}.`)}}>Clonar</button><button type="button" className="danger" onClick={async()=>{if(window.confirm(`Excluir o apontamento de ${c.name}?`))await post({action:"delete",id:row.id})}}>Excluir</button></>}</div></td>
                   </tr>
                 );
-              })}
+              }))}
             </tbody>
           </table>
         </div>
@@ -491,7 +480,7 @@ export default function LaunchesModule({ company }: { company: string }) {
       </article>
       <article className="panel completed-entries-panel">
         <div className="panel-title"><div><small>APONTAMENTOS REALIZADOS</small><h2>{modeDayEntries.length} registro(s) em {dateBR(date)}</h2></div><b>{entryMode==="monthly"?"Mensalistas":"Apontamento diário"}</b></div>
-        {modeDayEntries.length?<div className="table-scroll"><table className="data-table completed-entries-table"><thead><tr><th>Colaborador</th><th>Serviço</th><th>Quantidade</th><th>Preço</th><th>Total</th><th>Ações</th></tr></thead><tbody>{modeDayEntries.map(entry=><tr key={entry.id}><td><b>{contract(entry.contractId)?.name}</b></td><td>{service(entry.serviceId)?.description}</td><td>{entry.quantity}</td><td>{money(entry.unitPriceCents)}</td><td><b>{money(entry.amountCents)}</b></td><td><div className="entry-row-actions"><button type="button" className="secondary" onClick={()=>setGridRows({...gridRows,[entry.contractId]:{id:entry.id,serviceId:String(entry.serviceId),quantity:String(entry.quantity),unitPrice:(entry.unitPriceCents/100).toFixed(2)}})}>Editar</button><button type="button" className="secondary" onClick={()=>cloneEntry(entry)}>Clonar</button><button type="button" className="danger" onClick={async()=>{if(window.confirm(`Excluir o apontamento de ${contract(entry.contractId)?.name}?`))await post({action:"delete",id:entry.id})}}>Excluir</button></div></td></tr>)}</tbody></table></div>:<p className="sheet-empty">Nenhum apontamento realizado para este grupo nesta data.</p>}
+        {modeDayEntries.length?<div className="table-scroll"><table className="data-table completed-entries-table"><thead><tr><th>Colaborador</th><th>Serviço</th><th>Quantidade</th><th>Preço</th><th>Total</th><th>Ações</th></tr></thead><tbody>{modeDayEntries.map(entry=><tr key={entry.id}><td><b>{contract(entry.contractId)?.name}</b></td><td>{service(entry.serviceId)?.description}</td><td>{entry.quantity}</td><td>{money(entry.unitPriceCents)}</td><td><b>{money(entry.amountCents)}</b></td><td><div className="entry-row-actions"><button type="button" className="secondary" onClick={()=>{const entries=modeDayEntries.filter(item=>item.contractId===entry.contractId),slot=Math.max(0,entries.findIndex(item=>item.id===entry.id));setGridRows({...gridRows,[rowKey(entry.contractId,slot)]:{id:entry.id,serviceId:String(entry.serviceId),quantity:String(entry.quantity),unitPrice:(entry.unitPriceCents/100).toFixed(2)}})}}>Editar</button><button type="button" className="secondary" onClick={()=>cloneEntry(entry)}>Clonar</button><button type="button" className="danger" onClick={async()=>{if(window.confirm(`Excluir o apontamento de ${contract(entry.contractId)?.name}?`))await post({action:"delete",id:entry.id})}}>Excluir</button></div></td></tr>)}</tbody></table></div>:<p className="sheet-empty">Nenhum apontamento realizado para este grupo nesta data.</p>}
       </article>
       <div className="launch-grid legacy-entry-form">
         <article className="panel entry-panel">

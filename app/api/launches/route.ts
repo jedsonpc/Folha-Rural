@@ -1,5 +1,5 @@
 import { and, asc, eq, gte, lt } from "drizzle-orm";
-import { ensureDatabase, getDb } from "../../../db";
+import { ensureDatabase, getDb, getRuntimeDatabase } from "../../../db";
 import { authorizeCloud } from "../../auth-cloud";
 import { getSupabaseConfig } from "../../../db/supabase";
 import {
@@ -110,9 +110,22 @@ export async function GET(request: Request) {
         ),
       )
       .orderBy(asc(holidays.holidayDate));
+    const profiles = await getRuntimeDatabase()
+      .prepare("SELECT contract_id, salary_type, base_salary_cents, daily_rate_cents FROM worker_payroll_profiles WHERE tenant_id=?")
+      .bind(tenantId)
+      .all<{ contract_id: number; salary_type: string; base_salary_cents: number; daily_rate_cents: number | null }>();
+    const profileByContract = new Map(profiles.results.map((profile) => [profile.contract_id, profile]));
     return Response.json({
       month,
-      contracts,
+      contracts: contracts.map((contract) => {
+        const profile = profileByContract.get(contract.id);
+        return {
+          ...contract,
+          paymentType: profile?.salary_type === "monthly" ? "monthly" : "production",
+          baseSalaryCents: Number(profile?.base_salary_cents || 0),
+          dailyRateCents: Number(profile?.daily_rate_cents || 0),
+        };
+      }),
       services: serviceRows,
       entries,
       holidays: holidayRows,
