@@ -336,6 +336,7 @@ export default function Home() {
             <b>Rural</b>
             <small>GESTÃO DO CAMPO</small>
           </span>
+          <em className="terra-version-badge">v{SYSTEM_VERSION}</em>
         </div>
         <nav className="menu-groups" aria-label="Menu principal">
           {navGroups.map((group) => {

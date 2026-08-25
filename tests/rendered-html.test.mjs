@@ -18,7 +18,7 @@ test("keeps the installable app metadata and update worker", async () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
   assert.match(serviceWorker, /SKIP_WAITING/);
-  assert.match(serviceWorker, /folha-rural-shell-v36-folha-rural-1\.4\.28/);
+  assert.match(serviceWorker, /folha-rural-shell-v37-folha-rural-1\.4\.29/);
   assert.match(serviceWorker, /skipWaiting/);
 });
 
@@ -125,7 +125,10 @@ test("uses a registered mother dependent to clear the worker mother-name issue",
     assert.match(source, /motherName: contract\.motherName \|\| motherByPerson\.get/);
   }
   const badge = await readFile(new URL("../app/version-badge.css", import.meta.url), "utf8");
-  assert.match(badge, /v1\.4\.27/);
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  assert.match(badge, /terra-version-badge/);
+  assert.doesNotMatch(badge, /content:\s*"v\d/);
+  assert.match(page, /terra-version-badge">v\{SYSTEM_VERSION\}/);
 });
 
 test("keeps worker saves, termination dates and review alerts synchronized", async () => {
@@ -201,7 +204,9 @@ test("calculates editable DSR entries on Sundays and holidays", async () => {
   const module = await readFile(new URL("../app/launches-module.tsx", import.meta.url), "utf8");
   const styles = await readFile(new URL("../app/launches.css", import.meta.url), "utf8");
   assert.match(module, /Calcular e lançar DSR no dia selecionado/);
-  assert.match(module, /Salvar\/atualizar DSR deste dia/);
+  assert.match(module, /Gerar feriado e depois DSR/);
+  assert.match(module, /holidayServiceId/);
+  assert.match(module, /setHoliday\(\{date,name:holiday\.name\}\)/);
   assert.match(module, /item\?\.affectsDsr/);
   assert.match(module, /<CurrencyInput/);
   assert.match(styles, /\.batch-table\{width:100%;min-width:0;table-layout:fixed\}/);

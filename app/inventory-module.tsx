@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import "./inventory.css";
 import "./inventory-enhancements.css";
+import "./inventory-movements.css";
 import CurrencyInput from "./currency-input";
 
 type AnyRow = Record<string, any>;
@@ -108,7 +109,8 @@ export default function InventoryModule({ company, section }:{ company:string; s
       <div className="inventory-list"><SectionTitle title="Culturas cadastradas" description={`${(data.crops || []).length} cultura(s) nesta empresa.`} /><CropTable rows={data.crops || []} edit={r=>act("saveCrop",r)} remove={r=>act("deleteCrop",r)} /></div>
     </div>}
 
-    {section === "movements" && <div className="inventory-workspace">
+    {section === "movements" && <div className="inventory-workspace movements-workspace">
+      <div className="inventory-list"><SectionTitle title="Movimentações recentes" description="Histórico de entradas, saídas, vendas e ajustes." /><MovementTable rows={data.movements || []} remove={r=>act("deleteMovement",r)} /></div>
       <form onSubmit={e => submit(e, "saveMovement")} className="inventory-form">
         <div className="form-heading"><small>NOVO LANÇAMENTO</small><h3>Movimentação de estoque</h3><p>Informe a origem ou o destino para compor corretamente custos e receitas.</p></div>
         <label>Tipo de movimentação<select name="movementType"><option value="purchase">Compra / entrada</option><option value="consumption">Consumo na lavoura</option><option value="sale">Venda / receita</option><option value="positive_adjustment">Ajuste positivo</option><option value="negative_adjustment">Ajuste negativo</option></select></label>
@@ -119,7 +121,6 @@ export default function InventoryModule({ company, section }:{ company:string; s
         <div className="inventory-form-row"><label>Cultura<select name="crop"><option value="">Sem cultura vinculada</option>{(data.crops || []).map((crop: AnyRow) => <option value={crop.name} key={crop.id}>{crop.name}</option>)}</select></label><label>Talhão / centro de custo<input name="costCenter" placeholder="Local da aplicação" /></label></div>
         <button className="primary">Registrar movimentação</button>
       </form>
-      <div className="inventory-list"><SectionTitle title="Movimentações recentes" description="Histórico de entradas, saídas, vendas e ajustes." /><MovementTable rows={data.movements || []} remove={r=>act("deleteMovement",r)} /></div>
     </div>}
 
     {section === "reports" && <>

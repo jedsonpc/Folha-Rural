@@ -1,8 +1,7 @@
 .terra-brand {
   position: relative;
 }
-.terra-brand:after {
-  content: "v1.4.27";
+.terra-version-badge {
   position: absolute;
   right: 10px;
   bottom: -5px;

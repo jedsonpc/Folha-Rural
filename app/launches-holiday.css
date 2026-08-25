@@ -1,0 +1,1 @@
+.dsr-entry-list>div:has(label+label){grid-template-columns:minmax(260px,1fr) minmax(150px,210px) minmax(150px,210px)}.month-days button.rest em{font-weight:800;color:#9a4e20}@media(max-width:850px){.dsr-entry-list>div:has(label+label){grid-template-columns:1fr}}
