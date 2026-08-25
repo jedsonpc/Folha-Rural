@@ -183,6 +183,7 @@ test("edits clones and deletes existing daily and monthly entries", async () => 
 test("uses three automatic daily-rate rows for monthly workers", async () => {
   const module = await readFile(new URL("../app/launches-module.tsx", import.meta.url), "utf8");
   const localApi = await readFile(new URL("../app/api/launches/route.ts", import.meta.url), "utf8");
+  const cloudApi = await readFile(new URL("../app/api/launches/cloud.ts", import.meta.url), "utf8");
   assert.match(module, /entryMode==="monthly"\?3:1/);
   assert.match(module, /dailyRateCents\|\|Math\.round\(c\.baseSalaryCents\/30\)/);
   assert.match(module, /INSALUBR\|PERICULOS\|GRATIFICA/);
@@ -190,6 +191,9 @@ test("uses three automatic daily-rate rows for monthly workers", async () => {
   assert.match(module, /disabled=\{entryMode==="monthly"\}/);
   assert.match(localApi, /baseSalaryCents/);
   assert.match(localApi, /dailyRateCents/);
+  assert.match(localApi, /salary_history/);
+  assert.match(cloudApi, /salary_history/);
+  assert.match(cloudApi, /latestSalary/);
 });
 
 test("uses package version in the system version card", async () => {

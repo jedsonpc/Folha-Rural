@@ -115,15 +115,22 @@ export async function GET(request: Request) {
       .bind(tenantId)
       .all<{ contract_id: number; salary_type: string; base_salary_cents: number; daily_rate_cents: number | null }>();
     const profileByContract = new Map(profiles.results.map((profile) => [profile.contract_id, profile]));
+    const salaries = await getRuntimeDatabase()
+      .prepare("SELECT contract_id, salary_cents FROM salary_history WHERE tenant_id=? AND effective_date<? ORDER BY effective_date, id")
+      .bind(tenantId, end)
+      .all<{ contract_id: number; salary_cents: number }>();
+    const salaryByContract = new Map(salaries.results.map((salary) => [salary.contract_id, Number(salary.salary_cents)]));
     return Response.json({
       month,
       contracts: contracts.map((contract) => {
         const profile = profileByContract.get(contract.id);
+        const baseSalaryCents = salaryByContract.get(contract.id) || Number(profile?.base_salary_cents || 0);
+        const monthly = profile?.salary_type === "monthly";
         return {
           ...contract,
-          paymentType: profile?.salary_type === "monthly" ? "monthly" : "production",
-          baseSalaryCents: Number(profile?.base_salary_cents || 0),
-          dailyRateCents: Number(profile?.daily_rate_cents || 0),
+          paymentType: monthly ? "monthly" : "production",
+          baseSalaryCents,
+          dailyRateCents: monthly ? Math.round(baseSalaryCents / 30) : Number(profile?.daily_rate_cents || 0),
         };
       }),
       services: serviceRows,

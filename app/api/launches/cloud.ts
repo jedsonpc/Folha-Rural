@@ -37,12 +37,15 @@ export async function cloudLaunchesGet(request: Request) {
       );
     const start = `${month}-01`;
     const end = nextMonth(month);
-    const [contracts, profiles, services, entries, holidays] = await Promise.all([
+    const [contracts, profiles, salaryHistory, services, entries, holidays] = await Promise.all([
       supabaseAdmin.get<Row[]>(
         `/rest/v1/employment_contracts?select=*,people(full_name,cpf,pis,birth_date,identity_number)&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&order=created_at.asc`,
       ),
       supabaseAdmin.get<Row[]>(
         `/rest/v1/worker_payroll_profiles?select=contract_id,salary_type,base_salary_cents,daily_rate_cents&organization_id=eq.${config.organizationId}`,
+      ),
+      supabaseAdmin.get<Row[]>(
+        `/rest/v1/salary_history?select=contract_id,effective_date,salary_cents&organization_id=eq.${config.organizationId}&effective_date=lt.${end}&order=effective_date.asc,created_at.asc`,
       ),
       supabaseAdmin.get<Row[]>(
         `/rest/v1/services?select=*&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&order=description.asc`,
@@ -56,7 +59,9 @@ export async function cloudLaunchesGet(request: Request) {
     ]);
     return Response.json({
       month,
-      contracts: contracts.map((row) => ({
+      contracts: contracts.map((row) => {
+        const profile=profiles.find(profile=>profile.contract_id===row.id),latestSalary=salaryHistory.filter(item=>item.contract_id===row.id).at(-1),baseSalaryCents=Number(latestSalary?.salary_cents||profile?.base_salary_cents||0),monthly=profile?.salary_type==="monthly";
+        return ({
         id: row.id,
         name: row.people?.full_name,
         cpf: row.people?.cpf,
@@ -69,10 +74,10 @@ export async function cloudLaunchesGet(request: Request) {
         admissionDate: row.admission_date,
         terminationDate: row.termination_date,
         role: row.role_name,
-        paymentType: profiles.find(profile=>profile.contract_id===row.id)?.salary_type==="monthly"?"monthly":"production",
-        baseSalaryCents: Number(profiles.find(profile=>profile.contract_id===row.id)?.base_salary_cents || 0),
-        dailyRateCents: Number(profiles.find(profile=>profile.contract_id===row.id)?.daily_rate_cents || 0),
-      })),
+        paymentType: monthly?"monthly":"production",
+        baseSalaryCents,
+        dailyRateCents: monthly?Math.round(baseSalaryCents/30):Number(profile?.daily_rate_cents||0),
+      })}),
       services: services.map((row) => ({
         id: row.id,
         sourceId: row.legacy_id,
