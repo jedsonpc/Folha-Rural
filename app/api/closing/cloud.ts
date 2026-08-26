@@ -130,11 +130,26 @@ async function calculateCloud(
   const inssRows = valid("INSS");
   const irrfRows = valid("IRRF");
   const family = valid("SALARY_FAMILY")[0];
+  const groupBy = <T extends Row>(rows: T[], key: (row: T) => string) => {
+    const grouped = new Map<string, T[]>();
+    for (const row of rows) {
+      const value = key(row), list = grouped.get(value);
+      if (list) list.push(row);
+      else grouped.set(value, [row]);
+    }
+    return grouped;
+  };
+  const entriesByContract = groupBy(entries, (row) => String(row.contract_id));
+  const monthlyByContract = groupBy(monthlyEntries, (row) => String(row.contract_id));
+  const dependentsByPerson = groupBy(dependentRows, (row) => String(row.person_id));
+  const ratesByUnion = groupBy(rates, (row) => String(row.union_id));
 
   const resultRows = contracts
     .map((contract) => {
-      const own = entries.filter((entry) => entry.contract_id === contract.id);
-      const familyDependentCount = dependentRows.filter((dependent) => {
+      const own = entriesByContract.get(String(contract.id)) || [];
+      const contractMonthlyEntries = monthlyByContract.get(String(contract.id)) || [];
+      const contractDependents = dependentsByPerson.get(String(contract.person_id)) || [];
+      const familyDependentCount = contractDependents.filter((dependent) => {
         if (
           dependent.person_id !== contract.person_id ||
           !dependent.salary_family_eligible
@@ -153,7 +168,7 @@ async function calculateCloud(
             : 0);
         return age < 14;
       }).length;
-      const irrfDependentCount = dependentRows.filter(
+      const irrfDependentCount = contractDependents.filter(
         (dependent) =>
           dependent.person_id === contract.person_id &&
           dependent.irrf_dependent,
@@ -162,11 +177,11 @@ async function calculateCloud(
         (sum, entry) => sum + Number(entry.amount_cents),
         0,
       );
-      const firstHalfGross = monthlyEntries
-        .filter((entry) => entry.contract_id === contract.id && entry.entry_date < `${month}-16`)
+      const firstHalfGross = contractMonthlyEntries
+        .filter((entry) => entry.entry_date < `${month}-16`)
         .reduce((sum, entry) => sum + Number(entry.amount_cents), 0);
-      const firstHalfDiscounts = monthlyEntries
-        .filter((entry) => entry.contract_id === contract.id && entry.entry_date < `${month}-16`)
+      const firstHalfDiscounts = contractMonthlyEntries
+        .filter((entry) => entry.entry_date < `${month}-16`)
         .reduce((sum, entry) => sum + Number(entry.discount_cents || 0), 0);
       const advanceDiscount = period === "balance" ? Math.max(0, firstHalfGross - firstHalfDiscounts) : 0;
       const existingDiscounts = own.reduce(
@@ -179,9 +194,6 @@ async function calculateCloud(
       const irrfGross = own
         .filter((entry) => serviceById.get(entry.service_id)?.irrf_incidence)
         .reduce((sum, entry) => sum + Number(entry.amount_cents), 0);
-      const contractMonthlyEntries = monthlyEntries.filter(
-        (entry) => entry.contract_id === contract.id,
-      );
       const monthlyRemuneration = contractMonthlyEntries
         .filter((entry) => serviceById.get(entry.service_id)?.inss_incidence)
         .reduce((sum, entry) => sum + Number(entry.amount_cents), 0);
@@ -239,12 +251,8 @@ async function calculateCloud(
                 daysInMonth,
             )
           : 0;
-      const effectiveUnionRate = rates
-        .filter(
-          (rate) =>
-            rate.union_id === contract.union_id &&
-            rate.effective_from <= effective,
-        )
+      const effectiveUnionRate = (ratesByUnion.get(String(contract.union_id)) || [])
+        .filter((rate) => rate.effective_from <= effective)
         .sort((a, b) =>
           String(a.effective_from).localeCompare(String(b.effective_from)),
         )

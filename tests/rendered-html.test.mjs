@@ -238,3 +238,19 @@ test("calculates editable DSR entries on Sundays and holidays", async () => {
   assert.match(module, /DSR recalculado automaticamente/);
   assert.match(module, /automaticDsr:true/);
 });
+
+test("does not leave monthly tax preview frozen", async () => {
+  const module = await readFile(new URL("../app/closing-module.tsx", import.meta.url), "utf8");
+  const supabase = await readFile(new URL("../db/supabase.ts", import.meta.url), "utf8");
+  const cloud = await readFile(new URL("../app/api/closing/cloud.ts", import.meta.url), "utf8");
+  assert.match(module, /controller\.abort\(\), 45000/);
+  assert.match(module, /Calculando prévia…/);
+  assert.match(module, /window\.clearTimeout\(timeout\)/);
+  assert.match(module, /cache: "no-store"/);
+  assert.match(supabase, /AbortSignal\.timeout\(20000\)/);
+  assert.match(supabase, /consulta ao banco demorou além do limite/i);
+  assert.match(cloud, /entriesByContract/);
+  assert.match(cloud, /monthlyByContract/);
+  assert.match(cloud, /dependentsByPerson/);
+  assert.match(cloud, /ratesByUnion/);
+});

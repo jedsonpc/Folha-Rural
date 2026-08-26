@@ -27,16 +27,24 @@ export async function supabaseRequest<T>(
 ): Promise<T> {
   const config = getSupabaseConfig();
   if (!config) throw new Error("Supabase não configurado neste ambiente.");
-  const response = await fetch(`${config.url}${path}`, {
-    ...init,
-    headers: {
-      apikey: config.serviceKey,
-      authorization: `Bearer ${bearer || config.serviceKey}`,
-      "content-type": "application/json",
-      ...init.headers,
-    },
-    cache: "no-store",
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${config.url}${path}`, {
+      ...init,
+      signal: init.signal || AbortSignal.timeout(20000),
+      headers: {
+        apikey: config.serviceKey,
+        authorization: `Bearer ${bearer || config.serviceKey}`,
+        "content-type": "application/json",
+        ...init.headers,
+      },
+      cache: "no-store",
+    });
+  } catch (error) {
+    if (error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError"))
+      throw new Error("A consulta ao banco demorou além do limite. Tente novamente em alguns instantes.");
+    throw error;
+  }
   if (!response.ok) {
     const message = await response.text();
     throw new Error(`Supabase ${response.status}: ${message}`);

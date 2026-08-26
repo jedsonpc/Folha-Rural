@@ -45,6 +45,8 @@ export default function ClosingModule({ company }: { company: string }) {
     const currentRequest = ++requestId.current;
     if (!silent) setBusy(true);
     if (!silent) setMessage("");
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 45000);
     try {
       const url = `/api/closing?company=${company}&month=${month}&period=${period}`,
         r = await fetch(
@@ -58,18 +60,25 @@ export default function ClosingModule({ company }: { company: string }) {
                   month,
                   period,
                 }),
+                signal: controller.signal,
               }
-            : undefined,
+            : { cache: "no-store", signal: controller.signal },
         ),
-        b = await r.json();
+        responseText = await r.text(),
+        b = responseText ? JSON.parse(responseText) : {};
       if (!r.ok) throw new Error(b.error);
       if (currentRequest !== requestId.current) return;
       setResult(b.result || b);
       if (!silent) setMessage(b.message || "Prévia calculada.");
     } catch (e) {
       if (currentRequest === requestId.current && !silent)
-        setMessage(e instanceof Error ? e.message : "Falha no fechamento.");
+        setMessage(e instanceof DOMException && e.name === "AbortError"
+          ? "O cálculo demorou mais de 45 segundos e foi interrompido. Tente novamente; se persistir, revise a conexão e os lançamentos da competência."
+          : e instanceof SyntaxError
+            ? "O servidor devolveu uma resposta inválida. Atualize a página e tente novamente."
+            : e instanceof Error ? e.message : "Falha no fechamento.");
     } finally {
+      window.clearTimeout(timeout);
       if (currentRequest === requestId.current && !silent) setBusy(false);
     }
   }, [company, month, period]);
@@ -132,7 +141,7 @@ export default function ClosingModule({ company }: { company: string }) {
             disabled={busy}
             onClick={() => run(false)}
           >
-            Calcular prévia
+            {busy ? "Calculando prévia…" : "Calcular prévia"}
           </button>
           <button
             className="primary"
