@@ -584,7 +584,7 @@
   margin: 0;
   border-radius: 10px;
   padding: 0 11px;
-  color: var(--graphite);
+  color: #fff;
 }
 .terra-sidebar nav .menu-trigger:hover {
   background: #f5ecdf;
