@@ -16,6 +16,10 @@ const money = (c: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
     c / 100,
   );
+const taxLabel = (taxType: string) =>
+  taxType === "SALARY_FAMILY" ? "SAL. FAMÍLIA" : taxType;
+const taxTitle = (taxType: string) =>
+  taxType === "SALARY_FAMILY" ? "SALÁRIO-FAMÍLIA" : taxType;
 export default function TaxTablesModule() {
   const [rows, setRows] = useState<Row[]>([]),
     [parameters, setParameters] = useState<any>(null),
@@ -92,7 +96,7 @@ export default function TaxTablesModule() {
             {rows.map((r) => (
               <tr key={r.id}>
                 <td>
-                  <b>{r.taxType}</b>
+                  <b title={taxTitle(r.taxType)}>{taxLabel(r.taxType)}</b>
                 </td>
                 <td>{r.effectiveFrom.split("-").reverse().join("/")}</td>
                 <td>{money(r.lowerCents)}</td>
