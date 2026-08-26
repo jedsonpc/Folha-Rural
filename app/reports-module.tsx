@@ -65,6 +65,12 @@ const money = (c: number) =>
       style: "currency",
       currency: "BRL",
     }).format(c / 100),
+  visibleReportEntries = (entries: Entry[], services: Service[]) =>
+    entries.filter((entry) => {
+      if (entry.amountCents !== 0 || (entry.discountCents || 0) !== 0) return true;
+      const description = services.find((service) => service.id === entry.serviceId)?.description || "";
+      return !/CONTRIBUI.*SINDICAL|SINDICATO/i.test(description);
+    }),
   financialMoney = (c: number) =>
     new Intl.NumberFormat("pt-BR", {
       minimumFractionDigits: 2,
@@ -166,9 +172,10 @@ export default function ReportsModule({
         for (const b of monthResults) {
           contracts = b.contracts || contracts;
           services = b.services || services;
-          competenceEntries.push(...(b.entries || []));
+          const reportEntries = visibleReportEntries(b.entries || [], b.services || services);
+          competenceEntries.push(...reportEntries);
           entries.push(
-            ...(b.entries || []).filter(
+            ...reportEntries.filter(
               (entry: Entry) =>
                 entry.entryDate >= start &&
                 entry.entryDate <= end &&

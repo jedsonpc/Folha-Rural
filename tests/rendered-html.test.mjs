@@ -254,3 +254,15 @@ test("does not leave monthly tax preview frozen", async () => {
   assert.match(cloud, /dependentsByPerson/);
   assert.match(cloud, /ratesByUnion/);
 });
+
+test("hides zero union contributions from every payroll report", async () => {
+  const reports = await readFile(new URL("../app/reports-module.tsx", import.meta.url), "utf8");
+  const localClosing = await readFile(new URL("../app/api/closing/route.ts", import.meta.url), "utf8");
+  const cloudClosing = await readFile(new URL("../app/api/closing/cloud.ts", import.meta.url), "utf8");
+  assert.match(reports, /visibleReportEntries/);
+  assert.match(reports, /CONTRIBUI\.\*SINDICAL\|SINDICATO/);
+  assert.match(reports, /entry\.amountCents !== 0/);
+  assert.match(reports, /const reportEntries = visibleReportEntries/);
+  assert.match(localClosing, /amount<=0/);
+  assert.match(cloudClosing, /amount>0/);
+});
