@@ -1288,6 +1288,15 @@ function Summary({
     deductions = sorted.filter(([, r]) => r.discount > 0),
     gross = sorted.reduce((a, [, r]) => a + r.gross, 0),
     discount = sorted.reduce((a, [, r]) => a + r.discount, 0),
+    fgtsBase = chosen.reduce((sum, { p, c }) => {
+      const competenceEntries = (p.competenceEntries || totals(p, c.id).es).filter(
+        (entry) => entry.contractId === c.id && entry.entryDate.slice(0, 7) === month,
+      );
+      return sum + competenceEntries
+        .filter((entry) => p.services.find((service) => service.id === entry.serviceId)?.fgtsIncidence)
+        .reduce((subtotal, entry) => subtotal + entry.amountCents, 0);
+    }, 0),
+    projectedFgts = Math.round(fgtsBase * 0.08),
     qty = (n: number) =>
       new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 3 }).format(n);
   return (
@@ -1345,6 +1354,14 @@ function Summary({
           <tr>
             <th colSpan={2}>TOTAL LÍQUIDO</th>
             <th>{money(gross - discount)}</th>
+          </tr>
+          <tr className="summary-fgts-base">
+            <th colSpan={2}>BASE DO FGTS DA COMPETÊNCIA</th>
+            <th>{money(fgtsBase)}</th>
+          </tr>
+          <tr className="summary-fgts-projection">
+            <th colSpan={2}>PROJEÇÃO DO RECOLHIMENTO DO FGTS (8%)</th>
+            <th>{money(projectedFgts)}</th>
           </tr>
         </tfoot>
       </table>
