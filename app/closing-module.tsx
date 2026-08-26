@@ -134,6 +134,8 @@ export default function ClosingModule({ company }: { company: string }) {
             <select value={period} onChange={(e) => { setPeriod(e.target.value); setResult(null); }}>
               <option value="advance">Quinzenal — lançamentos até o dia 15</option>
               <option value="monthly">Mensal — até o último dia, compensando a quinzena</option>
+              <option value="vacation">Férias — tributos dos lançamentos de férias</option>
+              <option value="thirteenth">13º salário — tributos dos lançamentos de 13º</option>
             </select>
           </label>
           <button
@@ -148,7 +150,7 @@ export default function ClosingModule({ company }: { company: string }) {
             disabled={busy || !result}
             onClick={() => run(true)}
           >
-            Gerar e confirmar descontos
+            {period==="vacation"?"Gerar Tributos Férias":period==="thirteenth"?"Gerar Tributos 13º Salário":"Gerar e confirmar descontos"}
           </button>
         </div>
         {message && <div className="inline-notice">{message}</div>}

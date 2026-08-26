@@ -75,7 +75,7 @@ async function calculateCloud(
   );
   if (!resolvedCompanyId) throw new Error("Empresa não encontrada.");
 
-  const period = requestedPeriod === "advance" ? "advance" : "balance";
+  const period = requestedPeriod === "advance" ? "advance" : requestedPeriod === "vacation" ? "vacation" : requestedPeriod === "thirteenth" ? "thirteenth" : "balance";
   const [start, end] = bounds(month, period);
   const monthStart = `${month}-01`;
   const monthEnd = nextMonth(month);
@@ -83,13 +83,13 @@ async function calculateCloud(
   const [year, monthNumber] = month.split("-").map(Number);
   const daysInMonth = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
 
-  const [contracts, services, monthlyEntries, brackets, dependentRows, rates] =
+  const [contracts, services, monthlyEntries, brackets, dependentRows, rates,profiles] =
     await Promise.all([
       pagedGet(
         `/rest/v1/employment_contracts?select=id,person_id,registration_number,admission_date,termination_date,union_member,union_discount_cents,union_id,union_discount_frequency,family_dependents,irrf_dependents,people(full_name),unions(contribution_cents)&organization_id=eq.${config.organizationId}&company_id=eq.${resolvedCompanyId}&order=registration_number.asc.nullslast`,
       ),
       pagedGet(
-        `/rest/v1/services?select=id,description,inss_incidence,irrf_incidence&organization_id=eq.${config.organizationId}`,
+        `/rest/v1/services?select=id,description,formula_code,inss_incidence,irrf_incidence,inss_13_incidence,fgts_13_incidence,composes_production_average&organization_id=eq.${config.organizationId}`,
       ),
       pagedGet(
         `/rest/v1/daily_entries?select=contract_id,service_id,entry_date,amount_cents,discount_cents,notes&organization_id=eq.${config.organizationId}&company_id=eq.${resolvedCompanyId}&entry_date=gte.${monthStart}&entry_date=lt.${monthEnd}&order=entry_date.asc`,
@@ -103,6 +103,7 @@ async function calculateCloud(
       pagedGet(
         `/rest/v1/union_contribution_rates?select=union_id,effective_from,contribution_cents&organization_id=eq.${config.organizationId}`,
       ),
+      pagedGet(`/rest/v1/worker_payroll_profiles?select=contract_id,daily_rate_cents,base_salary_cents&organization_id=eq.${config.organizationId}`),
     ]);
 
   const serviceById = new Map(services.map((row) => [row.id, row]));
@@ -143,10 +144,12 @@ async function calculateCloud(
   const monthlyByContract = groupBy(monthlyEntries, (row) => String(row.contract_id));
   const dependentsByPerson = groupBy(dependentRows, (row) => String(row.person_id));
   const ratesByUnion = groupBy(rates, (row) => String(row.union_id));
+  const profileByContract=new Map(profiles.map((row)=>[String(row.contract_id),row]));
 
   const resultRows = contracts
     .map((contract) => {
-      const own = entriesByContract.get(String(contract.id)) || [];
+      const ownEntries = entriesByContract.get(String(contract.id)) || [];
+      const own = period==="vacation"?ownEntries.filter((entry)=>{const formula=String(serviceById.get(entry.service_id)?.formula_code||"");return formula.includes("[INSS_FERIAS]")||formula.includes("[IRPF_FERIAS]")}):period==="thirteenth"?ownEntries.filter((entry)=>{const service=serviceById.get(entry.service_id);return service?.inss_13_incidence||service?.fgts_13_incidence}):ownEntries;
       const contractMonthlyEntries = monthlyByContract.get(String(contract.id)) || [];
       const contractDependents = dependentsByPerson.get(String(contract.person_id)) || [];
       const familyDependentCount = contractDependents.filter((dependent) => {
@@ -189,10 +192,10 @@ async function calculateCloud(
         0,
       );
       const inssBase = own
-        .filter((entry) => serviceById.get(entry.service_id)?.inss_incidence)
+        .filter((entry) => {const service=serviceById.get(entry.service_id);return period==="vacation"?String(service?.formula_code||"").includes("[INSS_FERIAS]"):period==="thirteenth"?service?.inss_13_incidence:service?.inss_incidence})
         .reduce((sum, entry) => sum + Number(entry.amount_cents), 0);
       const irrfGross = own
-        .filter((entry) => serviceById.get(entry.service_id)?.irrf_incidence)
+        .filter((entry) => {const service=serviceById.get(entry.service_id);return period==="vacation"?String(service?.formula_code||"").includes("[IRPF_FERIAS]"):period==="thirteenth"?(service?.inss_13_incidence||service?.fgts_13_incidence):service?.irrf_incidence})
         .reduce((sum, entry) => sum + Number(entry.amount_cents), 0);
       const monthlyRemuneration = contractMonthlyEntries
         .filter((entry) => serviceById.get(entry.service_id)?.inss_incidence)
@@ -241,7 +244,7 @@ async function calculateCloud(
         : daysInMonth;
       const eligibleDays = Math.max(0, terminationDay - admissionDay + 1);
       const salaryFamily =
-        period === "balance" &&
+        !["vacation","thirteenth"].includes(period) && period === "balance" &&
         family &&
         importedSalaryFamily === 0 &&
         monthlyRemuneration > 0 &&
@@ -261,7 +264,7 @@ async function calculateCloud(
         Number(
           effectiveUnionRate ?? contract.unions?.contribution_cents ?? 0,
         ) || Number(contract.union_discount_cents || 0);
-      const union = !contract.union_member
+      const union = ["vacation","thirteenth"].includes(period) || !contract.union_member
         ? 0
         : contract.union_discount_frequency === "biweekly"
           ? period === "advance"
@@ -270,6 +273,7 @@ async function calculateCloud(
           : period === "balance"
             ? fullUnionContribution
             : 0;
+      const profile=profileByContract.get(String(contract.id)),dailyRateCents=Number(profile?.daily_rate_cents||Math.round(Number(profile?.base_salary_cents||0)/30)),productionAverageTotal=own.filter((entry)=>serviceById.get(entry.service_id)?.composes_production_average).reduce((sum,entry)=>sum+Number(entry.amount_cents),0),productionAverageDays=period==="balance"&&dailyRateCents>0?Math.max(0,productionAverageTotal/dailyRateCents-30):0;
       const net =
         gross + salaryFamily - existingDiscounts - advanceDiscount - inss - irrf - union;
       return {
@@ -306,6 +310,9 @@ async function calculateCloud(
         union,
         existingDiscounts,
         net,
+        dailyRateCents,
+        productionAverageTotal,
+        productionAverageDays,
       };
     })
     .filter((row) => row.gross || row.salaryFamily || row.union);
@@ -327,14 +334,17 @@ async function calculateCloud(
 }
 async function saveCloudTaxEntries(companyLegacyId:number,month:string,period:string,result:Awaited<ReturnType<typeof calculateCloud>>){
  const config=getSupabaseConfig()!,resolvedCompanyId=await companyId(config.organizationId,companyLegacyId);if(!resolvedCompanyId)throw new Error("Empresa não encontrada.");
- const serviceRows=await pagedGet(`/rest/v1/services?select=id,legacy_id,description,entry_type&organization_id=eq.${config.organizationId}&company_id=eq.${resolvedCompanyId}`),find=(pattern:RegExp)=>serviceRows.find(s=>s.entry_type==="deduction"&&pattern.test(String(s.description)))?.id,ids:Record<"inss"|"irrf"|"union"|"advance",string|undefined>={inss:serviceRows.find(s=>Number(s.legacy_id)===600)?.id||find(/\bINSS\b/i),irrf:find(/IRRF|IMPOSTO.*RENDA/i),union:find(/CONTRIBUI.*SINDICAL|SINDICATO/i),advance:find(/ADIANTAMENTO|VALE\s*SAL[AÁ]RIO/i)};
- const needed=[{kind:"inss" as const,description:"INSS",use:result.rows.some(r=>r.inss>0)},{kind:"irrf" as const,description:"IRRF",use:result.rows.some(r=>r.irrf>0)},{kind:"union" as const,description:"Contribuição sindical",use:result.rows.some(r=>r.union>0)},{kind:"advance" as const,description:"Adiantamento salarial",use:period!=="advance"&&result.rows.some(r=>r.advanceDiscount>0)}];
+ const serviceRows=await pagedGet(`/rest/v1/services?select=id,legacy_id,description,entry_type&organization_id=eq.${config.organizationId}&company_id=eq.${resolvedCompanyId}`),find=(pattern:RegExp)=>serviceRows.find(s=>s.entry_type==="deduction"&&pattern.test(String(s.description)))?.id,special=period==="vacation"?"Férias":period==="thirteenth"?"13º Salário":"",inssDescription=special?`INSS sobre ${special}`:"INSS",irrfDescription=special?`IRPF sobre ${special}`:"IRRF",ids:Record<"inss"|"irrf"|"union"|"advance"|"productionAverage",string|undefined>={inss:special?find(new RegExp(`INSS.*${period==="vacation"?"F[EÉ]RIAS":"13"}`,"i")):serviceRows.find(s=>Number(s.legacy_id)===600)?.id||find(/\bINSS\b/i),irrf:special?find(new RegExp(`IR(R?F|PF).*${period==="vacation"?"F[EÉ]RIAS":"13"}`,"i")):find(/IRRF|IMPOSTO.*RENDA/i),union:find(/CONTRIBUI.*SINDICAL|SINDICATO/i),advance:find(/ADIANTAMENTO|VALE\s*SAL[AÁ]RIO/i),productionAverage:serviceRows.find(s=>Number(s.legacy_id)===120)?.id};
+ const needed=[{kind:"inss" as const,description:inssDescription,use:result.rows.some(r=>r.inss>0)},{kind:"irrf" as const,description:irrfDescription,use:result.rows.some(r=>r.irrf>0)},{kind:"union" as const,description:"Contribuição sindical",use:!special&&result.rows.some(r=>r.union>0)},{kind:"advance" as const,description:"Adiantamento salarial",use:!special&&period!=="advance"&&result.rows.some(r=>r.advanceDiscount>0)}];
  let nextLegacy=Math.max(0,...serviceRows.map(row=>Number(row.legacy_id)||0))+1;
- for(const item of needed)if(item.use&&!ids[item.kind]){const legacyId=item.kind==="inss"?600:nextLegacy++;const created=await supabaseAdmin.post<Row[]>("/rest/v1/services",{organization_id:config.organizationId,company_id:resolvedCompanyId,legacy_id:legacyId,description:item.description,entry_type:"deduction",fgts_incidence:false,inss_incidence:false,irrf_incidence:false,affects_dsr:false,composes_production_average:false,active:true},{prefer:"return=representation"});ids[item.kind]=created[0]?.id;if(!ids[item.kind])throw new Error(`Não foi possível criar automaticamente o evento ${item.description}.`)}
+ if(nextLegacy===120)nextLegacy++;
+ for(const item of needed)if(item.use&&!ids[item.kind]){const legacyId=item.kind==="inss"&&!special?600:nextLegacy++;const created=await supabaseAdmin.post<Row[]>("/rest/v1/services",{organization_id:config.organizationId,company_id:resolvedCompanyId,legacy_id:legacyId,description:item.description,entry_type:"deduction",fgts_incidence:false,inss_incidence:false,irrf_incidence:false,affects_dsr:false,composes_production_average:false,active:true},{prefer:"return=representation"});ids[item.kind]=created[0]?.id;if(!ids[item.kind])throw new Error(`Não foi possível criar automaticamente o evento ${item.description}.`)}
+ if((period==="monthly"||period==="balance")&&!ids.productionAverage){const created=await supabaseAdmin.post<Row[]>("/rest/v1/services",{organization_id:config.organizationId,company_id:resolvedCompanyId,legacy_id:120,description:"Média de produção em diárias",entry_type:"special",fgts_incidence:false,inss_incidence:false,irrf_incidence:false,affects_dsr:false,composes_production_average:false,active:true},{prefer:"return=representation"});ids.productionAverage=created[0]?.id}
+ if((period==="monthly"||period==="balance")&&ids.productionAverage)await supabaseAdmin.patch(`/rest/v1/services?id=eq.${ids.productionAverage}&organization_id=eq.${config.organizationId}&company_id=eq.${resolvedCompanyId}`,{description:"Média de produção em diárias",entry_type:"special",active:true},{prefer:"return=minimal"});
  const [year,value]=month.split("-").map(Number),lastDay=new Date(Date.UTC(year,value,0)).getUTCDate(),entryDate=period==="advance"?`${month}-15`:`${month}-${String(lastDay).padStart(2,"0")}`,rows=[] as Row[];
- const inssNote=`Gerado automaticamente - INSS ${period==="advance"?"quinzenal":"mensal"}`;
- await supabaseAdmin.delete(`/rest/v1/daily_entries?organization_id=eq.${config.organizationId}&company_id=eq.${resolvedCompanyId}&entry_date=eq.${entryDate}&notes=eq.${encodeURIComponent(inssNote)}`);
- for(const row of result.rows)for(const [kind,amount] of [["inss",row.inss],["irrf",row.irrf],["union",row.union],["advance",row.advanceDiscount]] as const){const serviceId=ids[kind];if(serviceId&&amount>0&&!(kind==="advance"&&period==="advance"))rows.push({organization_id:config.organizationId,company_id:resolvedCompanyId,entry_date:entryDate,contract_id:row.id,service_id:serviceId,quantity:1,unit_price_cents:0,amount_cents:0,discount_cents:amount,notes:`Gerado automaticamente - ${kind.toUpperCase()} ${period==="advance"?"quinzenal":"mensal"}`})}
+ const periodLabel=period==="advance"?"quinzenal":period==="vacation"?"férias":period==="thirteenth"?"13º salário":"mensal";
+ for(const tax of ["INSS","IRRF"]){const note=`Gerado automaticamente - ${tax} ${periodLabel}`;await supabaseAdmin.delete(`/rest/v1/daily_entries?organization_id=eq.${config.organizationId}&company_id=eq.${resolvedCompanyId}&entry_date=eq.${entryDate}&notes=eq.${encodeURIComponent(note)}`)}
+ for(const row of result.rows){for(const [kind,amount] of [["inss",row.inss],["irrf",row.irrf],["union",row.union],["advance",row.advanceDiscount]] as const){const serviceId=ids[kind];if(serviceId&&amount>0&&!(kind==="advance"&&period==="advance"))rows.push({organization_id:config.organizationId,company_id:resolvedCompanyId,entry_date:entryDate,contract_id:row.id,service_id:serviceId,quantity:1,unit_price_cents:0,amount_cents:0,discount_cents:amount,notes:`Gerado automaticamente - ${kind.toUpperCase()} ${periodLabel}`})}if(ids.productionAverage&&(period==="monthly"||period==="balance")){const quantity=Math.max(0,Number(row.productionAverageDays||0)),unit=Math.max(0,Number(row.dailyRateCents||0));rows.push({organization_id:config.organizationId,company_id:resolvedCompanyId,entry_date:entryDate,contract_id:row.id,service_id:ids.productionAverage,quantity:quantity.toFixed(4),unit_price_cents:unit,amount_cents:Math.round(quantity*unit),discount_cents:0,notes:"Gerado automaticamente - Média de produção em diárias mensal"})}}
  if(rows.length)await supabaseAdmin.post("/rest/v1/daily_entries?on_conflict=organization_id,company_id,entry_date,contract_id,service_id",rows,{prefer:"resolution=merge-duplicates,return=minimal"});
 }
 
@@ -343,8 +353,7 @@ export async function cloudClosingGet(request: Request) {
   const company = Number(url.searchParams.get("company"));
   const month =
     url.searchParams.get("month") || new Date().toISOString().slice(0, 7);
-  const period =
-    url.searchParams.get("period") === "advance" ? "advance" : "monthly";
+  const requestedPeriod=url.searchParams.get("period"),period=requestedPeriod==="advance"?"advance":requestedPeriod==="vacation"?"vacation":requestedPeriod==="thirteenth"?"thirteenth":"monthly";
   const access = await authorizeCloud(request, "Fechamento", company);
   if (access.response) return access.response;
   if (!company)
@@ -370,7 +379,7 @@ export async function cloudClosingPost(request: Request) {
       period: string;
     };
     const company = Number(body.companySourceId);
-    const period = body.period === "advance" ? "advance" : "monthly";
+    const period = body.period === "advance" ? "advance" : body.period === "vacation" ? "vacation" : body.period === "thirteenth" ? "thirteenth" : "monthly";
     const access = await authorizeCloud(request, "Fechamento", company);
     if (access.response) return access.response;
     if (!company)
@@ -381,7 +390,7 @@ export async function cloudClosingPost(request: Request) {
         { error: "Atualize as tabelas oficiais antes de fechar." },
         { status: 409 },
       );
-    const saved = await supabaseAdmin.post<
+    const saved = ["vacation","thirteenth"].includes(period)?[{ok:true,message:"Tributos especiais calculados."}]:await supabaseAdmin.post<
       Array<{ ok: boolean; message: string }>
     >("/rest/v1/rpc/folha_save_payroll_closing", {
       p_organization_id: config.organizationId,

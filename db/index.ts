@@ -170,6 +170,8 @@ export function ensureDatabase() {
         const serviceAdds: Record<string, string> = {
           fgts_13: "INTEGER NOT NULL DEFAULT 0",
           inss_13: "INTEGER NOT NULL DEFAULT 0",
+          inss_vacation: "INTEGER NOT NULL DEFAULT 0",
+          irrf_vacation: "INTEGER NOT NULL DEFAULT 0",
           irrf: "INTEGER NOT NULL DEFAULT 0",
           rais: "INTEGER NOT NULL DEFAULT 0",
           formula_code: "TEXT",

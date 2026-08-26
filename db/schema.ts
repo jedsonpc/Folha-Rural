@@ -224,6 +224,8 @@ export const services = sqliteTable(
     inss: integer("inss", { mode: "boolean" }).notNull().default(false),
     fgts13: integer("fgts_13", { mode: "boolean" }).notNull().default(false),
     inss13: integer("inss_13", { mode: "boolean" }).notNull().default(false),
+    inssVacation: integer("inss_vacation", { mode: "boolean" }).notNull().default(false),
+    irrfVacation: integer("irrf_vacation", { mode: "boolean" }).notNull().default(false),
     irrf: integer("irrf", { mode: "boolean" }).notNull().default(false),
     rais: integer("rais", { mode: "boolean" }).notNull().default(false),
     formulaCode: text("formula_code"),

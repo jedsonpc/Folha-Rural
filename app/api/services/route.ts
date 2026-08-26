@@ -67,6 +67,9 @@ const normalizeNature = (value: unknown) => {
     ? "deduction"
     : "earning";
 };
+const INSS_VACATION_MARKER="[INSS_FERIAS]",IRRF_VACATION_MARKER="[IRPF_FERIAS]";
+const formulaWithoutVacationMarkers=(value:unknown)=>String(value||"").replaceAll(INSS_VACATION_MARKER,"").replaceAll(IRRF_VACATION_MARKER,"").trim();
+const formulaWithVacationMarkers=(value:unknown,inssVacation:boolean,irrfVacation:boolean)=>[formulaWithoutVacationMarkers(value),inssVacation?INSS_VACATION_MARKER:"",irrfVacation?IRRF_VACATION_MARKER:""].filter(Boolean).join(" ");
 export async function POST(r: Request) {
   const access = await authorizeCloud(r, "Serviços");
   if (access.response) return access.response;
@@ -123,6 +126,8 @@ export async function POST(r: Request) {
       fgts13: !!b.fgts13,
       inss: !!b.inss,
       inss13: !!b.inss13,
+      inssVacation: !!b.inssVacation,
+      irrfVacation: !!b.irrfVacation,
       irrf: !!b.irrf,
       rais: !!b.rais,
       formulaCode: String(b.formulaCode || "").trim() || null,
@@ -166,6 +171,8 @@ type CloudService = {
   fgts_13_incidence: boolean;
   inss_incidence: boolean;
   inss_13_incidence: boolean;
+  inss_vacation_incidence: boolean;
+  irrf_vacation_incidence: boolean;
   irrf_incidence: boolean;
   rais_incidence: boolean;
   formula_code: string | null;
@@ -188,9 +195,11 @@ const serviceResponse = (row: CloudService) => ({
   fgts13: row.fgts_13_incidence,
   inss: row.inss_incidence,
   inss13: row.inss_13_incidence,
+  inssVacation: Boolean(row.inss_vacation_incidence)||String(row.formula_code||"").includes(INSS_VACATION_MARKER),
+  irrfVacation: Boolean(row.irrf_vacation_incidence)||String(row.formula_code||"").includes(IRRF_VACATION_MARKER),
   irrf: row.irrf_incidence,
   rais: row.rais_incidence,
-  formulaCode: row.formula_code,
+  formulaCode: formulaWithoutVacationMarkers(row.formula_code),
   entryType: normalizeNature(row.entry_type),
   nature: normalizeNature(row.entry_type),
   groupName: row.group_name,
@@ -294,7 +303,7 @@ async function cloudServicesPost(request: Request, allowedCompanies?: number[] |
       inss_13_incidence: Boolean(body.inss13),
       irrf_incidence: Boolean(body.irrf),
       rais_incidence: Boolean(body.rais),
-      formula_code: String(body.formulaCode || "").trim() || null,
+      formula_code: formulaWithVacationMarkers(body.formulaCode,Boolean(body.inssVacation),Boolean(body.irrfVacation)) || null,
       entry_type: normalizeNature(body.entryType ?? body.nature),
       group_name: String(body.groupName || "").trim() || null,
       unit_name: String(body.unitName || "").trim() || null,

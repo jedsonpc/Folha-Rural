@@ -271,11 +271,12 @@ test("uses legacy service 600 for payroll INSS", async () => {
   const localClosing = await readFile(new URL("../app/api/closing/route.ts", import.meta.url), "utf8");
   const cloudClosing = await readFile(new URL("../app/api/closing/cloud.ts", import.meta.url), "utf8");
   assert.match(localClosing, /sourceId===600/);
-  assert.match(localClosing, /item\.kind==="inss"\?600/);
+  assert.match(localClosing, /item\.kind==="inss"&&!special\?600/);
   assert.match(cloudClosing, /Number\(s\.legacy_id\)===600/);
-  assert.match(cloudClosing, /item\.kind==="inss"\?600/);
-  assert.match(localClosing, /delete\(dailyEntries\).*inssNote/);
-  assert.match(cloudClosing, /daily_entries\?.*notes=eq\.\$\{encodeURIComponent\(inssNote\)\}/);
+  assert.match(cloudClosing, /item\.kind==="inss"&&!special\?600/);
+  assert.match(localClosing, /const periodLabel=/);
+  assert.match(localClosing, /delete\(dailyEntries\)/);
+  assert.match(cloudClosing, /daily_entries\?.*notes=eq\.\$\{encodeURIComponent\(note\)\}/);
 });
 
 test("allows service codes to be edited and advances vacation periods", async () => {
@@ -288,4 +289,24 @@ test("allows service codes to be edited and advances vacation periods", async ()
   assert.match(servicesRoute, /já está sendo usado por outro serviço/);
   assert.match(workerTabs, /setVac\(emptyVacation\);await load\(\)/);
   assert.match(workerTabs, /latest\?\.accrual_end\?addDays\(latest\.accrual_end,1\)/);
+});
+
+test("generates vacation, thirteenth and production-average events", async () => {
+  const servicesModule = await readFile(new URL("../app/services-module.tsx", import.meta.url), "utf8");
+  const servicesRoute = await readFile(new URL("../app/api/services/route.ts", import.meta.url), "utf8");
+  const closingModule = await readFile(new URL("../app/closing-module.tsx", import.meta.url), "utf8");
+  const localClosing = await readFile(new URL("../app/api/closing/route.ts", import.meta.url), "utf8");
+  const cloudClosing = await readFile(new URL("../app/api/closing/cloud.ts", import.meta.url), "utf8");
+  assert.match(servicesModule, /INSS sobre férias/);
+  assert.match(servicesModule, /IRPF sobre férias/);
+  assert.match(servicesRoute, /\[INSS_FERIAS\]/);
+  assert.match(closingModule, /Gerar Tributos Férias/);
+  assert.match(closingModule, /Gerar Tributos 13º Salário/);
+  for (const source of [localClosing, cloudClosing]) {
+    assert.match(source, /sourceId:120|legacy_id:120/);
+    assert.match(source, /productionAverageTotal/);
+    assert.match(source, /productionAverageDays/);
+    assert.match(source, /Math\.max\(0,productionAverageTotal\/dailyRateCents-30\)/);
+    assert.match(source, /INSS sobre \$\{special\}/);
+  }
 });

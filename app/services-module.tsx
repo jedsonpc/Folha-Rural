@@ -14,6 +14,8 @@ type S = {
   fgts13: boolean;
   inss: boolean;
   inss13: boolean;
+  inssVacation: boolean;
+  irrfVacation: boolean;
   irrf: boolean;
   rais: boolean;
   affectsDsr: boolean;
@@ -44,6 +46,8 @@ const empty = {
   fgts13: false,
   inss: false,
   inss13: false,
+  inssVacation: false,
+  irrfVacation: false,
   irrf: false,
   rais: false,
   affectsDsr: true,
@@ -131,6 +135,8 @@ export default function ServicesModule({ company }: { company: string }) {
   const flags = [
     ["fgts13", "FGTS sobre 13º"],
     ["inss13", "INSS sobre 13º"],
+    ["inssVacation", "INSS sobre férias"],
+    ["irrfVacation", "IRPF sobre férias"],
     ["affectsDsr", "Compõe média do DSR"],
     ["composesProductionAverage", "Compõe média de produção"],
     ["fgts", "FGTS mensal"],
