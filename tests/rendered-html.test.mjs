@@ -274,4 +274,6 @@ test("uses legacy service 600 for payroll INSS", async () => {
   assert.match(localClosing, /item\.kind==="inss"\?600/);
   assert.match(cloudClosing, /Number\(s\.legacy_id\)===600/);
   assert.match(cloudClosing, /item\.kind==="inss"\?600/);
+  assert.match(localClosing, /delete\(dailyEntries\).*inssNote/);
+  assert.match(cloudClosing, /daily_entries\?.*notes=eq\.\$\{encodeURIComponent\(inssNote\)\}/);
 });

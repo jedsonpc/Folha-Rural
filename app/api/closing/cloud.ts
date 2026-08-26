@@ -332,6 +332,8 @@ async function saveCloudTaxEntries(companyLegacyId:number,month:string,period:st
  let nextLegacy=Math.max(0,...serviceRows.map(row=>Number(row.legacy_id)||0))+1;
  for(const item of needed)if(item.use&&!ids[item.kind]){const legacyId=item.kind==="inss"?600:nextLegacy++;const created=await supabaseAdmin.post<Row[]>("/rest/v1/services",{organization_id:config.organizationId,company_id:resolvedCompanyId,legacy_id:legacyId,description:item.description,entry_type:"deduction",fgts_incidence:false,inss_incidence:false,irrf_incidence:false,affects_dsr:false,composes_production_average:false,active:true},{prefer:"return=representation"});ids[item.kind]=created[0]?.id;if(!ids[item.kind])throw new Error(`Não foi possível criar automaticamente o evento ${item.description}.`)}
  const [year,value]=month.split("-").map(Number),lastDay=new Date(Date.UTC(year,value,0)).getUTCDate(),entryDate=period==="advance"?`${month}-15`:`${month}-${String(lastDay).padStart(2,"0")}`,rows=[] as Row[];
+ const inssNote=`Gerado automaticamente - INSS ${period==="advance"?"quinzenal":"mensal"}`;
+ await supabaseAdmin.delete(`/rest/v1/daily_entries?organization_id=eq.${config.organizationId}&company_id=eq.${resolvedCompanyId}&entry_date=eq.${entryDate}&notes=eq.${encodeURIComponent(inssNote)}`);
  for(const row of result.rows)for(const [kind,amount] of [["inss",row.inss],["irrf",row.irrf],["union",row.union],["advance",row.advanceDiscount]] as const){const serviceId=ids[kind];if(serviceId&&amount>0&&!(kind==="advance"&&period==="advance"))rows.push({organization_id:config.organizationId,company_id:resolvedCompanyId,entry_date:entryDate,contract_id:row.id,service_id:serviceId,quantity:1,unit_price_cents:0,amount_cents:0,discount_cents:amount,notes:`Gerado automaticamente - ${kind.toUpperCase()} ${period==="advance"?"quinzenal":"mensal"}`})}
  if(rows.length)await supabaseAdmin.post("/rest/v1/daily_entries?on_conflict=organization_id,company_id,entry_date,contract_id,service_id",rows,{prefer:"resolution=merge-duplicates,return=minimal"});
 }
@@ -390,7 +392,7 @@ export async function cloudClosingPost(request: Request) {
     });
     await saveCloudTaxEntries(company,body.month,period,result);
     return Response.json({
-      ...(saved[0] || { ok: true }),message:"Tributos gerados e lançados automaticamente na folha.",
+      ...(saved[0] || { ok: true }),message:"Tributos gerados e lançados na folha. O INSS automático foi vinculado ao serviço 600; lançamentos automáticos anteriores da competência foram substituídos.",
       result,
     });
   } catch (error) {

@@ -308,6 +308,8 @@ async function saveTaxEntries(request:Request,company:number,month:string,period
   let nextSource=Math.max(0,...serviceRows.map(row=>row.sourceId))+1;
   for(const item of needed)if(item.use&&!ids[item.kind]){const sourceId=item.kind==="inss"?600:nextSource++;const created=await db.insert(services).values({tenantId,sourceId,description:item.description,entryType:"deduction"}).returning({id:services.id});ids[item.kind]=created[0]?.id}
   const [year,value]=month.split("-").map(Number),lastDay=new Date(Date.UTC(year,value,0)).getUTCDate(),entryDate=period==="advance"?`${month}-15`:`${month}-${String(lastDay).padStart(2,"0")}`;
+  const inssNote=`Gerado automaticamente - INSS ${period==="advance"?"quinzenal":"mensal"}`;
+  await db.delete(dailyEntries).where(and(eq(dailyEntries.tenantId,tenantId),eq(dailyEntries.companySourceId,company),eq(dailyEntries.entryDate,entryDate),eq(dailyEntries.notes,inssNote)));
   for(const row of result.rows)for(const [kind,amount] of [["inss",row.inss],["irrf",row.irrf],["union",row.union],["advance",row.advanceDiscount]] as const){const serviceId=ids[kind];if(!serviceId||amount<=0||(kind==="advance"&&period==="advance"))continue;await db.insert(dailyEntries).values({tenantId,companySourceId:company,entryDate,contractId:row.id,serviceId,quantity:"1",unitPriceCents:0,amountCents:0,discountCents:amount,notes:`Gerado automaticamente - ${kind.toUpperCase()} ${period==="advance"?"quinzenal":"mensal"}`}).onConflictDoUpdate({target:[dailyEntries.tenantId,dailyEntries.companySourceId,dailyEntries.entryDate,dailyEntries.contractId,dailyEntries.serviceId],set:{quantity:"1",unitPriceCents:0,amountCents:0,discountCents:amount,notes:`Gerado automaticamente - ${kind.toUpperCase()} ${period==="advance"?"quinzenal":"mensal"}`}})}
 }
 export async function GET(request: Request) {
@@ -390,7 +392,7 @@ export async function POST(request: Request) {
     await saveTaxEntries(request,Number(b.companySourceId),b.month,b.period,result);
     return Response.json({
       ok: true,
-      message: "Tributos gerados, lançados na folha e memória de cálculo registrada.",
+      message: "Tributos gerados e lançados na folha. O INSS automático foi vinculado ao serviço 600; lançamentos automáticos anteriores da competência foram substituídos.",
       result,
     });
   } catch (e) {
