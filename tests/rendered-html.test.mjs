@@ -277,3 +277,15 @@ test("uses legacy service 600 for payroll INSS", async () => {
   assert.match(localClosing, /delete\(dailyEntries\).*inssNote/);
   assert.match(cloudClosing, /daily_entries\?.*notes=eq\.\$\{encodeURIComponent\(inssNote\)\}/);
 });
+
+test("allows service codes to be edited and advances vacation periods", async () => {
+  const servicesModule = await readFile(new URL("../app/services-module.tsx", import.meta.url), "utf8");
+  const servicesRoute = await readFile(new URL("../app/api/services/route.ts", import.meta.url), "utf8");
+  const workerTabs = await readFile(new URL("../app/worker-hr-tabs.tsx", import.meta.url), "utf8");
+  assert.match(servicesModule, /value=\{form\.sourceId/);
+  assert.doesNotMatch(servicesModule, /edit\?\.sourceId \|\| "Automático"\} readOnly/);
+  assert.match(servicesRoute, /legacy_id:105/);
+  assert.match(servicesRoute, /já está sendo usado por outro serviço/);
+  assert.match(workerTabs, /setVac\(emptyVacation\);await load\(\)/);
+  assert.match(workerTabs, /latest\?\.accrual_end\?addDays\(latest\.accrual_end,1\)/);
+});

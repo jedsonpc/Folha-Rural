@@ -19,7 +19,12 @@ export async function GET(r: Request) {
   try {
     await ensureDatabase();
     const db = getDb(),
-      tenantId = tenant(r),
+      tenantId = tenant(r);
+    const legacyVacationThird = await db.select({id:services.id,description:services.description}).from(services).where(and(eq(services.tenantId,tenantId),eq(services.sourceId,103)));
+    const reserved105 = await db.select({id:services.id}).from(services).where(and(eq(services.tenantId,tenantId),eq(services.sourceId,105)));
+    if (!reserved105.length && legacyVacationThird.some((service)=>/1\s*\/\s*3\s+de\s+f[eé]rias/i.test(service.description)))
+      await db.update(services).set({sourceId:105}).where(and(eq(services.tenantId,tenantId),eq(services.id,legacyVacationThird[0].id)));
+    const
       rows = await db
         .select()
         .from(services)
@@ -103,6 +108,13 @@ export async function POST(r: Request) {
         { error: "Informe a descrição do serviço." },
         { status: 400 },
       );
+    const id = Number(b.id),requestedSourceId=Number(b.sourceId||0);
+    if (b.sourceId!==undefined && b.sourceId!=="" && (!Number.isInteger(requestedSourceId)||requestedSourceId<=0))
+      return Response.json({error:"Informe um código de serviço inteiro e maior que zero."},{status:400});
+    if (requestedSourceId) {
+      const duplicate=await db.select({id:services.id}).from(services).where(and(eq(services.tenantId,tenantId),eq(services.sourceId,requestedSourceId)));
+      if (duplicate.some((service)=>service.id!==id)) return Response.json({error:`O código ${requestedSourceId} já está sendo usado por outro serviço.`},{status:409});
+    }
     const values = {
       groupSourceId: Number(b.groupSourceId) || null,
       description,
@@ -121,11 +133,10 @@ export async function POST(r: Request) {
       composesProductionAverage: !!b.composesProductionAverage,
       active: b.active !== false,
     };
-    const id = Number(b.id);
     if (id)
       await db
         .update(services)
-        .set(values)
+        .set({...values,...(requestedSourceId?{sourceId:requestedSourceId}:{})})
         .where(and(eq(services.tenantId, tenantId), eq(services.id, id)));
     else {
       const [last] = await db
@@ -134,7 +145,7 @@ export async function POST(r: Request) {
         .where(eq(services.tenantId, tenantId));
       await db
         .insert(services)
-        .values({ tenantId, sourceId: (last.value || 0) + 1, ...values });
+        .values({ tenantId, sourceId: requestedSourceId || (last.value || 0) + 1, ...values });
     }
     return Response.json({ ok: true });
   } catch (e) {
@@ -200,6 +211,10 @@ async function cloudServicesGet(companySourceId: number) {
   try {
     const companyId = await cloudCompanyId(companySourceId);
     if (!companyId) return Response.json({ error: "Empresa não encontrada." }, { status: 404 });
+    const legacyVacationThird=await supabaseAdmin.get<Array<{id:string;description:string}>>(`/rest/v1/services?select=id,description&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&legacy_id=eq.103`);
+    const reserved105=await supabaseAdmin.get<Array<{id:string}>>(`/rest/v1/services?select=id&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&legacy_id=eq.105&limit=1`);
+    if (!reserved105.length && legacyVacationThird.some((service)=>/1\s*\/\s*3\s+de\s+f[eé]rias/i.test(service.description)))
+      await supabaseAdmin.patch(`/rest/v1/services?id=eq.${legacyVacationThird[0].id}&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}`,{legacy_id:105},{prefer:"return=minimal"});
     const rows = await supabaseAdmin.get<CloudService[]>(
       `/rest/v1/services?select=*,daily_entries(count)&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&order=description.asc`,
     );
@@ -254,11 +269,17 @@ async function cloudServicesPost(request: Request, allowedCompanies?: number[] |
         { status: 400 },
       );
     let legacyId = Number(body.sourceId || 0);
+    if (body.sourceId!==undefined && body.sourceId!=="" && (!Number.isInteger(legacyId)||legacyId<=0))
+      return Response.json({error:"Informe um código de serviço inteiro e maior que zero."},{status:400});
     if (!id && !legacyId) {
       const last = await supabaseAdmin.get<Array<{ legacy_id: number }>>(
         `/rest/v1/services?select=legacy_id&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&order=legacy_id.desc&limit=1`,
       );
       legacyId = Number(last[0]?.legacy_id || 0) + 1;
+    }
+    if (legacyId) {
+      const duplicate=await supabaseAdmin.get<Array<{id:string}>>(`/rest/v1/services?select=id&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&legacy_id=eq.${legacyId}`);
+      if (duplicate.some((service)=>service.id!==id)) return Response.json({error:`O código ${legacyId} já está sendo usado por outro serviço.`},{status:409});
     }
     const values = {
       organization_id: config.organizationId,

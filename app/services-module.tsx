@@ -34,6 +34,7 @@ const natureOf = (service: Partial<S> & Record<string, unknown>) => {
     : "earning";
 };
 const empty = {
+  sourceId: "",
   description: "",
   groupName: "",
   unitName: "",
@@ -274,7 +275,15 @@ export default function ServicesModule({ company }: { company: string }) {
               </label>
               <label>
                 Código do serviço
-                <input value={edit?.sourceId || "Automático"} readOnly />
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={form.sourceId ?? ""}
+                  placeholder="Automático"
+                  onChange={(e) => setForm({ ...form, sourceId: e.target.value })}
+                />
+                <small>Informe um código livre ou deixe vazio para gerar automaticamente.</small>
               </label>
               <label>
                 Centro de custo
