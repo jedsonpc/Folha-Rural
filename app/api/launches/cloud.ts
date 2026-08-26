@@ -157,6 +157,15 @@ export async function cloudLaunchesPost(request: Request) {
       await supabaseAdmin.patch(`/rest/v1/daily_entries?id=eq.${id}&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}`,{entry_date:date,contract_id:contractId,service_id:serviceId,quantity,unit_price_cents:unit,amount_cents:Math.round(quantity*unit)});
       return Response.json({ok:true,message:"Apontamento atualizado."});
     }
+    if(body.action==="delete"){
+      const id=String(body.id||"");
+      if(!id)return Response.json({error:"Lançamento inválido para exclusão."},{status:400});
+      const companies=await supabaseAdmin.get<Array<{id:string}>>(`/rest/v1/companies?select=id&organization_id=eq.${config.organizationId}&legacy_id=eq.${companyLegacyId}&limit=1`),companyId=companies[0]?.id;
+      if(!companyId)return Response.json({error:"Empresa não encontrada."},{status:404});
+      await supabaseAdmin.patch(`/rest/v1/daily_entries?organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&cloned_from_id=eq.${id}`,{cloned_from_id:null});
+      await supabaseAdmin.delete(`/rest/v1/daily_entries?id=eq.${id}&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}`);
+      return Response.json({ok:true,message:"Lançamento excluído. Os apontamentos clonados foram preservados."});
+    }
     const result = await supabaseAdmin.post<
       Array<{ ok: boolean; message: string; affected: number }>
     >("/rest/v1/rpc/folha_save_launches", {

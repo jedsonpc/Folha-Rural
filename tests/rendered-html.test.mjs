@@ -178,6 +178,9 @@ test("edits clones and deletes existing daily and monthly entries", async () => 
   assert.match(module, /entryMode/);
   assert.match(localApi, /action==="updateEntry"/);
   assert.match(cloudApi, /body\.action==="updateEntry"/);
+  assert.match(localApi, /clonedFromId: null/);
+  assert.match(cloudApi, /cloned_from_id:null/);
+  assert.match(cloudApi, /apontamentos clonados foram preservados/i);
 });
 
 test("uses three automatic daily-rate rows for monthly workers", async () => {

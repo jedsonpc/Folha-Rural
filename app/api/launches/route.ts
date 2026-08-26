@@ -275,16 +275,29 @@ export async function POST(request: Request) {
       return Response.json({ok:true,message:"Apontamento atualizado."});
     }
     if (action === "delete") {
+      const id = Number(b.id);
+      if (!id)
+        return Response.json({ error: "Lançamento inválido para exclusão." }, { status: 400 });
+      await db
+        .update(dailyEntries)
+        .set({ clonedFromId: null })
+        .where(
+          and(
+            eq(dailyEntries.tenantId, tenantId),
+            eq(dailyEntries.companySourceId, company),
+            eq(dailyEntries.clonedFromId, id),
+          ),
+        );
       await db
         .delete(dailyEntries)
         .where(
           and(
-            eq(dailyEntries.id, Number(b.id)),
+            eq(dailyEntries.id, id),
             eq(dailyEntries.tenantId, tenantId),
             eq(dailyEntries.companySourceId, company),
           ),
         );
-      return Response.json({ ok: true });
+      return Response.json({ ok: true, message: "Lançamento excluído. Os apontamentos clonados foram preservados." });
     }
     if (action === "holiday") {
       const date = String(b.holidayDate || ""),
