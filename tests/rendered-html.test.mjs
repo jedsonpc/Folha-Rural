@@ -266,3 +266,12 @@ test("hides zero union contributions from every payroll report", async () => {
   assert.match(localClosing, /amount<=0/);
   assert.match(cloudClosing, /amount>0/);
 });
+
+test("uses legacy service 600 for payroll INSS", async () => {
+  const localClosing = await readFile(new URL("../app/api/closing/route.ts", import.meta.url), "utf8");
+  const cloudClosing = await readFile(new URL("../app/api/closing/cloud.ts", import.meta.url), "utf8");
+  assert.match(localClosing, /sourceId===600/);
+  assert.match(localClosing, /item\.kind==="inss"\?600/);
+  assert.match(cloudClosing, /Number\(s\.legacy_id\)===600/);
+  assert.match(cloudClosing, /item\.kind==="inss"\?600/);
+});
