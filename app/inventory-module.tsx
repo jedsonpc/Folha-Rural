@@ -70,7 +70,7 @@ export default function InventoryModule({ company, section }:{ company:string; s
     purchaseReport=groupReport(reportRows.filter((r:AnyRow)=>r.movement_type==="purchase"),(r)=>r.inventory_products?.description||"Produto não informado"),
     cropReport=groupReport(reportRows.filter((r:AnyRow)=>r.crop),(r)=>r.crop||"Sem cultura");
 
-  return <section className="module inventory-module">
+  return <section className={`module inventory-module inventory-section-${section}`}>
     <div className="module-hero inventory-hero">
       <span aria-hidden="true">▦</span>
       <div><small>{content.eyebrow}</small><h2>{content.title}</h2><p>{content.description}</p></div>
