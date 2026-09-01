@@ -98,7 +98,7 @@ const navGroups = [
     },
   ],
   SYSTEM_VERSION = packageInfo.version,
-  LAST_UPDATE = "22/08/2026";
+  LAST_UPDATE = "01/09/2026";
 type Company = {
   sourceId: number;
   name: string;
@@ -534,7 +534,7 @@ export default function Home() {
           ) : active === "Tabelas oficiais" ? (
             <TaxTablesModule />
           ) : active === "Apontamentos" ? (
-            <LaunchesModule company={company} />
+            <LaunchesModule company={company} isAdmin={localUser.role === "admin"} />
           ) : active === "Fechamento" || active === "Gerar tributos" ? (
             <ClosingModule company={company} />
           ) : active === "Painel agrícola" ? (

@@ -1,6 +1,7 @@
-import { and, asc, eq, gte, lt } from "drizzle-orm";
+import { and, asc, eq, gte, gt, inArray, lt } from "drizzle-orm";
 import { ensureDatabase, getDb, getRuntimeDatabase } from "../../../db";
 import { authorizeCloud } from "../../auth-cloud";
+import { cookieToken, sha256 } from "../../auth-local";
 import { getSupabaseConfig } from "../../../db/supabase";
 import {
   cloudLaunchesGet,
@@ -10,11 +11,24 @@ import {
   dailyEntries,
   employmentContracts,
   holidays,
+  localSessions,
+  localUsers,
   people,
   services,
 } from "../../../db/schema";
 const tenant = (r: Request) =>
   r.headers.get("oai-authenticated-user-email")?.toLowerCase() || "local-owner";
+async function requireLocalAdmin(request: Request) {
+  const token = cookieToken(request);
+  if (!token) return false;
+  const [user] = await getDb()
+    .select({ role: localUsers.role })
+    .from(localSessions)
+    .innerJoin(localUsers, eq(localSessions.userId, localUsers.id))
+    .where(and(eq(localSessions.tokenHash, await sha256(token)), gt(localSessions.expiresAt, new Date().toISOString()), eq(localUsers.active, true)))
+    .limit(1);
+  return user?.role === "admin";
+}
 const monthEnd = (m: string) => {
   const [y, n] = m.split("-").map(Number);
   return `${n === 12 ? y + 1 : y}-${String(n === 12 ? 1 : n + 1).padStart(2, "0")}-01`;
@@ -169,6 +183,28 @@ export async function POST(request: Request) {
         { error: "Selecione uma empresa." },
         { status: 400 },
       );
+    if (action === "deletePeriod") {
+      if (!(await requireLocalAdmin(request)))
+        return Response.json({ error: "Exclusão por período exclusiva do administrador." }, { status: 403 });
+      const month = String(b.month || ""),
+        deleteAll = b.deleteAll === true,
+        selectedDays = Array.isArray(b.days) ? [...new Set(b.days.map(String))] : [];
+      if (!/^20\d{2}-(0[1-9]|1[0-2])$/.test(month))
+        return Response.json({ error: "Informe um mês válido para exclusão." }, { status: 400 });
+      const validDays = selectedDays.filter((day) => /^20\d{2}-\d{2}-\d{2}$/.test(day) && day.startsWith(`${month}-`));
+      if (!deleteAll && !validDays.length)
+        return Response.json({ error: "Selecione ao menos um dia do mês." }, { status: 400 });
+      const periodFilter = deleteAll
+        ? and(gte(dailyEntries.entryDate, `${month}-01`), lt(dailyEntries.entryDate, monthEnd(month)))
+        : inArray(dailyEntries.entryDate, validDays);
+      const rows = await db.select({ id: dailyEntries.id }).from(dailyEntries).where(and(eq(dailyEntries.tenantId, tenantId), eq(dailyEntries.companySourceId, company), periodFilter));
+      const ids = rows.map((row) => row.id);
+      if (ids.length) {
+        await db.update(dailyEntries).set({ clonedFromId: null }).where(and(eq(dailyEntries.tenantId, tenantId), eq(dailyEntries.companySourceId, company), inArray(dailyEntries.clonedFromId, ids)));
+        await db.delete(dailyEntries).where(and(eq(dailyEntries.tenantId, tenantId), eq(dailyEntries.companySourceId, company), inArray(dailyEntries.id, ids)));
+      }
+      return Response.json({ ok: true, affected: ids.length, message: `${ids.length} apontamento(s) excluído(s) do período.` });
+    }
     if (action === "save") {
       const date = String(b.entryDate || ""),
         contractId = Number(b.contractId),

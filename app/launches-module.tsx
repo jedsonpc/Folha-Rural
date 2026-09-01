@@ -71,14 +71,15 @@ const iso = () => new Date().toISOString().slice(0, 10),
     return normalized.includes("%") || value > 1 ? value / 100 : value;
   },
   isDailyAdditional = (service?: Service) => Boolean(service && /INSALUBR|PERICULOS|GRATIFICA/i.test(service.description));
-export default function LaunchesModule({ company }: { company: string }) {
+export default function LaunchesModule({ company, isAdmin }: { company: string; isAdmin: boolean }) {
   const [date, setDate] = useState(iso()),
     [consultDate, setConsultDate] = useState<string | null>(null),
     [data, setData] = useState<Data | null>(null),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [busy, setBusy] = useState(false),
-    [showHoliday, setShowHoliday] = useState(false);
+    [showHoliday, setShowHoliday] = useState(false),
+    [deleteDays, setDeleteDays] = useState<string[]>([]);
   const [entryMode, setEntryMode] = useState<"production" | "monthly">(
       "production",
     ),
@@ -169,6 +170,17 @@ export default function LaunchesModule({ company }: { company: string }) {
       };
     });
   }, [data, month]);
+  const daysWithEntries = useMemo(
+    () => days.filter((day) => day.count > 0),
+    [days],
+  );
+  useEffect(() => {
+    setDeleteDays((selected) =>
+      selected.filter((selectedDay) =>
+        daysWithEntries.some((day) => day.date === selectedDay),
+      ),
+    );
+  }, [daysWithEntries]);
   const dsr = useMemo(() => {
     if (!data) return [];
     const by = new Map<
@@ -303,6 +315,19 @@ export default function LaunchesModule({ company }: { company: string }) {
     if(fresh.length)await post({ action: "saveBatch", entryDate: date, rows:fresh });
     else if(existing.length)setNotice(`${existing.length} apontamento(s) atualizado(s).`);
   };
+  const deletePeriodEntries = async () => {
+    if (!deleteDays.length) {
+      setNotice("Selecione ao menos um dia com apontamentos para excluir.");
+      return;
+    }
+    const selectedEntries = data.entries.filter((entry) => deleteDays.includes(entry.entryDate)).length;
+    const allDays = deleteDays.length === daysWithEntries.length;
+    const description = allDays
+      ? `TODOS os ${selectedEntries} apontamentos de ${month.split("-").reverse().join("/")}`
+      : `${selectedEntries} apontamento(s) de ${deleteDays.length} dia(s) selecionado(s)`;
+    if (!window.confirm(`ATENÇÃO: você está prestes a excluir ${description}. Esta ação não pode ser desfeita. Deseja continuar?`)) return;
+    if (await post({ action: "deletePeriod", month, deleteAll: allDays, days: deleteDays })) setDeleteDays([]);
+  };
   return (
     <section className="launches">
       <div className="launch-toolbar">
@@ -322,6 +347,40 @@ export default function LaunchesModule({ company }: { company: string }) {
         </button>
       </div>
       {notice && <div className="inline-notice">{notice}</div>}
+      {isAdmin && (
+        <article className="panel period-delete-panel">
+          <div className="period-delete-head">
+            <div>
+              <small>ÁREA EXCLUSIVA DO ADMINISTRADOR</small>
+              <h2>Excluir apontamentos do período</h2>
+              <p>Selecione todos os apontamentos do mês ou somente os dias que devem ser apagados.</p>
+            </div>
+            <b>{month.split("-").reverse().join("/")}</b>
+          </div>
+          {!daysWithEntries.length ? (
+            <p className="sheet-empty">Este mês não possui apontamentos para exclusão.</p>
+          ) : (
+            <>
+              <label className="period-delete-all">
+                <input type="checkbox" checked={deleteDays.length === daysWithEntries.length} onChange={(event) => setDeleteDays(event.target.checked ? daysWithEntries.map((day) => day.date) : [])} />
+                Excluir todos os apontamentos deste mês
+              </label>
+              <div className="period-delete-days">
+                {daysWithEntries.map((day) => (
+                  <label key={day.date}>
+                    <input type="checkbox" checked={deleteDays.includes(day.date)} onChange={(event) => setDeleteDays(event.target.checked ? [...deleteDays, day.date] : deleteDays.filter((value) => value !== day.date))} />
+                    <span><b>{dateBR(day.date)}</b><small>{day.count} apontamento(s)</small></span>
+                  </label>
+                ))}
+              </div>
+              <div className="period-delete-actions">
+                <span>{deleteDays.length} de {daysWithEntries.length} dia(s) selecionado(s)</span>
+                <button type="button" className="danger" disabled={busy || !deleteDays.length} onClick={deletePeriodEntries}>Excluir apontamentos selecionados</button>
+              </div>
+            </>
+          )}
+        </article>
+      )}
       {showHoliday && (
         <div className="operation-box">
           <div>

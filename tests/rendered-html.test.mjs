@@ -183,6 +183,22 @@ test("edits clones and deletes existing daily and monthly entries", async () => 
   assert.match(cloudApi, /apontamentos clonados foram preservados/i);
 });
 
+test("allows only administrators to delete launch entries by month or selected days", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const module = await readFile(new URL("../app/launches-module.tsx", import.meta.url), "utf8");
+  const localApi = await readFile(new URL("../app/api/launches/route.ts", import.meta.url), "utf8");
+  const cloudApi = await readFile(new URL("../app/api/launches/cloud.ts", import.meta.url), "utf8");
+  assert.match(page, /isAdmin=\{localUser\.role === "admin"\}/);
+  assert.match(module, /ÁREA EXCLUSIVA DO ADMINISTRADOR/);
+  assert.match(module, /Excluir todos os apontamentos deste mês/);
+  assert.match(module, /window\.confirm\(`ATENÇÃO:/);
+  assert.match(module, /action: "deletePeriod"/);
+  assert.match(localApi, /requireLocalAdmin/);
+  assert.match(localApi, /action === "deletePeriod"/);
+  assert.match(cloudApi, /requireCloudAdmin/);
+  assert.match(cloudApi, /body\.action === "deletePeriod"/);
+});
+
 test("uses three automatic daily-rate rows for monthly workers", async () => {
   const module = await readFile(new URL("../app/launches-module.tsx", import.meta.url), "utf8");
   const localApi = await readFile(new URL("../app/api/launches/route.ts", import.meta.url), "utf8");

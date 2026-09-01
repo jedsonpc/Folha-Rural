@@ -2,7 +2,7 @@ import {
   getSupabaseConfig,
   supabaseAdmin,
 } from "../../../db/supabase";
-import { authorizeCloud } from "../../auth-cloud";
+import { authorizeCloud, requireCloudAdmin } from "../../auth-cloud";
 
 type Row = Record<string, any>;
 const nextMonth = (month: string) => {
@@ -139,6 +139,31 @@ export async function cloudLaunchesPost(request: Request) {
     if (access.response) return access.response;
     if (!companyLegacyId)
       return Response.json({ error: "Selecione uma empresa." }, { status: 400 });
+    if (body.action === "deletePeriod") {
+      if (!(await requireCloudAdmin(request)))
+        return Response.json({ error: "Exclusão por período exclusiva do administrador." }, { status: 403 });
+      const month = String(body.month || ""),
+        deleteAll = body.deleteAll === true,
+        selectedDays = Array.isArray(body.days) ? [...new Set(body.days.map(String))] : [];
+      if (!/^20\d{2}-(0[1-9]|1[0-2])$/.test(month))
+        return Response.json({ error: "Informe um mês válido para exclusão." }, { status: 400 });
+      const validDays = selectedDays.filter((day) => /^20\d{2}-\d{2}-\d{2}$/.test(day) && day.startsWith(`${month}-`));
+      if (!deleteAll && !validDays.length)
+        return Response.json({ error: "Selecione ao menos um dia do mês." }, { status: 400 });
+      const companies = await supabaseAdmin.get<Array<{ id: string }>>(`/rest/v1/companies?select=id&organization_id=eq.${config.organizationId}&legacy_id=eq.${companyLegacyId}&limit=1`),
+        companyId = companies[0]?.id;
+      if (!companyId) return Response.json({ error: "Empresa não encontrada." }, { status: 404 });
+      const dateFilter = deleteAll
+        ? `entry_date=gte.${month}-01&entry_date=lt.${nextMonth(month)}`
+        : `entry_date=in.(${validDays.join(",")})`;
+      const rows = await supabaseAdmin.get<Array<{ id: string }>>(`/rest/v1/daily_entries?select=id&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&${dateFilter}`),
+        ids = rows.map((row) => row.id);
+      if (ids.length) {
+        await supabaseAdmin.patch(`/rest/v1/daily_entries?organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&cloned_from_id=in.(${ids.join(",")})`, { cloned_from_id: null });
+        await supabaseAdmin.delete(`/rest/v1/daily_entries?organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&id=in.(${ids.join(",")})`);
+      }
+      return Response.json({ ok: true, affected: ids.length, message: `${ids.length} apontamento(s) excluído(s) do período.` });
+    }
     if(body.action==="clone"){
       const source=String(body.sourceDate||""),target=String(body.targetDate||"");
       if(!/^20\d{2}-\d{2}-\d{2}$/.test(source)||!/^20\d{2}-\d{2}-\d{2}$/.test(target)||Number(target.slice(0,4))>2100||source===target)return Response.json({error:"Informe duas datas válidas e diferentes, entre os anos 2000 e 2100."},{status:400});
