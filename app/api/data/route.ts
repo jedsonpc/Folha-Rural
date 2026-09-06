@@ -50,7 +50,10 @@ const photoValid = (value: string) =>
 export async function GET(request: Request) {
   const access = await authorizeCloud(request, "Colaboradores");
   if (access.response) return access.response;
-  if (getSupabaseConfig()) return cloudDataGet(access.user);
+  if (getSupabaseConfig()) {
+    const requestedCompany = Number(new URL(request.url).searchParams.get("company") || 0);
+    return cloudDataGet(access.user, requestedCompany || null);
+  }
   try {
     await ensureDatabase();
     const db = getDb();

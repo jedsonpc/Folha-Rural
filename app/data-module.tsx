@@ -319,7 +319,7 @@ export default function DataModule({
     }),
     [form, setForm] = useState<Record<string, string>>({});
   const load = () =>
-    fetch("/api/data")
+    fetch(`/api/data${selectedCompany === "all" ? "" : `?company=${encodeURIComponent(selectedCompany)}`}`)
       .then(async (r) => {
         const b = await r.json();
         if (!r.ok) throw new Error(b.error);
@@ -342,7 +342,7 @@ export default function DataModule({
         setEmploymentLinks(Array.isArray(b.links) ? b.links : []);
       })
       .catch(() => { setFunctions([]); setEmploymentLinks([]); });
-  }, []);
+  }, [selectedCompany]);
   useEffect(() => {
     setStatus(reviewOnly ? "all" : "active");
   }, [reviewOnly]);

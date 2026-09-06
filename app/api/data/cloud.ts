@@ -81,17 +81,26 @@ const contractResponse = (row: Row) => ({
   ...personFields(row.people || {}),
 });
 
-export async function cloudDataGet(user: CloudUser | null) {
+export async function cloudDataGet(user: CloudUser | null, companySourceId: number | null = null) {
   const config = getSupabaseConfig()!;
   try {
+    if (
+      companySourceId &&
+      user?.companyIds != null &&
+      !user.companyIds.includes(companySourceId)
+    )
+      return Response.json({ error: "Empresa não autorizada." }, { status: 403 });
     const filter = allowedFilter(user);
+    const selectedCompanyFilter = companySourceId
+      ? `&companies.legacy_id=eq.${companySourceId}`
+      : "";
     const [companyRows, contractRows, dependentRows, unionRows, imports] =
       await Promise.all([
         supabaseAdmin.get<Row[]>(
           `/rest/v1/companies?select=*&organization_id=eq.${config.organizationId}${user?.companyIds == null ? "" : `&legacy_id=in.(${user.companyIds.join(",") || "0"})`}&order=name.asc`,
         ),
         supabaseAdmin.get<Row[]>(
-          `/rest/v1/employment_contracts?select=*,people(*),companies!inner(legacy_id)&organization_id=eq.${config.organizationId}${filter}&order=created_at.desc`,
+          `/rest/v1/employment_contracts?select=*,people(*),companies!inner(legacy_id)&organization_id=eq.${config.organizationId}${filter}${selectedCompanyFilter}&order=created_at.desc`,
         ),
         supabaseAdmin.get<Row[]>(
           `/rest/v1/dependents?select=*&organization_id=eq.${config.organizationId}&order=name.asc`,

@@ -29,10 +29,10 @@ export default function ProductionDashboard({
 }) {
   const [data, setData] = useState<Payload | null>(null);
   useEffect(() => {
-    fetch("/api/data")
+    fetch(`/api/data${selectedCompany === "all" ? "" : `?company=${encodeURIComponent(selectedCompany)}`}`)
       .then((r) => r.json())
       .then(setData);
-  }, []);
+  }, [selectedCompany]);
   const rows = useMemo(
     () =>
       !data

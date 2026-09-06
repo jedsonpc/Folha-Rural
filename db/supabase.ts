@@ -60,13 +60,13 @@ export const supabaseAdmin = {
       return await supabaseRequest<T>(path);
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
-      if (!message.includes('"code":"57014"')) throw error;
+      if (!/\b57014\b/.test(message)) throw error;
       await new Promise((resolve) => setTimeout(resolve, 750));
       try {
         return await supabaseRequest<T>(path);
       } catch (retryError) {
         const retryMessage = retryError instanceof Error ? retryError.message : "";
-        if (retryMessage.includes('"code":"57014"'))
+        if (/\b57014\b/.test(retryMessage))
           throw new Error("O Supabase demorou para carregar os dados. Aguarde alguns segundos e tente novamente.");
         throw retryError;
       }
