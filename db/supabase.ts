@@ -55,8 +55,22 @@ export async function supabaseRequest<T>(
 }
 
 export const supabaseAdmin = {
-  get<T>(path: string) {
-    return supabaseRequest<T>(path);
+  async get<T>(path: string) {
+    try {
+      return await supabaseRequest<T>(path);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      if (!message.includes('"code":"57014"')) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 750));
+      try {
+        return await supabaseRequest<T>(path);
+      } catch (retryError) {
+        const retryMessage = retryError instanceof Error ? retryError.message : "";
+        if (retryMessage.includes('"code":"57014"'))
+          throw new Error("O Supabase demorou para carregar os dados. Aguarde alguns segundos e tente novamente.");
+        throw retryError;
+      }
+    }
   },
   post<T>(path: string, body: unknown, headers?: HeadersInit) {
     return supabaseRequest<T>(path, {
