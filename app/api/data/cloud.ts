@@ -262,6 +262,27 @@ async function callWorkerRpc(body: Row, user: CloudUser | null) {
   return Response.json(result[0] || { ok: true });
 }
 
+async function deleteContractRowsInBatches(
+  table: string,
+  organizationId: string,
+  contractId: string,
+) {
+  const base = `organization_id=eq.${organizationId}&contract_id=eq.${contractId}`;
+  if (table === "daily_entries")
+    await supabaseAdmin.patch(
+      `/rest/v1/${table}?${base}&cloned_from_id=not.is.null`,
+      { cloned_from_id: null },
+    );
+  for (;;) {
+    const rows = await supabaseAdmin.get<Array<{ id: string }>>(
+      `/rest/v1/${table}?select=id&${base}&limit=100`,
+    );
+    if (!rows.length) return;
+    const ids = rows.map((row) => row.id).join(",");
+    await supabaseAdmin.delete(`/rest/v1/${table}?id=in.(${ids})`);
+  }
+}
+
 export async function cloudDataPut(
   request: Request,
   user: CloudUser | null,
@@ -293,10 +314,18 @@ export async function cloudDataPut(
         "salary_history",
         "vacation_periods",
         "item_issues",
-      ])
-        await supabaseAdmin.delete(
-          `/rest/v1/${table}?organization_id=eq.${config.organizationId}&contract_id=eq.${contractId}`,
-        );
+      ]) {
+        try {
+          await deleteContractRowsInBatches(
+            table,
+            config.organizationId,
+            contractId,
+          );
+        } catch (error) {
+          const detail = error instanceof Error ? error.message : "erro desconhecido";
+          throw new Error(`Falha ao excluir vínculos em ${table}: ${detail}`);
+        }
+      }
       await supabaseAdmin.delete(
         `/rest/v1/employment_contracts?organization_id=eq.${config.organizationId}&id=eq.${contractId}`,
       );

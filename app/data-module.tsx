@@ -859,7 +859,7 @@ export default function DataModule({
                               body: JSON.stringify({ action: "deleteWorker", contractId: r.id, personId: r.personId }),
                             });
                             const result = await response.json();
-                            if (!response.ok) return setError(result.error || "Não foi possível excluir o colaborador.");
+                            if (!response.ok) return setNotice(result.error || "Não foi possível excluir o colaborador.");
                             setNotice(result.message || "Colaborador excluído.");
                             await load();
                           }}
