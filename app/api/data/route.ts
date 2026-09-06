@@ -1,5 +1,5 @@
-import { and, asc, count, desc, eq } from "drizzle-orm";
-import { ensureDatabase, getDb } from "../../../db";
+import { and, asc, count, desc, eq, gt } from "drizzle-orm";
+import { ensureDatabase, getDb, getRuntimeDatabase } from "../../../db";
 import { authorizeCloud } from "../../auth-cloud";
 import {
   companies,
@@ -9,8 +9,11 @@ import {
   people,
   dependents,
   unions,
+  localSessions,
+  localUsers,
 } from "../../../db/schema";
 import { cleanCpf, isValidCpf } from "../../cpf";
+import { cookieToken, sha256 } from "../../auth-local";
 import { getSupabaseConfig } from "../../../db/supabase";
 import {
   cloudDataGet,
@@ -21,6 +24,22 @@ import {
 const tenant = (request: Request) =>
   request.headers.get("oai-authenticated-user-email")?.toLowerCase() ||
   "local-owner";
+
+async function requireAuthorizedLocalAdmin(request: Request) {
+  const token = cookieToken(request);
+  if (!token) return null;
+  const [user] = await getDb()
+    .select({ username: localUsers.username, role: localUsers.role })
+    .from(localSessions)
+    .innerJoin(localUsers, eq(localSessions.userId, localUsers.id))
+    .where(and(
+      eq(localSessions.tokenHash, await sha256(token)),
+      gt(localSessions.expiresAt, new Date().toISOString()),
+      eq(localUsers.active, true),
+    ))
+    .limit(1);
+  return user?.role === "admin" && user.username.trim().toLowerCase() === "jedsonpc@hotmail.com" ? user : null;
+}
 const emailValid = (value: string) =>
   !value || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 const photoValid = (value: string) =>
@@ -250,6 +269,31 @@ export async function PUT(request: Request) {
         { error: "Cadastro ou contrato não encontrado." },
         { status: 404 },
       );
+    if (body.action === "deleteWorker") {
+      if (!(await requireAuthorizedLocalAdmin(request)))
+        return Response.json(
+          { error: "Somente o administrador jedsonpc@hotmail.com pode excluir colaboradores." },
+          { status: 403 },
+        );
+      const runtime = getRuntimeDatabase();
+      await runtime.batch([
+        runtime.prepare("DELETE FROM daily_entries WHERE tenant_id=? AND contract_id=?").bind(tenantId, contractId),
+        runtime.prepare("DELETE FROM legacy_contract_map WHERE tenant_id=? AND contract_id=?").bind(tenantId, contractId),
+        runtime.prepare("DELETE FROM worker_payroll_profiles WHERE tenant_id=? AND contract_id=?").bind(tenantId, contractId),
+        runtime.prepare("DELETE FROM salary_history WHERE tenant_id=? AND contract_id=?").bind(tenantId, contractId),
+        runtime.prepare("DELETE FROM vacation_periods WHERE tenant_id=? AND contract_id=?").bind(tenantId, contractId),
+        runtime.prepare("DELETE FROM item_issues WHERE tenant_id=? AND contract_id=?").bind(tenantId, contractId),
+        runtime.prepare("DELETE FROM employment_contracts WHERE tenant_id=? AND id=?").bind(tenantId, contractId),
+      ]);
+      const remaining = await runtime.prepare("SELECT id FROM employment_contracts WHERE tenant_id=? AND person_id=? LIMIT 1").bind(tenantId, personId).first();
+      if (!remaining) {
+        await runtime.batch([
+          runtime.prepare("DELETE FROM dependents WHERE tenant_id=? AND person_id=?").bind(tenantId, personId),
+          runtime.prepare("DELETE FROM people WHERE tenant_id=? AND id=?").bind(tenantId, personId),
+        ]);
+      }
+      return Response.json({ ok: true, message: "Colaborador e todos os dados vinculados foram excluídos." });
+    }
     if (body.action === "terminate") {
       const terminationDate = String(body.terminationDate || "");
       if (

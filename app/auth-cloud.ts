@@ -6,6 +6,7 @@ import {
 
 export type CloudUser = {
   id: string;
+  email: string;
   name: string;
   username: string;
   role: string;
@@ -51,6 +52,7 @@ export async function cloudUser(request: Request): Promise<CloudUser | null> {
         );
     return {
       id: identity.id,
+      email: String(identity.email || "").trim().toLowerCase(),
       name: profile.full_name,
       username: profile.username || identity.email || "",
       role: isAdmin ? "admin" : membership.role,

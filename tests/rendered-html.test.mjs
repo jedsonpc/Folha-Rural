@@ -199,6 +199,20 @@ test("allows only administrators to delete launch entries by month or selected d
   assert.match(cloudApi, /body\.action === "deletePeriod"/);
 });
 
+test("restricts worker deletion to the authorized administrator and requires two confirmations", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const module = await readFile(new URL("../app/data-module.tsx", import.meta.url), "utf8");
+  const localApi = await readFile(new URL("../app/api/data/route.ts", import.meta.url), "utf8");
+  const cloudApi = await readFile(new URL("../app/api/data/cloud.ts", import.meta.url), "utf8");
+  assert.match(page, /jedsonpc@hotmail\.com/);
+  assert.match(module, /deleteWorker/);
+  assert.equal((module.match(/window\.confirm\(/g) || []).length >= 2, true);
+  assert.match(localApi, /requireAuthorizedLocalAdmin/);
+  assert.match(localApi, /DELETE FROM daily_entries/);
+  assert.match(cloudApi, /user\.email !== "jedsonpc@hotmail\.com"/);
+  assert.match(cloudApi, /"daily_entries"/);
+});
+
 test("uses three automatic daily-rate rows for monthly workers", async () => {
   const module = await readFile(new URL("../app/launches-module.tsx", import.meta.url), "utf8");
   const localApi = await readFile(new URL("../app/api/launches/route.ts", import.meta.url), "utf8");

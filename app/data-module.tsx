@@ -190,11 +190,13 @@ export default function DataModule({
   selectedCompany = "all",
   onSelectCompany,
   reviewOnly = false,
+  canDeleteWorkers = false,
 }: {
   mode: "Empresas" | "Colaboradores";
   selectedCompany?: string;
   onSelectCompany?: (v: string) => void;
   reviewOnly?: boolean;
+  canDeleteWorkers?: boolean;
 }) {
   const salaryRef = useRef<WorkerHrTabsHandle>(null);
   const [data, setData] = useState<Payload | null>(null),
@@ -845,6 +847,26 @@ export default function DataModule({
                       >
                         {issues.length ? "Corrigir pendências" : "Editar ficha"}
                       </button>
+                      {canDeleteWorkers && (
+                        <button
+                          className="table-action danger"
+                          onClick={async () => {
+                            if (!window.confirm(`Excluir definitivamente o cadastro de ${r.name} e todos os lançamentos vinculados?`)) return;
+                            if (!window.confirm("CONFIRMAÇÃO FINAL: salários, férias, dependentes, EPIs e lançamentos também serão excluídos. Deseja continuar?")) return;
+                            const response = await fetch("/api/data", {
+                              method: "PUT",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ action: "deleteWorker", contractId: r.id, personId: r.personId }),
+                            });
+                            const result = await response.json();
+                            if (!response.ok) return setError(result.error || "Não foi possível excluir o colaborador.");
+                            setNotice(result.message || "Colaborador excluído.");
+                            await load();
+                          }}
+                        >
+                          Excluir cadastro
+                        </button>
+                      )}
                       {normalizedContractStatus(r) === "terminated" && (
                         <button className="table-action" onClick={() => openAdmission(r)}>
                           ⧉ Clonar cadastro / novo contrato

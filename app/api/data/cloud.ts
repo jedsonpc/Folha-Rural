@@ -259,6 +259,48 @@ export async function cloudDataPut(
 ) {
   try {
     const body = (await request.json()) as Row;
+    if (body.action === "deleteWorker") {
+      if (user?.role !== "admin" || user.email !== "jedsonpc@hotmail.com")
+        return Response.json(
+          { error: "Somente o administrador jedsonpc@hotmail.com pode excluir colaboradores." },
+          { status: 403 },
+        );
+      const config = getSupabaseConfig()!;
+      const contractId = String(body.contractId || "");
+      const rows = contractId
+        ? await supabaseAdmin.get<Row[]>(
+            `/rest/v1/employment_contracts?select=id,person_id,companies!inner(legacy_id)&organization_id=eq.${config.organizationId}&id=eq.${contractId}&limit=1`,
+          )
+        : [];
+      if (!rows.length)
+        return Response.json({ error: "Colaborador não encontrado." }, { status: 404 });
+      const companyId = Number(rows[0].companies?.legacy_id);
+      if (user.companyIds !== null && !user.companyIds.includes(companyId))
+        return Response.json({ error: "Empresa não autorizada." }, { status: 403 });
+      for (const table of [
+        "daily_entries",
+        "legacy_contract_map",
+        "worker_payroll_profiles",
+        "salary_history",
+        "vacation_periods",
+        "item_issues",
+      ])
+        await supabaseAdmin.delete(
+          `/rest/v1/${table}?organization_id=eq.${config.organizationId}&contract_id=eq.${contractId}`,
+        );
+      await supabaseAdmin.delete(
+        `/rest/v1/employment_contracts?organization_id=eq.${config.organizationId}&id=eq.${contractId}`,
+      );
+      const personId = String(rows[0].person_id);
+      const remaining = await supabaseAdmin.get<Row[]>(
+        `/rest/v1/employment_contracts?select=id&organization_id=eq.${config.organizationId}&person_id=eq.${personId}&limit=1`,
+      );
+      if (!remaining.length) {
+        await supabaseAdmin.delete(`/rest/v1/dependents?organization_id=eq.${config.organizationId}&person_id=eq.${personId}`);
+        await supabaseAdmin.delete(`/rest/v1/people?organization_id=eq.${config.organizationId}&id=eq.${personId}`);
+      }
+      return Response.json({ ok: true, message: "Colaborador e todos os dados vinculados foram excluídos." });
+    }
     if (body.action !== "terminate") {
       const validation = validPersonPayload(body);
       if (validation)

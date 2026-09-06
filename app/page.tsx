@@ -575,6 +575,7 @@ export default function Home() {
               selectedCompany={company}
               onSelectCompany={openCompany}
               reviewOnly={reviewOnly}
+              canDeleteWorkers={localUser.role === "admin" && localUser.username.trim().toLowerCase() === "jedsonpc@hotmail.com"}
             />
           ) : (
             <ModuleInfo active={active} />
