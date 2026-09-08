@@ -1,7 +1,6 @@
 "use client";
 import { useState } from "react";
 import "./auth.css";
-import AppInstallation from "./app-installation";
 type User = {
   id: number | string;
   name: string;
@@ -158,7 +157,6 @@ export default function AuthScreen({
           )}
         </form>
       </section>
-      <AppInstallation />
     </main>
   );
 }

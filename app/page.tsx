@@ -49,6 +49,7 @@ const navGroups = [
       icon: "CO",
       items: [
         ["VG", "Visão geral"],
+        ["SP", "Supervisão"],
       ],
     },
     {
@@ -368,13 +369,14 @@ export default function Home() {
             ];
             const items = group.items.filter(
               ([, label]) =>
-                localUser?.role === "admin" ||
-                localUser?.permissions.includes(label) ||
-                localUser?.permissions.includes(group.label) ||
-                (agriculturalItems.includes(label) &&
-                  localUser?.permissions.includes("Estoque e custos")) ||
-                (registrationItems.includes(label) &&
-                  localUser?.permissions.includes("Cadastros")),
+                (label !== "Supervisão" || localUser?.role === "admin") &&
+                (localUser?.role === "admin" ||
+                  localUser?.permissions.includes(label) ||
+                  localUser?.permissions.includes(group.label) ||
+                  (agriculturalItems.includes(label) &&
+                    localUser?.permissions.includes("Estoque e custos")) ||
+                  (registrationItems.includes(label) &&
+                    localUser?.permissions.includes("Cadastros"))),
             );
             if (!items.length) return null;
             const selected = items.some(([, label]) => label === active);
@@ -448,7 +450,6 @@ export default function Home() {
       <section
         className={`workspace ${active === "Visão geral" ? "operational-workspace" : ""}`}
       >
-        <AppInstallation companyIds={offlineCompanyIds} />
         <header>
           <button className="mobile-menu" onClick={() => setMenu(!menu)}>
             ☰
@@ -499,6 +500,7 @@ export default function Home() {
             <span>Atualizado em {LAST_UPDATE}</span>
           </div>
         </div>
+        <AppInstallation companyIds={offlineCompanyIds} visible={active === "Supervisão"} />
         {selected && sidebarImage && (
           <section className="company-brand-hero company-tab-brand">
             <img src={sidebarImage} alt="" />
@@ -525,7 +527,7 @@ export default function Home() {
             </section>
           }
         >
-          {active === "Visão geral" ? (
+          {active === "Supervisão" ? null : active === "Visão geral" ? (
             <ProductionDashboard
               selectedCompany={company}
               onOpenWorkers={() => { setReviewOnly(false); setActive("Colaboradores"); }}

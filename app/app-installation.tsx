@@ -8,7 +8,7 @@ type InstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 };
 
-export default function AppInstallation({ companyIds = [] }: { companyIds?: number[] }) {
+export default function AppInstallation({ companyIds = [], visible = false }: { companyIds?: number[]; visible?: boolean }) {
   const [installPrompt, setInstallPrompt] =
     useState<InstallPromptEvent | null>(null);
   const [updateReady, setUpdateReady] = useState<ServiceWorker | null>(null);
@@ -108,13 +108,6 @@ export default function AppInstallation({ companyIds = [] }: { companyIds?: numb
     return () => window.removeEventListener("online", refreshDownloadedData);
   }, [companyIds]);
 
-  async function install() {
-    if (!installPrompt) return;
-    await installPrompt.prompt();
-    const result = await installPrompt.userChoice;
-    if (result.outcome === "accepted") setInstallPrompt(null);
-  }
-
   async function downloadForOfflineUse() {
     if (!navigator.onLine) {
       setOfflineStatus("Conecte-se à internet para atualizar a cópia offline.");
@@ -131,10 +124,17 @@ export default function AppInstallation({ companyIds = [] }: { companyIds?: numb
         import("./inventory-module"),
       ]);
       const result = await downloadOfflineData(companyIds);
+      if (installPrompt) {
+        await installPrompt.prompt();
+        const choice = await installPrompt.userChoice;
+        if (choice.outcome === "accepted") setInstallPrompt(null);
+      }
       setOfflineStatus(
         result.failed.length
           ? `${result.downloaded} conjunto(s) atualizado(s); ${result.failed.length} não puderam ser baixados.`
-          : `Dados offline atualizados agora (${result.downloaded} conjuntos).`,
+          : installPrompt
+            ? `Dados offline atualizados (${result.downloaded} conjuntos) e atalho solicitado.`
+            : `Dados offline atualizados agora (${result.downloaded} conjuntos).`,
       );
     } catch {
       setOfflineStatus("Não foi possível concluir o download offline.");
@@ -147,6 +147,7 @@ export default function AppInstallation({ companyIds = [] }: { companyIds?: numb
     updateReady?.postMessage({ type: "SKIP_WAITING" });
   }
 
+  if (!visible) return null;
   return (
     <aside className="app-offline-tools" role="status">
       {updateReady && <div className="app-update-card">
@@ -159,13 +160,10 @@ export default function AppInstallation({ companyIds = [] }: { companyIds?: numb
       <div className="offline-download-card">
         <button type="button" onClick={downloadForOfflineUse} disabled={downloading}>
           <span aria-hidden="true">⇩</span>
-          {downloading ? "Atualizando dados offline…" : "Baixar dados para uso offline"}
+          {downloading ? "Atualizando dados offline…" : installed ? "Atualizar dados para uso offline" : "Baixar dados e criar atalho offline"}
         </button>
         {offlineStatus && <small>{offlineStatus}</small>}
       </div>
-      {installPrompt && !installed && <button className="app-install-button" onClick={install}>
-        <span aria-hidden="true">↓</span> Instalar Folha Rural
-      </button>}
     </aside>
   );
 }

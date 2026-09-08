@@ -28,11 +28,9 @@ body {
     sans-serif;
 }
 .app-offline-tools {
-  position: fixed;
-  right: 22px;
-  bottom: 22px;
-  z-index: 100;
-  width: min(390px, calc(100vw - 32px));
+  width: 100%;
+  max-width: 720px;
+  margin: 0 0 22px;
   display: grid;
   gap: 9px;
   pointer-events: none;
@@ -104,8 +102,7 @@ body {
 .offline-download-card small { color: var(--muted); line-height: 1.35; }
 @media (max-width: 640px) {
   .app-offline-tools {
-    right: 16px;
-    bottom: 16px;
+    max-width: none;
   }
 }
 .app-shell {

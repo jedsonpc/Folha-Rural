@@ -18,7 +18,7 @@ test("keeps the installable app metadata and update worker", async () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
   assert.match(serviceWorker, /SKIP_WAITING/);
-  assert.match(serviceWorker, /folha-rural-shell-v44-folha-rural-1\.4\.56/);
+  assert.match(serviceWorker, /folha-rural-shell-v45-folha-rural-1\.4\.57/);
   assert.match(serviceWorker, /folha-rural-data-v1/);
   assert.match(serviceWorker, /Dados não baixados para uso offline/);
   assert.match(serviceWorker, /skipWaiting/);
@@ -161,12 +161,16 @@ test("shows registration issues only for active workers on the dashboard", async
   assert.doesNotMatch(dashboard, /workerNeedsReview\(r\)/);
 });
 
-test("shows the install option only on the authentication screen", async () => {
-  const layout = await readFile(new URL("../app/layout.tsx", import.meta.url), "utf8");
+test("shows offline download only after login in the supervision tab", async () => {
   const auth = await readFile(new URL("../app/auth-screen.tsx", import.meta.url), "utf8");
-  assert.doesNotMatch(layout, /AppInstallation/);
-  assert.match(auth, /import AppInstallation/);
-  assert.match(auth, /<AppInstallation \/>/);
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const installation = await readFile(new URL("../app/app-installation.tsx", import.meta.url), "utf8");
+  assert.doesNotMatch(auth, /AppInstallation|Baixar dados/);
+  assert.match(page, /\["SP", "Supervisão"\]/);
+  assert.match(page, /visible=\{active === "Supervisão"\}/);
+  assert.match(page, /label !== "Supervisão" \|\| localUser\?\.role === "admin"/);
+  assert.match(installation, /Baixar dados e criar atalho offline/);
+  assert.match(installation, /await installPrompt\.prompt\(\)/);
 });
 
 test("supports registered employment links and multiple descriptions per CBO", async () => {
