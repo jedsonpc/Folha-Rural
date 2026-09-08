@@ -200,6 +200,10 @@ export default function Home() {
     };
   }, []);
   const selected = companies.find((x) => String(x.sourceId) === company),
+    offlineCompanyIds = useMemo(
+      () => companies.map((item) => item.sourceId),
+      [companies],
+    ),
     sidebarImage = selected ? companyBrandImage(selected.name) : null,
     title = useMemo(
       () => (active === "Visão geral" ? "Painel operacional" : active),
@@ -444,7 +448,7 @@ export default function Home() {
       <section
         className={`workspace ${active === "Visão geral" ? "operational-workspace" : ""}`}
       >
-        <AppInstallation companyIds={companies.map((item) => item.sourceId)} />
+        <AppInstallation companyIds={offlineCompanyIds} />
         <header>
           <button className="mobile-menu" onClick={() => setMenu(!menu)}>
             ☰

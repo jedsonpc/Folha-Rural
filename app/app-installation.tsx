@@ -90,6 +90,24 @@ export default function AppInstallation({ companyIds = [] }: { companyIds?: numb
     };
   }, []);
 
+  useEffect(() => {
+    const refreshDownloadedData = () => {
+      if (!localStorage.getItem("folha-rural-offline-download-v1")) return;
+      setOfflineStatus("Conexão restabelecida. Atualizando dados offline…");
+      downloadOfflineData(companyIds)
+        .then((result) =>
+          setOfflineStatus(
+            result.failed.length
+              ? `Cópia offline atualizada parcialmente (${result.downloaded} conjuntos).`
+              : "Cópia offline atualizada com os dados mais recentes.",
+          ),
+        )
+        .catch(() => setOfflineStatus("A atualização automática será tentada novamente."));
+    };
+    window.addEventListener("online", refreshDownloadedData);
+    return () => window.removeEventListener("online", refreshDownloadedData);
+  }, [companyIds]);
+
   async function install() {
     if (!installPrompt) return;
     await installPrompt.prompt();
