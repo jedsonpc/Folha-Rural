@@ -18,8 +18,21 @@ test("keeps the installable app metadata and update worker", async () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
   assert.match(serviceWorker, /SKIP_WAITING/);
-  assert.match(serviceWorker, /folha-rural-shell-v43-folha-rural-1\.4\.55/);
+  assert.match(serviceWorker, /folha-rural-shell-v44-folha-rural-1\.4\.56/);
+  assert.match(serviceWorker, /folha-rural-data-v1/);
+  assert.match(serviceWorker, /Dados não baixados para uso offline/);
   assert.match(serviceWorker, /skipWaiting/);
+});
+
+test("does not require legacy PIS or identity fields for worker review", async () => {
+  const review = await readFile(
+    new URL("../app/worker-review.ts", import.meta.url),
+    "utf8",
+  );
+  assert.doesNotMatch(review, /require\("pis"/);
+  assert.doesNotMatch(review, /require\("identityNumber"/);
+  assert.doesNotMatch(review, /require\("identityIssuer"/);
+  assert.match(review, /require\("cpf", "CPF"/);
 });
 
 test("sends Access history separately from registry data", async () => {

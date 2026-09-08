@@ -27,15 +27,23 @@ body {
     "Segoe UI",
     sans-serif;
 }
-.app-install-button,
-.app-update-card {
+.app-offline-tools {
   position: fixed;
   right: 22px;
   bottom: 22px;
   z-index: 100;
+  width: min(390px, calc(100vw - 32px));
+  display: grid;
+  gap: 9px;
+  pointer-events: none;
+}
+.app-install-button,
+.app-update-card,
+.offline-download-card {
   border: 0;
   border-radius: 14px;
   box-shadow: 0 10px 32px rgba(45, 48, 46, 0.2);
+  pointer-events: auto;
 }
 .app-install-button {
   display: flex;
@@ -51,7 +59,6 @@ body {
   font-size: 20px;
 }
 .app-update-card {
-  width: min(390px, calc(100vw - 32px));
   padding: 15px;
   background: var(--paper);
   border: 1px solid var(--line);
@@ -77,9 +84,26 @@ body {
   font-weight: 700;
   cursor: pointer;
 }
+.offline-download-card {
+  display: grid;
+  gap: 7px;
+  padding: 10px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+}
+.offline-download-card button {
+  border: 0;
+  border-radius: 10px;
+  padding: 11px 13px;
+  background: var(--graphite);
+  color: white;
+  font-weight: 750;
+  cursor: pointer;
+}
+.offline-download-card button:disabled { opacity: .65; cursor: wait; }
+.offline-download-card small { color: var(--muted); line-height: 1.35; }
 @media (max-width: 640px) {
-  .app-install-button,
-  .app-update-card {
+  .app-offline-tools {
     right: 16px;
     bottom: 16px;
   }

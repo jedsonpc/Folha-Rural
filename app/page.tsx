@@ -13,6 +13,8 @@ import "./version-badge.css";
 import ProductionDashboard from "./production-dashboard";
 import AuthScreen from "./auth-screen";
 import { companyBrandImage } from "./company-branding";
+import AppInstallation from "./app-installation";
+import { clearOfflineData } from "./offline-api";
 import packageInfo from "../package.json";
 
 const AccessImporter = lazy(() => import("./access-importer"));
@@ -98,7 +100,7 @@ const navGroups = [
     },
   ],
   SYSTEM_VERSION = packageInfo.version,
-  LAST_UPDATE = "01/09/2026";
+  LAST_UPDATE = "08/09/2026";
 type Company = {
   sourceId: number;
   name: string;
@@ -222,6 +224,7 @@ export default function Home() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "logout" }),
     }).catch(() => undefined);
+    await clearOfflineData().catch(() => undefined);
     setClosed(true);
     if (["127.0.0.1", "localhost"].includes(location.hostname)) {
       window.setTimeout(() => {
@@ -441,6 +444,7 @@ export default function Home() {
       <section
         className={`workspace ${active === "Visão geral" ? "operational-workspace" : ""}`}
       >
+        <AppInstallation companyIds={companies.map((item) => item.sourceId)} />
         <header>
           <button className="mobile-menu" onClick={() => setMenu(!menu)}>
             ☰

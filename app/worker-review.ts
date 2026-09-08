@@ -24,9 +24,6 @@ export function workerReviewIssues(worker: WorkerRecord): WorkerReviewIssue[] {
   require("maritalStatus", "estado civil", "person");
   require("raceColor", "raça/cor", "person");
 
-  require("pis", "PIS/PASEP", "documents");
-  require("identityNumber", "documento de identidade", "documents");
-  require("identityIssuer", "órgão emissor da identidade", "documents");
   require("ctpsNumber", "número da CTPS", "documents");
 
   require("postalCode", "CEP", "address");

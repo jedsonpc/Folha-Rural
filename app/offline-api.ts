@@ -4,6 +4,13 @@ const DB_NAME = "folha-rural-offline-v1";
 const CACHE_STORE = "api-cache";
 const OUTBOX_STORE = "outbox";
 
+const normalizeGetKey = (input: string) => {
+  const url = new URL(input, window.location.origin);
+  url.searchParams.delete("fresh");
+  url.searchParams.sort();
+  return `GET:${url.pathname}${url.search}`;
+};
+
 type OfflineRecord = {
   key: string;
   url: string;
@@ -63,7 +70,7 @@ function jsonResponse(value: unknown, init: ResponseInit = {}) {
 export async function cachedApiFetch(input: string, init?: RequestInit) {
   const method = String(init?.method || "GET").toUpperCase();
   if (method !== "GET") return fetch(input, init);
-  const key = `GET:${input}`;
+  const key = normalizeGetKey(input);
   try {
     const response = await fetch(input, init);
     if (response.ok) {
@@ -82,6 +89,62 @@ export async function cachedApiFetch(input: string, init?: RequestInit) {
     if (cached) return jsonResponse(cached.value, { headers: { "X-Offline-Cache": "true" } });
     throw error;
   }
+}
+
+export async function downloadOfflineData(companyIds: number[]) {
+  const month = new Date().toISOString().slice(0, 7);
+  const urls = new Set([
+    "/api/auth",
+    "/api/companies",
+    "/api/data",
+    "/api/services",
+    "/api/hr",
+    "/api/unions",
+    "/api/tax-tables",
+    "/api/inventory",
+  ]);
+  companyIds.forEach((company) => {
+    urls.add(`/api/data?company=${company}`);
+    urls.add(`/api/services?company=${company}`);
+    urls.add(`/api/inventory?company=${company}`);
+    urls.add(`/api/launches?company=${company}&month=${month}`);
+  });
+  let downloaded = 0;
+  const failed: string[] = [];
+  for (const url of urls) {
+    try {
+      const response = await cachedApiFetch(url, { cache: "no-store" });
+      if (!response.ok) throw new Error(String(response.status));
+      downloaded += 1;
+    } catch {
+      failed.push(url);
+    }
+  }
+  if (downloaded) {
+    localStorage.setItem(
+      "folha-rural-offline-download-v1",
+      JSON.stringify({ downloadedAt: new Date().toISOString(), downloaded }),
+    );
+  }
+  return { downloaded, failed, downloadedAt: new Date().toISOString() };
+}
+
+export async function clearOfflineData() {
+  const database = await openDatabase();
+  await Promise.all([
+    new Promise<void>((resolve, reject) => {
+      const transaction = database.transaction(CACHE_STORE, "readwrite");
+      const request = transaction.objectStore(CACHE_STORE).clear();
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    }),
+    "serviceWorker" in navigator
+      ? navigator.serviceWorker.ready.then((registration) =>
+          registration.active?.postMessage({ type: "CLEAR_OFFLINE_DATA" }),
+        )
+      : Promise.resolve(),
+  ]);
+  localStorage.removeItem("folha-rural-offline-download-v1");
 }
 
 export async function queueableLaunchFetch(

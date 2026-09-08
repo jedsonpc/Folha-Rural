@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
 $appDirectory = "D:\App Folha Rural"
-$url = "http://127.0.0.1:3000/?v=1.4.17"
+$url = "http://127.0.0.1:3000/?v=1.4.56"
 $logDirectory = Join-Path $appDirectory "logs"
 $stdoutLog = Join-Path $logDirectory "atalho-servidor.log"
 $stderrLog = Join-Path $logDirectory "atalho-servidor-erro.log"

@@ -1,18 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { flushOfflineApiQueue } from "./offline-api";
+import { downloadOfflineData, flushOfflineApiQueue } from "./offline-api";
 
 type InstallPromptEvent = Event & {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 };
 
-export default function AppInstallation() {
+export default function AppInstallation({ companyIds = [] }: { companyIds?: number[] }) {
   const [installPrompt, setInstallPrompt] =
     useState<InstallPromptEvent | null>(null);
   const [updateReady, setUpdateReady] = useState<ServiceWorker | null>(null);
   const [installed, setInstalled] = useState(false);
+  const [offlineStatus, setOfflineStatus] = useState("");
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     const standalone =
@@ -95,26 +97,57 @@ export default function AppInstallation() {
     if (result.outcome === "accepted") setInstallPrompt(null);
   }
 
+  async function downloadForOfflineUse() {
+    if (!navigator.onLine) {
+      setOfflineStatus("Conecte-se à internet para atualizar a cópia offline.");
+      return;
+    }
+    setDownloading(true);
+    setOfflineStatus("Baixando dados e módulos para uso offline…");
+    try {
+      await Promise.allSettled([
+        import("./data-module"),
+        import("./launches-module"),
+        import("./services-module"),
+        import("./reports-module"),
+        import("./inventory-module"),
+      ]);
+      const result = await downloadOfflineData(companyIds);
+      setOfflineStatus(
+        result.failed.length
+          ? `${result.downloaded} conjunto(s) atualizado(s); ${result.failed.length} não puderam ser baixados.`
+          : `Dados offline atualizados agora (${result.downloaded} conjuntos).`,
+      );
+    } catch {
+      setOfflineStatus("Não foi possível concluir o download offline.");
+    } finally {
+      setDownloading(false);
+    }
+  }
+
   function update() {
     updateReady?.postMessage({ type: "SKIP_WAITING" });
   }
 
-  if (updateReady)
-    return (
-      <aside className="app-update-card" role="status">
+  return (
+    <aside className="app-offline-tools" role="status">
+      {updateReady && <div className="app-update-card">
         <div>
           <b>Nova versão disponível</b>
           <span>A atualização preserva seus dados e acessos.</span>
         </div>
         <button onClick={update}>Atualizar agora</button>
-      </aside>
-    );
-
-  if (!installPrompt || installed) return null;
-  return (
-    <button className="app-install-button" onClick={install}>
-      <span aria-hidden="true">↓</span>
-      Instalar Folha Rural
-    </button>
+      </div>}
+      <div className="offline-download-card">
+        <button type="button" onClick={downloadForOfflineUse} disabled={downloading}>
+          <span aria-hidden="true">⇩</span>
+          {downloading ? "Atualizando dados offline…" : "Baixar dados para uso offline"}
+        </button>
+        {offlineStatus && <small>{offlineStatus}</small>}
+      </div>
+      {installPrompt && !installed && <button className="app-install-button" onClick={install}>
+        <span aria-hidden="true">↓</span> Instalar Folha Rural
+      </button>}
+    </aside>
   );
 }

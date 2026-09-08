@@ -1,4 +1,5 @@
-const CACHE_NAME = "folha-rural-shell-v43-folha-rural-1.4.55";
+const CACHE_NAME = "folha-rural-shell-v44-folha-rural-1.4.56";
+const DATA_CACHE_NAME = "folha-rural-data-v1";
 const APP_SHELL = [
   "/",
   "/manifest.webmanifest",
@@ -24,7 +25,7 @@ self.addEventListener("activate", (event) => {
       .then((keys) =>
         Promise.all(
           keys
-            .filter((key) => key !== CACHE_NAME)
+            .filter((key) => key !== CACHE_NAME && key !== DATA_CACHE_NAME)
             .map((key) => caches.delete(key)),
         ),
       )
@@ -34,13 +35,37 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("message", (event) => {
   if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
+  if (event.data?.type === "CLEAR_OFFLINE_DATA")
+    event.waitUntil(caches.delete(DATA_CACHE_NAME));
 });
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   const url = new URL(event.request.url);
-  if (url.origin !== self.location.origin || url.pathname.startsWith("/api/"))
+  if (url.origin !== self.location.origin) return;
+
+  if (url.pathname.startsWith("/api/")) {
+    const allowed = ["/api/auth", "/api/companies", "/api/data", "/api/services", "/api/hr", "/api/unions", "/api/tax-tables", "/api/inventory", "/api/launches"];
+    if (!allowed.some((path) => url.pathname === path)) return;
+    url.searchParams.delete("fresh");
+    url.searchParams.sort();
+    const cacheRequest = new Request(url.toString(), { method: "GET" });
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response.ok) caches.open(DATA_CACHE_NAME).then((cache) => cache.put(cacheRequest, response.clone()));
+          return response;
+        })
+        .catch(async () => {
+          const cached = await caches.match(cacheRequest);
+          return cached || new Response(JSON.stringify({ error: "Dados não baixados para uso offline." }), {
+            status: 503,
+            headers: { "Content-Type": "application/json", "X-Offline-Cache": "miss" },
+          });
+        }),
+    );
     return;
+  }
 
   event.respondWith(
     fetch(event.request)
