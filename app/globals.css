@@ -1240,6 +1240,51 @@ header .primary {
   background: var(--line);
   margin: 0 10px;
 }
+.import-filters {
+  margin-top: 40px;
+}
+.import-filters h3 {
+  margin: 0 0 12px;
+  font-family: Georgia, serif;
+}
+.import-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.import-filter-grid > label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fffdfa;
+  padding: 14px;
+  cursor: pointer;
+}
+.import-filter-grid > label.selected {
+  border-color: var(--terra);
+  background: #fff5ef;
+  box-shadow: 0 0 0 2px #f4ded5;
+}
+.import-filter-grid span {
+  display: grid;
+  flex: 1;
+  gap: 4px;
+}
+.import-filter-grid small {
+  color: var(--muted);
+  line-height: 1.4;
+}
+.import-filter-grid input[type="month"],
+.import-filter-grid input[type="number"] {
+  width: min(220px, 100%);
+  margin-top: 6px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 9px 10px;
+  background: white;
+}
 .dropzone {
   display: grid;
   place-items: center;
@@ -1428,6 +1473,9 @@ header .primary {
   }
 }
 @media (max-width: 760px) {
+  .import-filter-grid {
+    grid-template-columns: 1fr;
+  }
   .import-counts {
     grid-template-columns: 1fr 1fr;
   }

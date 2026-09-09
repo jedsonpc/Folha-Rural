@@ -18,7 +18,7 @@ test("keeps the installable app metadata and update worker", async () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
   assert.match(serviceWorker, /SKIP_WAITING/);
-  assert.match(serviceWorker, /folha-rural-shell-v46-folha-rural-1\.4\.58/);
+  assert.match(serviceWorker, /folha-rural-shell-v47-folha-rural-1\.4\.59/);
   assert.match(serviceWorker, /folha-rural-data-v1/);
   assert.match(serviceWorker, /Dados não baixados para uso offline/);
   assert.match(serviceWorker, /skipWaiting/);
@@ -43,6 +43,20 @@ test("sends Access history separately from registry data", async () => {
   assert.match(importer, /historyEntries: entries = \[\], \.\.\.registryData/);
   assert.match(importer, /body: JSON\.stringify\(registryData\)/);
   assert.doesNotMatch(importer, /body: JSON\.stringify\(data\)/);
+});
+
+test("filters Access imports before building the review report", async () => {
+  const importer = await readFile(new URL("../app/access-importer.tsx", import.meta.url), "utf8");
+  const parser = await readFile(new URL("../app/access-browser-parser.ts", import.meta.url), "utf8");
+  assert.match(importer, /Novos colaboradores/);
+  assert.match(importer, /Todos os lançamentos inéditos/);
+  assert.match(importer, /Competência específica/);
+  assert.match(importer, /Ano específico/);
+  assert.match(importer, /registros validados/);
+  assert.match(importer, /importados/);
+  assert.match(parser, /filter\.scope==="launches-month"/);
+  assert.match(parser, /filter\.scope==="launches-year"/);
+  assert.match(parser, /sequences\.has\(n\(r\.Sequencia\)\)/);
 });
 
 test("keeps the edited service nature when saving", async () => {
