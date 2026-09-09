@@ -70,6 +70,8 @@ const iso = () => new Date().toISOString().slice(0, 10),
     const value = Math.abs(Number(match[0]));
     return normalized.includes("%") || value > 1 ? value / 100 : value;
   },
+  dsrAmount = (dailyRateCents: number, weeklyTotalCents: number) =>
+    dailyRateCents > 0 ? dailyRateCents : Math.round(weeklyTotalCents / 6),
   isDailyAdditional = (service?: Service) => Boolean(service && /INSALUBR|PERICULOS|GRATIFICA/i.test(service.description));
 export default function LaunchesModule({ company, isAdmin }: { company: string; isAdmin: boolean }) {
   const [date, setDate] = useState(iso()),
@@ -116,7 +118,7 @@ export default function LaunchesModule({ company, isAdmin }: { company: string; 
     const current=await response.json() as Data,dsrIds=new Set(current.services.filter(item=>/\bDSR\b|DESCANSO.*REMUNERADO|REPOUSO.*REMUNERADO|DESCANSO SEMANAL|REPOUSO SEMANAL/i.test(`${item.description} ${item.formulaCode||""}`)).map(item=>String(item.id))),key=weekKey(changedDate);if(dsrServiceId)dsrIds.add(dsrServiceId);
     const applied=current.entries.filter(entry=>weekKey(entry.entryDate)===key&&dsrIds.has(String(entry.serviceId))&&(new Date(`${entry.entryDate}T12:00:00`).getDay()===0||current.holidays.some(item=>item.holidayDate===entry.entryDate)));
     const grouped=new Map<string,Array<Record<string,unknown>>>();
-    for(const dsrEntry of applied){const worker=current.contracts.find(c=>c.id===dsrEntry.contractId);if(!worker)continue;const production=current.entries.filter(entry=>entry.contractId===dsrEntry.contractId&&weekKey(entry.entryDate)===key&&entry.entryDate!==dsrEntry.entryDate&&!dsrIds.has(String(entry.serviceId))&&current.services.find(item=>item.id===entry.serviceId)?.affectsDsr),total=production.reduce((sum,entry)=>sum+entry.amountCents,0),daily=worker.dailyRateCents||Math.round((worker.baseSalaryCents||0)/30),start=new Date(`${key}T12:00:00`),expected=[] as string[];for(let i=0;i<6;i++){const day=new Date(start);day.setDate(start.getDate()+i);const dayIso=day.toISOString().slice(0,10);if((!worker.admissionDate||dayIso>=worker.admissionDate)&&!current.holidays.some(h=>h.holidayDate===dayIso))expected.push(dayIso)}const unjustified=production.some(e=>/FALTA.*INJUST|INJUST.*FALTA/i.test(`${current.services.find(s=>s.id===e.serviceId)?.description||""} ${e.notes||""}`)),lowDay=daily>0&&expected.some(day=>production.filter(e=>e.entryDate===day).reduce((sum,e)=>sum+e.amountCents,0)<daily),value=!unjustified&&!lowDay&&total>0?Math.round(total/6):0;if(value<=0)continue;const rows=grouped.get(dsrEntry.entryDate)||[];rows.push({contractId:dsrEntry.contractId,serviceId:dsrEntry.serviceId,quantity:"1",unitPrice:(value/100).toFixed(2)});grouped.set(dsrEntry.entryDate,rows)}
+    for(const dsrEntry of applied){const worker=current.contracts.find(c=>c.id===dsrEntry.contractId);if(!worker)continue;const production=current.entries.filter(entry=>entry.contractId===dsrEntry.contractId&&weekKey(entry.entryDate)===key&&entry.entryDate!==dsrEntry.entryDate&&!dsrIds.has(String(entry.serviceId))&&current.services.find(item=>item.id===entry.serviceId)?.affectsDsr),total=production.reduce((sum,entry)=>sum+entry.amountCents,0),daily=worker.dailyRateCents||Math.round((worker.baseSalaryCents||0)/30),start=new Date(`${key}T12:00:00`),expected=[] as string[];for(let i=0;i<6;i++){const day=new Date(start);day.setDate(start.getDate()+i);const dayIso=day.toISOString().slice(0,10);if((!worker.admissionDate||dayIso>=worker.admissionDate)&&!current.holidays.some(h=>h.holidayDate===dayIso))expected.push(dayIso)}const unjustified=production.some(e=>/FALTA.*INJUST|INJUST.*FALTA/i.test(`${current.services.find(s=>s.id===e.serviceId)?.description||""} ${e.notes||""}`)),lowDay=daily>0&&expected.some(day=>production.filter(e=>e.entryDate===day).reduce((sum,e)=>sum+e.amountCents,0)<daily),value=!unjustified&&!lowDay&&total>0?dsrAmount(daily,total):0;if(value<=0)continue;const rows=grouped.get(dsrEntry.entryDate)||[];rows.push({contractId:dsrEntry.contractId,serviceId:dsrEntry.serviceId,quantity:"1",unitPrice:(value/100).toFixed(2)});grouped.set(dsrEntry.entryDate,rows)}
     let updated=0;for(const [entryDate,rows] of grouped){const saved=await queueableLaunchFetch("/api/launches",{action:"saveBatch",automaticDsr:true,companySourceId:Number(company),entryDate,rows});if(saved.ok)updated+=rows.length}return updated;
   };
   const post = async (body: object) => {
@@ -191,6 +193,7 @@ export default function LaunchesModule({ company, isAdmin }: { company: string; 
         dsr: number;
         rests: number;
         worked: Set<string>;
+        dailyRateCents: number;
         weeks: Map<string, { total: number; days: Set<string> }>;
       }
     >();
@@ -207,6 +210,7 @@ export default function LaunchesModule({ company, isAdmin }: { company: string; 
           dsr: 0,
           rests: 0,
           worked: new Set(),
+          dailyRateCents: c.dailyRateCents || Math.round((c.baseSalaryCents || 0) / 30),
           weeks: new Map(),
         };
         by.set(e.contractId, row);
@@ -235,7 +239,7 @@ export default function LaunchesModule({ company, isAdmin }: { company: string; 
             rests++;
         }
         row.rests += rests;
-        if (w.days.size) row.dsr += Math.round((w.total / w.days.size) * rests);
+        if (w.days.size) row.dsr += dsrAmount(row.dailyRateCents, w.total) * rests;
       }
     return [...by.values()].sort((a, b) => a.name.localeCompare(b.name));
   }, [data, month]);
@@ -257,7 +261,7 @@ export default function LaunchesModule({ company, isAdmin }: { company: string; 
       const unjustified=weekly.some(e=>/FALTA.*INJUST|INJUST.*FALTA/i.test(`${data.services.find(s=>s.id===e.serviceId)?.description||""} ${e.notes||""}`));
       const lowDay=daily>0&&expected.some(day=>remuneration.filter(e=>e.entryDate===day).reduce((sum,e)=>sum+e.amountCents,0)<daily);
       const admissionWeek=Boolean(admission&&weekKey(admission)===key),eligible=!unjustified&&!lowDay&&total>0;
-      const calculated=eligible?Math.round((total+daily*weekHolidays.length)/6):0;
+      const calculated=eligible?dsrAmount(daily,total):0;
       if(total||admissionWeek)rows.push({contractId:worker.id,name:worker.name,total,days,calculated,eligible,reason:unjustified?"Falta injustificada":lowDay?"Dia sem lançamento ou abaixo da diária":"Apto",expectedDays:expected.length});
     }
     return rows.sort((a,b)=>a.name.localeCompare(b.name));
