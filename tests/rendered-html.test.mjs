@@ -18,7 +18,7 @@ test("keeps the installable app metadata and update worker", async () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
   assert.match(serviceWorker, /SKIP_WAITING/);
-  assert.match(serviceWorker, /folha-rural-shell-v45-folha-rural-1\.4\.57/);
+  assert.match(serviceWorker, /folha-rural-shell-v46-folha-rural-1\.4\.58/);
   assert.match(serviceWorker, /folha-rural-data-v1/);
   assert.match(serviceWorker, /Dados não baixados para uso offline/);
   assert.match(serviceWorker, /skipWaiting/);
@@ -251,6 +251,15 @@ test("uses package version in the system version card", async () => {
   assert.match(page, /import packageInfo from "\.\.\/package\.json"/);
   assert.match(page, /SYSTEM_VERSION = packageInfo\.version/);
   assert.doesNotMatch(page, /SYSTEM_VERSION = "1\.4\.17"/);
+});
+
+test("deletes a launch period in small Supabase batches", async () => {
+  const cloud = await readFile(new URL("../app/api/launches/cloud.ts", import.meta.url), "utf8");
+  assert.match(cloud, /const batchSize = 5/);
+  assert.match(cloud, /offset < rows\.length; offset \+= batchSize/);
+  assert.match(cloud, /rows\.slice\(offset, offset \+ batchSize\)/);
+  assert.match(cloud, /cloned_from_id=in\.\(\$\{idFilter\}\)/);
+  assert.match(cloud, /affected: rows\.length/);
 });
 
 test("clones day entries by merging with the selected destination", async () => {

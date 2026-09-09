@@ -156,13 +156,24 @@ export async function cloudLaunchesPost(request: Request) {
       const dateFilter = deleteAll
         ? `entry_date=gte.${month}-01&entry_date=lt.${nextMonth(month)}`
         : `entry_date=in.(${validDays.join(",")})`;
-      const rows = await supabaseAdmin.get<Array<{ id: string }>>(`/rest/v1/daily_entries?select=id&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&${dateFilter}`),
-        ids = rows.map((row) => row.id);
-      if (ids.length) {
-        await supabaseAdmin.patch(`/rest/v1/daily_entries?organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&cloned_from_id=in.(${ids.join(",")})`, { cloned_from_id: null });
-        await supabaseAdmin.delete(`/rest/v1/daily_entries?organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&id=in.(${ids.join(",")})`);
+      const rows = await supabaseAdmin.get<Array<{ id: string }>>(
+        `/rest/v1/daily_entries?select=id&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&${dateFilter}`,
+      );
+      // Keep each statement small: PostgreSQL checks the self-referencing clone
+      // foreign key for every deleted row, and a month-sized statement can time out.
+      const batchSize = 5;
+      for (let offset = 0; offset < rows.length; offset += batchSize) {
+        const ids = rows.slice(offset, offset + batchSize).map((row) => row.id);
+        const idFilter = ids.join(",");
+        await supabaseAdmin.patch(
+          `/rest/v1/daily_entries?organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&cloned_from_id=in.(${idFilter})`,
+          { cloned_from_id: null },
+        );
+        await supabaseAdmin.delete(
+          `/rest/v1/daily_entries?organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&id=in.(${idFilter})`,
+        );
       }
-      return Response.json({ ok: true, affected: ids.length, message: `${ids.length} apontamento(s) excluído(s) do período.` });
+      return Response.json({ ok: true, affected: rows.length, message: `${rows.length} apontamento(s) excluído(s) do período.` });
     }
     if(body.action==="clone"){
       const source=String(body.sourceDate||""),target=String(body.targetDate||"");
