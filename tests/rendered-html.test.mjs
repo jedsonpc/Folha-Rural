@@ -18,7 +18,7 @@ test("keeps the installable app metadata and update worker", async () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
   assert.match(serviceWorker, /SKIP_WAITING/);
-  assert.match(serviceWorker, /folha-rural-shell-v50-folha-rural-1\.4\.62/);
+  assert.match(serviceWorker, /folha-rural-shell-v51-folha-rural-1\.4\.63/);
   assert.match(serviceWorker, /folha-rural-data-v1/);
   assert.match(serviceWorker, /Dados não baixados para uso offline/);
   assert.match(serviceWorker, /skipWaiting/);
@@ -72,6 +72,18 @@ test("includes imported Access entries and calculates DSR from weekly remunerati
   assert.match(launches, /value=!unjustified&&!lowDay&&total>0\?dsrAmount\(total\):0/);
   assert.match(launches, /row\.dsr \+= dsrAmount\(w\.total\) \* rests/);
   assert.match(launches, /calculated=eligible\?dsrAmount\(total\):0/);
+});
+
+test("loads complete DSR weeks across month boundaries", async () => {
+  const localApi = await readFile(new URL("../app/api/launches/route.ts", import.meta.url), "utf8");
+  const cloudApi = await readFile(new URL("../app/api/launches/cloud.ts", import.meta.url), "utf8");
+  const launches = await readFile(new URL("../app/launches-module.tsx", import.meta.url), "utf8");
+  for (const api of [localApi, cloudApi]) {
+    assert.match(api, /const weeklyRange =/);
+    assert.match(api, /range = reportOnly \? \{ start, end \} : weeklyRange\(start, end\)/);
+  }
+  assert.match(cloudApi, /entry_date=gte\.\$\{range\.start\}&entry_date=lt\.\$\{range\.end\}/);
+  assert.match(launches, /if \(e\.entryDate\.startsWith\(month\)\)/);
 });
 
 test("keeps the edited service nature when saving", async () => {

@@ -33,6 +33,13 @@ const monthEnd = (m: string) => {
   const [y, n] = m.split("-").map(Number);
   return `${n === 12 ? y + 1 : y}-${String(n === 12 ? 1 : n + 1).padStart(2, "0")}-01`;
 };
+const weeklyRange = (start: string, end: string) => {
+  const first = new Date(`${start}T12:00:00`);
+  first.setDate(first.getDate() - ((first.getDay() + 6) % 7));
+  const last = new Date(`${end}T12:00:00`);
+  last.setDate(last.getDate() + ((8 - last.getDay()) % 7));
+  return { start: first.toISOString().slice(0, 10), end: last.toISOString().slice(0, 10) };
+};
 export async function GET(request: Request) {
   const access = await authorizeCloud(request, "Apontamentos");
   if (access.response) return access.response;
@@ -45,6 +52,7 @@ export async function GET(request: Request) {
       company = Number(url.searchParams.get("company")),
       month =
         url.searchParams.get("month") || new Date().toISOString().slice(0, 7);
+    const reportOnly = url.searchParams.get("report") === "1";
     const companyAccess = await authorizeCloud(
       request,
       "Apontamentos",
@@ -57,7 +65,8 @@ export async function GET(request: Request) {
         { status: 400 },
       );
     const start = `${month}-01`,
-      end = monthEnd(month);
+      end = monthEnd(month),
+      range = reportOnly ? { start, end } : weeklyRange(start, end);
     const contracts = await db
       .select({
         id: employmentContracts.id,
@@ -107,8 +116,8 @@ export async function GET(request: Request) {
         and(
           eq(dailyEntries.tenantId, tenantId),
           eq(dailyEntries.companySourceId, company),
-          gte(dailyEntries.entryDate, start),
-          lt(dailyEntries.entryDate, end),
+          gte(dailyEntries.entryDate, range.start),
+          lt(dailyEntries.entryDate, range.end),
         ),
       )
       .orderBy(asc(dailyEntries.entryDate));
@@ -119,8 +128,8 @@ export async function GET(request: Request) {
         and(
           eq(holidays.tenantId, tenantId),
           eq(holidays.companySourceId, company),
-          gte(holidays.holidayDate, start),
-          lt(holidays.holidayDate, end),
+          gte(holidays.holidayDate, range.start),
+          lt(holidays.holidayDate, range.end),
         ),
       )
       .orderBy(asc(holidays.holidayDate));

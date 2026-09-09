@@ -212,8 +212,10 @@ export default function LaunchesModule({ company, isAdmin }: { company: string; 
         };
         by.set(e.contractId, row);
       }
-      row.production += e.amountCents;
-      row.worked.add(e.entryDate);
+      if (e.entryDate.startsWith(month)) {
+        row.production += e.amountCents;
+        row.worked.add(e.entryDate);
+      }
       const key = weekKey(e.entryDate),
         w = row.weeks.get(key) || { total: 0, days: new Set<string>() };
       w.total += e.amountCents;

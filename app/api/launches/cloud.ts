@@ -9,6 +9,13 @@ const nextMonth = (month: string) => {
   const [year, value] = month.split("-").map(Number);
   return `${value === 12 ? year + 1 : year}-${String(value === 12 ? 1 : value + 1).padStart(2, "0")}-01`;
 };
+const weeklyRange = (start: string, end: string) => {
+  const first = new Date(`${start}T12:00:00`);
+  first.setDate(first.getDate() - ((first.getDay() + 6) % 7));
+  const last = new Date(`${end}T12:00:00`);
+  last.setDate(last.getDate() + ((8 - last.getDay()) % 7));
+  return { start: first.toISOString().slice(0, 10), end: last.toISOString().slice(0, 10) };
+};
 
 export async function cloudLaunchesGet(request: Request) {
   const config = getSupabaseConfig()!;
@@ -37,6 +44,7 @@ export async function cloudLaunchesGet(request: Request) {
       );
     const start = `${month}-01`;
     const end = nextMonth(month);
+    const range = reportOnly ? { start, end } : weeklyRange(start, end);
     const [contracts, profiles, salaryHistory, services, entries, holidays] = await Promise.all([
       supabaseAdmin.get<Row[]>(
         `/rest/v1/employment_contracts?select=*,people(full_name,cpf,pis,birth_date,identity_number)&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&order=created_at.asc`,
@@ -51,10 +59,10 @@ export async function cloudLaunchesGet(request: Request) {
         `/rest/v1/services?select=*&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&order=description.asc`,
       ),
       supabaseAdmin.get<Row[]>(
-        `/rest/v1/daily_entries?select=*&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&entry_date=gte.${start}&entry_date=lt.${end}&order=entry_date.asc`,
+        `/rest/v1/daily_entries?select=*&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&entry_date=gte.${range.start}&entry_date=lt.${range.end}&order=entry_date.asc`,
       ),
       reportOnly ? Promise.resolve([]) : supabaseAdmin.get<Row[]>(
-        `/rest/v1/holidays?select=*&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&holiday_date=gte.${start}&holiday_date=lt.${end}&order=holiday_date.asc`,
+        `/rest/v1/holidays?select=*&organization_id=eq.${config.organizationId}&company_id=eq.${companyId}&holiday_date=gte.${range.start}&holiday_date=lt.${range.end}&order=holiday_date.asc`,
       ),
     ]);
     return Response.json({
