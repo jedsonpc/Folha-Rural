@@ -18,7 +18,7 @@ test("keeps the installable app metadata and update worker", async () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
   assert.match(serviceWorker, /SKIP_WAITING/);
-  assert.match(serviceWorker, /folha-rural-shell-v47-folha-rural-1\.4\.59/);
+  assert.match(serviceWorker, /folha-rural-shell-v48-folha-rural-1\.4\.60/);
   assert.match(serviceWorker, /folha-rural-data-v1/);
   assert.match(serviceWorker, /Dados não baixados para uso offline/);
   assert.match(serviceWorker, /skipWaiting/);
@@ -52,11 +52,23 @@ test("filters Access imports before building the review report", async () => {
   assert.match(importer, /Todos os lançamentos inéditos/);
   assert.match(importer, /Competência específica/);
   assert.match(importer, /Ano específico/);
+  assert.match(importer, /Custos e estoque/);
+  assert.match(importer, /Culturas/);
   assert.match(importer, /registros validados/);
   assert.match(importer, /importados/);
   assert.match(parser, /filter\.scope==="launches-month"/);
   assert.match(parser, /filter\.scope==="launches-year"/);
   assert.match(parser, /sequences\.has\(n\(r\.Sequencia\)\)/);
+  assert.match(parser, /TB_Grupo_Insumos/);
+  assert.match(parser, /TB_Atividades/);
+});
+
+test("includes imported Access entries in DSR calculations", async () => {
+  const launches = await readFile(new URL("../app/launches-module.tsx", import.meta.url), "utf8");
+  assert.doesNotMatch(launches, /sourceSequence\s*!=\s*null\)\s*continue/);
+  assert.doesNotMatch(launches, /entry\.sourceSequence==null/);
+  assert.match(launches, /eligible=!unjustified&&!lowDay&&total>0/);
+  assert.match(launches, /Math\.round\(\(total\+daily\*weekHolidays\.length\)\/6\)/);
 });
 
 test("keeps the edited service nature when saving", async () => {

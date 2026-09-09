@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 type Row = Record<string, unknown>;
-type ImportScope = "registrations" | "launches-all" | "launches-month" | "launches-year";
+type ImportScope = "registrations" | "launches-all" | "launches-month" | "launches-year" | "inventory-costs" | "crops";
 type ImportData = {
   fileName: string;
   companies: Row[];
@@ -13,6 +13,7 @@ type ImportData = {
     products: Row[];
     purchases: Row[];
     purchaseItems: Row[];
+    crops?: Row[];
   };
   dependents: Row[];
   peopleCount: number;
@@ -83,7 +84,7 @@ export default function AccessImporter() {
           headers: { "content-type": "application/json" },
           body: JSON.stringify(registryData),
         }),
-        result = await responseJson<{ error?: string; companyCodeRemap?: Record<string,string|number>; imported?: {contracts?:number}; skippedExistingContracts?:number }>(response);
+        result = await responseJson<{ error?: string; companyCodeRemap?: Record<string,string|number>; imported?: {contracts?:number}; skippedExistingContracts?:number; inventoryStats?: {validated:number;imported:number;notIncluded:number} }>(response);
       if (!response.ok) throw new Error(result.error || "Falha na gravação");
       const remap=result.companyCodeRemap||{};
       let imported=0, received=0;
@@ -97,8 +98,11 @@ export default function AccessImporter() {
       }
       const registrationValidated=data.contracts.length;
       const registrationImported=Number(result.imported?.contracts||0);
+      const inventorySummary=result.inventoryStats;
       setHistory(scope==="registrations"
         ? {validated:registrationValidated,imported:registrationImported,notIncluded:Math.max(0,registrationValidated-registrationImported),launchDays:0}
+        : scope==="inventory-costs"||scope==="crops"
+          ? {validated:Number(inventorySummary?.validated||0),imported:Number(inventorySummary?.imported||0),notIncluded:Number(inventorySummary?.notIncluded||0),launchDays:0}
         : {validated:received,imported,notIncluded:Math.max(0,received-imported),launchDays:data.launchesCount});
       setStage("done");
     } catch (e) {
@@ -151,6 +155,8 @@ export default function AccessImporter() {
           <div className="import-filter-grid">
             <label className={scope === "registrations" ? "selected" : ""}><input type="radio" name="importScope" checked={scope === "registrations"} onChange={()=>setScope("registrations")}/><span><b>Novos colaboradores</b><small>Revisa cadastros e importa somente contratos ainda não existentes.</small></span></label>
             <label className={scope === "launches-all" ? "selected" : ""}><input type="radio" name="importScope" checked={scope === "launches-all"} onChange={()=>setScope("launches-all")}/><span><b>Todos os lançamentos inéditos</b><small>Analisa o histórico completo e ignora apontamentos existentes.</small></span></label>
+            <label className={scope === "inventory-costs" ? "selected" : ""}><input type="radio" name="importScope" checked={scope === "inventory-costs"} onChange={()=>setScope("inventory-costs")}/><span><b>Custos e estoque</b><small>Revisa grupos, fornecedores, produtos e entradas ainda não existentes.</small></span></label>
+            <label className={scope === "crops" ? "selected" : ""}><input type="radio" name="importScope" checked={scope === "crops"} onChange={()=>setScope("crops")}/><span><b>Culturas</b><small>Revisa e importa culturas agrícolas ainda não cadastradas.</small></span></label>
             <label className={scope === "launches-month" ? "selected" : ""}>
               <input type="radio" name="importScope" checked={scope === "launches-month"} onChange={() => setScope("launches-month")} />
               <span>
@@ -227,10 +233,10 @@ export default function AccessImporter() {
               </article>
               </> : null}
               <article className="queued">
-                <small>{scope === "registrations" ? "VALIDADOS" : "LANÇAMENTOS VALIDADOS"}</small>
-                <strong>{(scope === "registrations" ? data.contracts.length : data.detailsCount).toLocaleString("pt-BR")}</strong>
+                <small>{scope === "registrations" ? "VALIDADOS" : scope === "inventory-costs" ? "DADOS DE CUSTO VALIDADOS" : scope === "crops" ? "CULTURAS VALIDADAS" : "LANÇAMENTOS VALIDADOS"}</small>
+                <strong>{(scope === "registrations" ? data.contracts.length : scope === "inventory-costs" ? (data.inventory?.categories.length||0)+(data.inventory?.suppliers.length||0)+(data.inventory?.products.length||0)+(data.inventory?.purchaseItems.length||0) : scope === "crops" ? data.inventory?.crops?.length||0 : data.detailsCount).toLocaleString("pt-BR")}</strong>
                 <p>
-                  {scope === "registrations" ? "cadastros prontos para comparação" : `${data.launchesCount.toLocaleString("pt-BR")} dias dentro do filtro`}
+                  {scope === "registrations" ? "cadastros prontos para comparação" : scope === "inventory-costs" ? "grupos, fornecedores, produtos e entradas" : scope === "crops" ? "culturas prontas para comparação" : `${data.launchesCount.toLocaleString("pt-BR")} dias dentro do filtro`}
                 </p>
               </article>
             </div>
@@ -240,7 +246,7 @@ export default function AccessImporter() {
                   <b>Filtro aplicado antes do relatório:</b> somente os dados do escopo escolhido foram validados. Na gravação, registros existentes são ignorados.
                 </p>
                 <button className="primary" onClick={confirmImport}>
-                  {scope === "registrations" ? "Importar novos colaboradores" : "Importar lançamentos inéditos"}
+                  {scope === "registrations" ? "Importar novos colaboradores" : scope === "inventory-costs" ? "Importar custos e estoque" : scope === "crops" ? "Importar culturas" : "Importar lançamentos inéditos"}
                 </button>
               </div>
             )}
