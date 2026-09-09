@@ -18,7 +18,7 @@ test("keeps the installable app metadata and update worker", async () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
   assert.match(serviceWorker, /SKIP_WAITING/);
-  assert.match(serviceWorker, /folha-rural-shell-v49-folha-rural-1\.4\.61/);
+  assert.match(serviceWorker, /folha-rural-shell-v50-folha-rural-1\.4\.62/);
   assert.match(serviceWorker, /folha-rural-data-v1/);
   assert.match(serviceWorker, /Dados não baixados para uso offline/);
   assert.match(serviceWorker, /skipWaiting/);
@@ -63,15 +63,15 @@ test("filters Access imports before building the review report", async () => {
   assert.match(parser, /TB_Atividades/);
 });
 
-test("includes imported Access entries and uses the contractual daily rate for DSR", async () => {
+test("includes imported Access entries and calculates DSR from weekly remuneration", async () => {
   const launches = await readFile(new URL("../app/launches-module.tsx", import.meta.url), "utf8");
   assert.doesNotMatch(launches, /sourceSequence\s*!=\s*null\)\s*continue/);
   assert.doesNotMatch(launches, /entry\.sourceSequence==null/);
   assert.match(launches, /eligible=!unjustified&&!lowDay&&total>0/);
-  assert.match(launches, /dailyRateCents > 0 \? dailyRateCents : Math\.round\(weeklyTotalCents \/ 6\)/);
-  assert.match(launches, /value=!unjustified&&!lowDay&&total>0\?dsrAmount\(daily,total\):0/);
-  assert.match(launches, /row\.dsr \+= dsrAmount\(row\.dailyRateCents, w\.total\) \* rests/);
-  assert.match(launches, /calculated=eligible\?dsrAmount\(daily,total\):0/);
+  assert.match(launches, /dsrAmount = \(weeklyTotalCents: number\) => Math\.round\(weeklyTotalCents \/ 6\)/);
+  assert.match(launches, /value=!unjustified&&!lowDay&&total>0\?dsrAmount\(total\):0/);
+  assert.match(launches, /row\.dsr \+= dsrAmount\(w\.total\) \* rests/);
+  assert.match(launches, /calculated=eligible\?dsrAmount\(total\):0/);
 });
 
 test("keeps the edited service nature when saving", async () => {
