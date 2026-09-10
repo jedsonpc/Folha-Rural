@@ -18,7 +18,7 @@ test("keeps the installable app metadata and update worker", async () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
   assert.match(serviceWorker, /SKIP_WAITING/);
-  assert.match(serviceWorker, /folha-rural-shell-v53-folha-rural-1\.4\.65/);
+  assert.match(serviceWorker, /folha-rural-shell-v54-folha-rural-1\.4\.66/);
   assert.match(serviceWorker, /folha-rural-data-v1/);
   assert.match(serviceWorker, /Dados não baixados para uso offline/);
   assert.match(serviceWorker, /skipWaiting/);
@@ -245,6 +245,9 @@ test("edits clones and deletes existing daily and monthly entries", async () => 
   assert.match(module, /Clonar/);
   assert.match(module, /Excluir/);
   assert.match(module, /entryMode/);
+  assert.match(module, /onClick=\{\(\)=>focusGridRow\(key,c\.name\)\}/);
+  assert.match(module, /Editando apontamento de \$\{name\}/);
+  assert.match(module, /document\.getElementById\(`service-\$\{key\}`\)\?\.focus/);
   assert.match(localApi, /action==="updateEntry"/);
   assert.match(cloudApi, /body\.action==="updateEntry"/);
   assert.match(localApi, /clonedFromId: null/);
