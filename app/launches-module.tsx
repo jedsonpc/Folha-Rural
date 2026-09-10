@@ -85,7 +85,8 @@ export default function LaunchesModule({ company, isAdmin }: { company: string; 
     [showHoliday, setShowHoliday] = useState(false),
     [deleteDays, setDeleteDays] = useState<string[]>([]),
     [expandedDsrId, setExpandedDsrId] = useState<number | null>(null),
-    [editingRowKey, setEditingRowKey] = useState<string | null>(null);
+    [editingRowKey, setEditingRowKey] = useState<string | null>(null),
+    [gridDirty, setGridDirty] = useState(false);
   const [entryMode, setEntryMode] = useState<"production" | "monthly">(
       "production",
     ),
@@ -156,8 +157,9 @@ export default function LaunchesModule({ company, isAdmin }: { company: string; 
     const modeEntries=data.entries.filter(entry=>entry.entryDate===date&&data.contracts.find(item=>item.id===entry.contractId)?.paymentType===entryMode);
     const rows:Record<string,GridRow>={};
     const slots=new Map<number,number>();
-    for(const entry of modeEntries){const slot=slots.get(entry.contractId)||0;if(entryMode==="production"&&slot>0)continue;if(entryMode==="monthly"&&slot>2)continue;rows[rowKey(entry.contractId,slot)]={id:entry.id,serviceId:String(entry.serviceId),quantity:String(entry.quantity),unitPrice:(entry.unitPriceCents/100).toFixed(2)};slots.set(entry.contractId,slot+1)}
+    for(const entry of modeEntries){const slot=slots.get(entry.contractId)||0;if(entryMode==="monthly"&&slot>2)continue;rows[rowKey(entry.contractId,slot)]={id:entry.id,serviceId:String(entry.serviceId),quantity:String(entry.quantity),unitPrice:(entry.unitPriceCents/100).toFixed(2)};slots.set(entry.contractId,slot+1)}
     setGridRows(rows);
+    setGridDirty(false);
   },[data,date,entryMode]);
   const days = useMemo(() => {
     if (!data) return [];
@@ -312,8 +314,8 @@ export default function LaunchesModule({ company, isAdmin }: { company: string; 
         (a.registrationNumber || 999999) - (b.registrationNumber || 999999),
     );
   const modeDayEntries=dayEntries.filter(entry=>contract(entry.contractId)?.paymentType===entryMode);
+  const updateGridRow=(key:string,row:GridRow)=>{setGridRows(current=>({...current,[key]:row}));setGridDirty(true)};
   const focusGridRow=(key:string,name:string)=>{setEditingRowKey(key);setNotice(`Editando apontamento de ${name}. Altere os campos e clique em Salvar planilha do dia.`);requestAnimationFrame(()=>document.getElementById(`service-${key}`)?.scrollIntoView({behavior:"smooth",block:"center",inline:"center"}));requestAnimationFrame(()=>document.getElementById(`service-${key}`)?.focus())};
-  const cloneEntry=async(entry:Entry)=>{const target=window.prompt("Data para clonar este apontamento (AAAA-MM-DD):",date);if(!target||target===date)return;if(!/^20\d{2}-\d{2}-\d{2}$/.test(target)||Number(target.slice(0,4))>2100){setNotice("Informe uma data válida entre 2000 e 2100.");return}if(await post({action:"save",entryDate:target,contractId:entry.contractId,serviceId:entry.serviceId,quantity:entry.quantity,unitPrice:(entry.unitPriceCents/100).toFixed(2),notes:entry.notes||""}))setNotice(`Apontamento clonado para ${dateBR(target)}.`)};
   const saveGrid = async () => {
     const rows = activeGrid
       .flatMap((c) => Array.from({length:entryMode==="monthly"?3:1},(_,slot)=>{const row=gridRows[rowKey(c.id,slot)],selected=data.services.find(service=>String(service.id)===row?.serviceId),daily=c.dailyRateCents||Math.round(c.baseSalaryCents/30),unitPrice=entryMode==="monthly"?((daily*(isDailyAdditional(selected)?formulaFactor(selected?.formulaCode||null):1))/100).toFixed(2):row?.unitPrice;return { contractId:c.id,...row,unitPrice }}))
@@ -323,6 +325,7 @@ export default function LaunchesModule({ company, isAdmin }: { company: string; 
     if(fresh.length)await post({ action: "saveBatch", entryDate: date, rows:fresh });
     else if(existing.length)setNotice(`${existing.length} apontamento(s) atualizado(s).`);
     setEditingRowKey(null);
+    setGridDirty(false);
   };
   const deletePeriodEntries = async () => {
     if (!deleteDays.length) {
@@ -468,7 +471,7 @@ export default function LaunchesModule({ company, isAdmin }: { company: string; 
               </tr>
             </thead>
             <tbody>
-              {activeGrid.flatMap((c) => Array.from({length:entryMode==="monthly"?3:1},(_,slot) => {
+              {activeGrid.flatMap((c) => Array.from({length:entryMode==="monthly"?3:Math.max(1,modeDayEntries.filter(entry=>entry.contractId===c.id).length)},(_,slot) => {
                 const key=rowKey(c.id,slot),row = gridRows[key] || {serviceId:"",quantity:"",unitPrice:""},
                   selectedService=data.services.find((s)=>String(s.id)===row.serviceId),
                   dailyCents=c.dailyRateCents||Math.round(c.baseSalaryCents/30),
@@ -484,7 +487,7 @@ export default function LaunchesModule({ company, isAdmin }: { company: string; 
                       <select
                         id={`service-${key}`}
                         value={row.serviceId}
-                        onChange={(e) => {const service=data.services.find(item=>String(item.id)===e.target.value),unit=entryMode==="monthly"?((dailyCents*(isDailyAdditional(service)?formulaFactor(service?.formulaCode||null):1))/100).toFixed(2):row.unitPrice;setGridRows({...gridRows,[key]:{...row,serviceId:e.target.value,unitPrice:unit}})}}
+                        onChange={(e) => {const service=data.services.find(item=>String(item.id)===e.target.value),unit=entryMode==="monthly"?((dailyCents*(isDailyAdditional(service)?formulaFactor(service?.formulaCode||null):1))/100).toFixed(2):row.unitPrice;updateGridRow(key,{...row,serviceId:e.target.value,unitPrice:unit})}}
                       >
                         <option value="">Selecione…</option>
                         {data.services.map((s) => (
@@ -503,7 +506,7 @@ export default function LaunchesModule({ company, isAdmin }: { company: string; 
                         min="0"
                         step="0.001"
                         value={row.quantity}
-                        onChange={(e) => setGridRows({...gridRows,[key]:{...row,quantity:e.target.value,unitPrice:displayedUnit}})}
+                        onChange={(e) => updateGridRow(key,{...row,quantity:e.target.value,unitPrice:displayedUnit})}
                       />
                     </td>
                     <td>
@@ -511,7 +514,7 @@ export default function LaunchesModule({ company, isAdmin }: { company: string; 
                         min="0"
                         disabled={entryMode==="monthly"}
                         value={displayedUnit}
-                        onValueChange={(value) => setGridRows({...gridRows,[key]:{...row,unitPrice:value}})}
+                        onValueChange={(value) => updateGridRow(key,{...row,unitPrice:value})}
                       />
                       {entryMode==="monthly"&&<small>{isDailyAdditional(selectedService)?"Diária × fórmula":"Salário-base ÷ 30"}</small>}
                     </td>
@@ -533,23 +536,19 @@ export default function LaunchesModule({ company, isAdmin }: { company: string; 
         )}
         <div className="batch-actions">
           <span>{activeGrid.length} colaboradores ativos · {dayEntries.filter(entry=>contract(entry.contractId)?.paymentType===entryMode).length} apontamento(s) nesta data</span>
-          <button
+          {gridDirty&&<button
             className="primary"
             disabled={busy || !activeGrid.length}
             onClick={saveGrid}
           >
             Salvar planilha do dia
-          </button>
+          </button>}
         </div>
       </article>
       <article className="panel dsr-entry-panel">
         <div className="panel-title"><div><small>DESCANSO SEMANAL REMUNERADO</small><h2>Calcular e lançar DSR no dia selecionado</h2></div><span className={`tag ${restDay?"":"muted"}`}>{restDay?`Descanso em ${dateBR(date)}`:"Selecione domingo ou feriado"}</span></div>
         <div className="dsr-entry-config"><label>Serviço/código do DSR<select value={dsrServiceId} onChange={event=>setDsrServiceId(event.target.value)}><option value="">Selecione o código correspondente…</option>{dsrServices.length>0&&<optgroup label="Serviços identificados como DSR">{dsrServices.map(item=><option key={item.id} value={item.id}>{item.sourceId} · {item.description}</option>)}</optgroup>}<optgroup label="Todos os serviços cadastrados">{data.services.filter(item=>!dsrServices.some(candidate=>candidate.id===item.id)).map(item=><option key={item.id} value={item.id}>{item.sourceId} · {item.description}</option>)}</optgroup></select><small>O DSR corresponde a 1/6 da remuneração semanal.</small></label>{hasWeekHoliday&&<label>Serviço/código do feriado<input type="search" value={holidayServiceSearch} onChange={event=>setHolidayServiceSearch(event.target.value)} placeholder="Buscar por código, serviço ou fórmula" aria-label="Buscar serviço de feriado"/><select value={holidayServiceId} onChange={event=>setHolidayServiceId(event.target.value)}><option value="">Selecione o serviço de feriado…</option>{holidayServices.length>0&&<optgroup label="Serviços identificados para feriado">{holidayServices.filter(item=>selectableHolidayServices.some(candidate=>candidate.id===item.id)).map(item=><option key={item.id} value={item.id}>{item.sourceId} · {item.description}</option>)}</optgroup>}<optgroup label="Todos os serviços cadastrados">{selectableHolidayServices.filter(item=>!holidayServices.some(candidate=>candidate.id===item.id)).map(item=><option key={item.id} value={item.id}>{item.sourceId} · {item.description}</option>)}</optgroup></select><small>{weekHolidays.map(h=>dateBR(h.holidayDate)).join(", ")}: a diária será gravada no feriado antes do DSR.</small></label>}<p>Direito condicionado à inexistência de falta injustificada e de dia exigido com remuneração abaixo da diária. É permitido lançar trabalho normalmente no feriado.</p></div>
         {!restDay?<p className="sheet-empty">O lançamento de DSR é disponibilizado quando a data escolhida for domingo ou feriado cadastrado.</p>:selectedWeekDsr.length?<><div className="dsr-entry-list">{selectedWeekDsr.map(row=><div className="dsr-worker-row" key={row.contractId}><button type="button" className="dsr-worker-toggle" aria-expanded={expandedDsrId===row.contractId} onClick={()=>setExpandedDsrId(expandedDsrId===row.contractId?null:row.contractId)}><b>{row.name}</b><small>Remuneração: {money(row.total)} · {row.days.size}/{row.expectedDays} dia(s) exigido(s) · {row.reason}</small><span>{expandedDsrId===row.contractId?"Ocultar lançamentos":"Consultar lançamentos dia por dia"}</span></button>{hasWeekHoliday&&<label>Feriado (R$ por dia)<CurrencyInput min="0" disabled={!row.eligible} value={holidayValues[row.contractId]||""} onValueChange={value=>setHolidayValues({...holidayValues,[row.contractId]:value})}/></label>}<label>DSR (R$)<CurrencyInput min="0" disabled={!row.eligible} value={dsrValues[row.contractId]||""} onValueChange={value=>setDsrValues({...dsrValues,[row.contractId]:value})}/></label>{expandedDsrId===row.contractId&&<div className="dsr-day-details">{row.expectedDates.map(day=>{const entries=row.remuneration.filter(entry=>entry.entryDate===day),subtotal=entries.reduce((sum,entry)=>sum+entry.amountCents,0);return <section key={day}><header><b>{dateBR(day)}</b><strong>{money(subtotal)}</strong></header>{entries.length?<div className="table-scroll"><table><thead><tr><th>Serviço</th><th>Quantidade</th><th>Preço</th><th>Total</th></tr></thead><tbody>{entries.map(entry=>{const item=service(entry.serviceId);return <tr key={entry.id}><td>{item?.sourceId} · {item?.description||"Serviço não encontrado"}</td><td>{entry.quantity}</td><td>{money(entry.unitPriceCents)}</td><td><b>{money(entry.amountCents)}</b></td></tr>})}</tbody></table></div>:<small>Sem lançamento remuneratório neste dia.</small>}</section>})}<footer><span>Base semanal</span><b>{money(row.total)}</b><span>DSR = base ÷ 6</span><b>{money(row.calculated)}</b></footer></div>}</div>)}</div><div className="batch-actions"><span>{selectedWeekDsr.filter(r=>r.eligible).length} colaborador(es) apto(s)</span><button type="button" className="primary" disabled={busy||!dsrServiceId||(hasWeekHoliday&&!holidayServiceId)} onClick={saveDsr}>{hasWeekHoliday?"Gerar feriado(s) e depois DSR":"Salvar/atualizar DSR"}</button></div></>:<p className="sheet-empty">Não há remuneração que componha DSR nesta semana.</p>}
-      </article>
-      <article className="panel completed-entries-panel">
-        <div className="panel-title"><div><small>APONTAMENTOS REALIZADOS</small><h2>{modeDayEntries.length} registro(s) em {dateBR(date)}</h2></div><b>{entryMode==="monthly"?"Mensalistas":"Apontamento diário"}</b></div>
-        {modeDayEntries.length?<div className="table-scroll"><table className="data-table completed-entries-table"><thead><tr><th>Colaborador</th><th>Serviço</th><th>Quantidade</th><th>Preço</th><th>Total</th><th>Ações</th></tr></thead><tbody>{modeDayEntries.map(entry=><tr key={entry.id}><td><b>{contract(entry.contractId)?.name}</b></td><td>{service(entry.serviceId)?.description}</td><td>{entry.quantity}</td><td>{money(entry.unitPriceCents)}</td><td><b>{money(entry.amountCents)}</b></td><td><div className="entry-row-actions"><button type="button" className="secondary" onClick={()=>{const entries=modeDayEntries.filter(item=>item.contractId===entry.contractId),slot=Math.max(0,entries.findIndex(item=>item.id===entry.id)),key=rowKey(entry.contractId,slot),name=contract(entry.contractId)?.name||"colaborador";setGridRows({...gridRows,[key]:{id:entry.id,serviceId:String(entry.serviceId),quantity:String(entry.quantity),unitPrice:(entry.unitPriceCents/100).toFixed(2)}});focusGridRow(key,name)}}>Editar</button><button type="button" className="secondary" onClick={()=>cloneEntry(entry)}>Clonar</button><button type="button" className="danger" onClick={async()=>{if(window.confirm(`Excluir o apontamento de ${contract(entry.contractId)?.name}?`))await post({action:"delete",id:entry.id})}}>Excluir</button></div></td></tr>)}</tbody></table></div>:<p className="sheet-empty">Nenhum apontamento realizado para este grupo nesta data.</p>}
       </article>
       <div className="launch-grid legacy-entry-form">
         <article className="panel entry-panel">
