@@ -18,7 +18,7 @@ test("keeps the installable app metadata and update worker", async () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
   assert.match(serviceWorker, /SKIP_WAITING/);
-  assert.match(serviceWorker, /folha-rural-shell-v51-folha-rural-1\.4\.63/);
+  assert.match(serviceWorker, /folha-rural-shell-v52-folha-rural-1\.4\.64/);
   assert.match(serviceWorker, /folha-rural-data-v1/);
   assert.match(serviceWorker, /Dados não baixados para uso offline/);
   assert.match(serviceWorker, /skipWaiting/);
@@ -334,6 +334,10 @@ test("calculates editable DSR entries on Sundays and holidays", async () => {
   assert.match(module, /recalculateAppliedDsr/);
   assert.match(module, /DSR recalculado automaticamente/);
   assert.match(module, /automaticDsr:true/);
+  assert.match(module, /Consultar lançamentos dia por dia/);
+  assert.match(module, /row\.expectedDates\.map/);
+  assert.match(module, /DSR = base ÷ 6/);
+  assert.match(styles, /\.dsr-day-details/);
 });
 
 test("does not leave monthly tax preview frozen", async () => {
