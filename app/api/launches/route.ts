@@ -7,6 +7,7 @@ import {
   cloudLaunchesGet,
   cloudLaunchesPost,
 } from "./cloud";
+import { brazilMonth } from "../../br-date";
 import {
   dailyEntries,
   employmentContracts,
@@ -51,7 +52,7 @@ export async function GET(request: Request) {
       tenantId = tenant(request),
       company = Number(url.searchParams.get("company")),
       month =
-        url.searchParams.get("month") || new Date().toISOString().slice(0, 7);
+        url.searchParams.get("month") || brazilMonth();
     const reportOnly = url.searchParams.get("report") === "1";
     const companyAccess = await authorizeCloud(
       request,

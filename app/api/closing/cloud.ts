@@ -3,6 +3,7 @@ import {
   supabaseAdmin,
 } from "../../../db/supabase";
 import { authorizeCloud } from "../../auth-cloud";
+import { brazilMonth } from "../../br-date";
 
 type Row = Record<string, any>;
 type TaxBracket = {
@@ -352,7 +353,7 @@ export async function cloudClosingGet(request: Request) {
   const url = new URL(request.url);
   const company = Number(url.searchParams.get("company"));
   const month =
-    url.searchParams.get("month") || new Date().toISOString().slice(0, 7);
+    url.searchParams.get("month") || brazilMonth();
   const requestedPeriod=url.searchParams.get("period"),period=requestedPeriod==="advance"?"advance":requestedPeriod==="vacation"?"vacation":requestedPeriod==="thirteenth"?"thirteenth":"monthly";
   const access = await authorizeCloud(request, "Fechamento", company);
   if (access.response) return access.response;

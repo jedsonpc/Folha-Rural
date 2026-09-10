@@ -5,6 +5,7 @@ import "./reports-print111.css";
 import "./reports-compact112.css";
 import "./reports-period113.css";
 import "./reports-layout-fix.css";
+import { brazilMonth } from "./br-date";
 type Company = {
   sourceId: number;
   name: string;
@@ -76,7 +77,7 @@ const money = (c: number) =>
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(c / 100),
-  nowMonth = () => new Date().toISOString().slice(0, 7);
+  nowMonth = brazilMonth;
 async function fetchJson(url: string, timeoutMs = 15000) {
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), timeoutMs);

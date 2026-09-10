@@ -18,7 +18,7 @@ test("keeps the installable app metadata and update worker", async () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
   assert.match(serviceWorker, /SKIP_WAITING/);
-  assert.match(serviceWorker, /folha-rural-shell-v52-folha-rural-1\.4\.64/);
+  assert.match(serviceWorker, /folha-rural-shell-v53-folha-rural-1\.4\.65/);
   assert.match(serviceWorker, /folha-rural-data-v1/);
   assert.match(serviceWorker, /Dados não baixados para uso offline/);
   assert.match(serviceWorker, /skipWaiting/);
@@ -72,6 +72,17 @@ test("includes imported Access entries and calculates DSR from weekly remunerati
   assert.match(launches, /value=!unjustified&&!lowDay&&total>0\?dsrAmount\(total\):0/);
   assert.match(launches, /row\.dsr \+= dsrAmount\(w\.total\) \* rests/);
   assert.match(launches, /calculated=eligible\?dsrAmount\(total\):0/);
+  assert.match(launches, /!isSunday\(entry\.entryDate\)/);
+  assert.match(launches, /isSunday\(e\.entryDate\) \|\| isDsrService\(service\)/);
+});
+
+test("uses the Brazilian civil date and the current release date", async () => {
+  const dates = await readFile(new URL("../app/br-date.ts", import.meta.url), "utf8");
+  const launches = await readFile(new URL("../app/launches-module.tsx", import.meta.url), "utf8");
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  assert.match(dates, /timeZone: "America\/Fortaleza"/);
+  assert.match(launches, /const iso = brazilToday/);
+  assert.match(page, /LAST_UPDATE = "09\/09\/2026"/);
 });
 
 test("loads complete DSR weeks across month boundaries", async () => {

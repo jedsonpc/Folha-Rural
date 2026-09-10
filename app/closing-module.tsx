@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import "./closing.css";
+import { brazilMonth } from "./br-date";
 type Row = {
   id: number;
   name: string;
@@ -29,7 +30,7 @@ const money = (c: number) =>
       style: "currency",
       currency: "BRL",
     }).format(c / 100),
-  todayMonth = () => new Date().toISOString().slice(0, 7);
+  todayMonth = brazilMonth;
 export default function ClosingModule({ company }: { company: string }) {
   const [month, setMonth] = useState(todayMonth()),
     [period, setPeriod] = useState("monthly"),

@@ -5,6 +5,7 @@ import { isValidCpf } from "./cpf";
 import "./data130.css";
 import "./data134.css";
 import WorkerHrTabs, { type WorkerHrTabsHandle } from "./worker-hr-tabs";
+import { brazilToday } from "./br-date";
 
 type Company = {
   id: number;
@@ -147,7 +148,7 @@ const formatCep = (v: string | null | undefined) =>
     .slice(0, 8)
     .replace(/^(\d{5})(\d)/, "$1-$2");
 const showCpf = (v: string | null) => formatCpf(v) || "Não informado";
-const today = () => new Date().toISOString().slice(0, 10);
+const today = brazilToday;
 const normalizedContractStatus = (contract: Pick<Contract, "status" | "terminationDate">) => {
   const value = String(contract.status || "").trim().toLowerCase();
   if (["active", "ativo", "a", "1"].includes(value)) return "active";

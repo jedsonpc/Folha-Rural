@@ -2,8 +2,9 @@
 import { useEffect,useMemo,useState } from "react";
 import "./hr.css";
 import CurrencyInput from "./currency-input";
+import { brazilToday } from "./br-date";
 type Tab="functions"|"links"|"references"|"adjustments"|"centers"|"epi"|"tools";
-const today=()=>new Date().toISOString().slice(0,10), brl=(c:number)=>new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format((c||0)/100);
+const today=brazilToday, brl=(c:number)=>new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format((c||0)/100);
 const sectionTabs:Record<string,Tab>={"Funções":"functions","Vínculos":"links","Evolução salarial":"references","Reajuste salarial":"adjustments","Centros de custo":"centers","EPI":"epi","Ferramentas":"tools"};
 export default function RegistrationsModule({activeSection="Funções"}:{activeSection?:string}){
  const [tab,setTab]=useState<Tab>("functions"),[data,setData]=useState<any>({functions:[],centers:[],references:[],items:[],issues:[],workers:[]}),[msg,setMsg]=useState(""),[saving,setSaving]=useState(false),[from,setFrom]=useState(""),[to,setTo]=useState("");

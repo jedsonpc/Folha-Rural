@@ -1,4 +1,5 @@
 "use client";
+import { brazilMonth } from "./br-date";
 
 const DB_NAME = "folha-rural-offline-v1";
 const CACHE_STORE = "api-cache";
@@ -92,7 +93,7 @@ export async function cachedApiFetch(input: string, init?: RequestInit) {
 }
 
 export async function downloadOfflineData(companyIds: number[]) {
-  const month = new Date().toISOString().slice(0, 7);
+  const month = brazilMonth();
   const urls = new Set([
     "/api/auth",
     "/api/companies",

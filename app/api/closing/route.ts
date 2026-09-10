@@ -3,6 +3,7 @@ import { ensureDatabase, getDb, getRuntimeDatabase } from "../../../db";
 import { authorizeCloud } from "../../auth-cloud";
 import { getSupabaseConfig } from "../../../db/supabase";
 import { cloudClosingGet, cloudClosingPost } from "./cloud";
+import { brazilMonth } from "../../br-date";
 import {
   dailyEntries,
   employmentContracts,
@@ -344,7 +345,7 @@ export async function GET(request: Request) {
     const u = new URL(request.url),
       company = Number(u.searchParams.get("company")),
       month =
-        u.searchParams.get("month") || new Date().toISOString().slice(0, 7),
+        u.searchParams.get("month") || brazilMonth(),
       requestedPeriod=u.searchParams.get("period"),
       period=requestedPeriod==="advance"?"advance":requestedPeriod==="vacation"?"vacation":requestedPeriod==="thirteenth"?"thirteenth":"balance";
     const companyAccess = await authorizeCloud(request, "Fechamento", company);

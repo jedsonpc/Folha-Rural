@@ -3,6 +3,7 @@ import {
   supabaseAdmin,
 } from "../../../db/supabase";
 import { authorizeCloud, requireCloudAdmin } from "../../auth-cloud";
+import { brazilMonth } from "../../br-date";
 
 type Row = Record<string, any>;
 const nextMonth = (month: string) => {
@@ -22,7 +23,7 @@ export async function cloudLaunchesGet(request: Request) {
   const url = new URL(request.url);
   const companyLegacyId = Number(url.searchParams.get("company"));
   const month =
-    url.searchParams.get("month") || new Date().toISOString().slice(0, 7);
+    url.searchParams.get("month") || brazilMonth();
   const reportOnly = url.searchParams.get("report") === "1";
   const access = await authorizeCloud(
     request,

@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import "./unions.css";
 import CurrencyInput from "./currency-input";
+import { brazilToday } from "./br-date";
 type Union = {
   id: number;
   code: string;
@@ -46,7 +47,7 @@ const empty = {
     state: "",
     cnpjCheckedAt: "",
     contribution: "",
-    effectiveFrom: new Date().toISOString().slice(0, 10),
+    effectiveFrom: brazilToday(),
     active: true,
   },
   money = (c: number) =>
@@ -257,7 +258,7 @@ export default function UnionsModule() {
                         ),
                         effectiveFrom:
                           row.rates.at(-1)?.effectiveFrom ||
-                          new Date().toISOString().slice(0, 10),
+                          brazilToday(),
                         active: row.active,
                       });
                     }}

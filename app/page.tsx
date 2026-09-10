@@ -101,7 +101,7 @@ const navGroups = [
     },
   ],
   SYSTEM_VERSION = packageInfo.version,
-  LAST_UPDATE = "08/09/2026";
+  LAST_UPDATE = "09/09/2026";
 type Company = {
   sourceId: number;
   name: string;

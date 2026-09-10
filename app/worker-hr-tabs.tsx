@@ -2,9 +2,10 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from "react";
 import "./hr.css";
 import CurrencyInput from "./currency-input";
+import { brazilToday } from "./br-date";
 
 const brl=(c:number)=>new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format((c||0)/100);
-const isoToday=()=>new Date().toISOString().slice(0,10);
+const isoToday=brazilToday;
 const isoDate=(date:Date)=>date.toISOString().slice(0,10);
 const addDays=(value:string,days:number)=>{if(!value)return"";const date=new Date(`${value}T12:00:00Z`);date.setUTCDate(date.getUTCDate()+days);return isoDate(date)};
 const addYears=(value:string,years:number,minusDay=false)=>{if(!value)return"";const date=new Date(`${value}T12:00:00Z`);date.setUTCFullYear(date.getUTCFullYear()+years);if(minusDay)date.setUTCDate(date.getUTCDate()-1);return isoDate(date)};
