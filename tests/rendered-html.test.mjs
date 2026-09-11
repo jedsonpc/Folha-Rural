@@ -18,7 +18,7 @@ test("keeps the installable app metadata and update worker", async () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
   assert.match(serviceWorker, /SKIP_WAITING/);
-  assert.match(serviceWorker, /folha-rural-shell-v56-folha-rural-1\.4\.68/);
+  assert.match(serviceWorker, /folha-rural-shell-v57-folha-rural-1\.4\.69/);
   assert.match(serviceWorker, /folha-rural-data-v1/);
   assert.match(serviceWorker, /Dados não baixados para uso offline/);
   assert.match(serviceWorker, /skipWaiting/);
@@ -129,7 +129,10 @@ test("preserves three decimal places in unit prices and calculates imported tota
     cloud,
     /Math\.round\(\(Number\(row\.amount_cents\) \* 10\) \/ Number\(row\.quantity\)\)/,
   );
-  assert.match(cloud, /amount_cents:\s*Math\.round\(\(quantity \* unitMills\) \/ 10\)/);
+  assert.match(
+    cloud,
+    /amount_cents:\s*Math\.round\(\(quantity \* unitMills\) \/ 10\)/,
+  );
 });
 
 test("uses the Brazilian civil date and the current release date", async () => {
@@ -147,7 +150,7 @@ test("uses the Brazilian civil date and the current release date", async () => {
   );
   assert.match(dates, /timeZone: "America\/Fortaleza"/);
   assert.match(launches, /const iso = brazilToday/);
-  assert.match(page, /LAST_UPDATE = "10\/09\/2026"/);
+  assert.match(page, /LAST_UPDATE = "11\/09\/2026"/);
 });
 
 test("loads complete DSR weeks across month boundaries", async () => {
@@ -612,9 +615,15 @@ test("calculates editable DSR entries on Sundays and holidays", async () => {
   assert.match(module, /DSR recalculado automaticamente/);
   assert.match(module, /automaticDsr:\s*true/);
   assert.match(module, /Consultar lançamentos dia por dia/);
+  assert.match(module, /Matrícula \{row\.registration\}/);
+  assert.match(module, /row\.weeklyEntries\.length/);
+  assert.match(module, /row\.nonComposingEntries\.length/);
+  assert.match(module, /evento não configurado para composição/);
+  assert.match(module, /Não compõe/);
   assert.match(module, /row\.expectedDates\.map/);
   assert.match(module, /DSR = base ÷ 6/);
   assert.match(styles, /\.dsr-day-details/);
+  assert.match(styles, /\.dsr-composition-alert/);
 });
 
 test("does not leave monthly tax preview frozen", async () => {

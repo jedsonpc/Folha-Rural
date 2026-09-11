@@ -473,8 +473,11 @@ export default function LaunchesModule({
       rows = [] as Array<{
         contractId: number;
         name: string;
+        registration: string;
         total: number;
         days: Set<string>;
+        weeklyEntries: Entry[];
+        nonComposingEntries: Entry[];
         calculated: number;
         eligible: boolean;
         reason: string;
@@ -510,6 +513,10 @@ export default function LaunchesModule({
           const item = data.services.find((s) => s.id === entry.serviceId);
           return item?.affectsDsr && item.entryType !== "deduction";
         }),
+        nonComposingEntries = weekly.filter((entry) => {
+          const item = data.services.find((s) => s.id === entry.serviceId);
+          return item && !item.affectsDsr && item.entryType !== "deduction";
+        }),
         total = remuneration.reduce((sum, e) => sum + e.amountCents, 0),
         days = new Set(remuneration.map((e) => e.entryDate));
       const unjustified = weekly.some((e) =>
@@ -528,12 +535,17 @@ export default function LaunchesModule({
       const admissionWeek = Boolean(admission && weekKey(admission) === key),
         eligible = !unjustified && !lowDay && total > 0;
       const calculated = eligible ? dsrAmount(total) : 0;
-      if (total || admissionWeek)
+      if (weekly.length || admissionWeek)
         rows.push({
           contractId: worker.id,
           name: worker.name,
+          registration: worker.registrationNumber
+            ? String(worker.registrationNumber)
+            : worker.legacyCode || "Não informada",
           total,
           days,
+          weeklyEntries: weekly,
+          nonComposingEntries,
           calculated,
           eligible,
           reason: unjustified
@@ -697,13 +709,11 @@ export default function LaunchesModule({
       `Editando apontamento de ${name}. Altere os campos e clique em Salvar planilha do dia.`,
     );
     requestAnimationFrame(() =>
-      document
-        .getElementById(`service-${key}`)
-        ?.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-          inline: "center",
-        }),
+      document.getElementById(`service-${key}`)?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+        inline: "center",
+      }),
     );
     requestAnimationFrame(() =>
       document.getElementById(`service-${key}`)?.focus(),
@@ -1390,11 +1400,22 @@ export default function LaunchesModule({
                       )
                     }
                   >
-                    <b>{row.name}</b>
+                    <b>
+                      Matrícula {row.registration} · {row.name}
+                    </b>
                     <small>
                       Remuneração: {money(row.total)} · {row.days.size}/
                       {row.expectedDays} dia(s) exigido(s) · {row.reason}
                     </small>
+                    {row.nonComposingEntries.length > 0 && (
+                      <strong className="dsr-composition-alert">
+                        Atenção: existem {row.weeklyEntries.length}{" "}
+                        lançamento(s) na semana, mas somente{" "}
+                        {row.remuneration.length} compõe(m) o DSR. Revise{" "}
+                        {row.nonComposingEntries.length} lançamento(s) com
+                        evento não configurado para composição.
+                      </strong>
+                    )}
                     <span>
                       {expandedDsrId === row.contractId
                         ? "Ocultar lançamentos"
@@ -1431,10 +1452,16 @@ export default function LaunchesModule({
                   {expandedDsrId === row.contractId && (
                     <div className="dsr-day-details">
                       {row.expectedDates.map((day) => {
-                        const entries = row.remuneration.filter(
+                        const entries = row.weeklyEntries.filter(
                             (entry) => entry.entryDate === day,
                           ),
-                          subtotal = entries.reduce(
+                          composingEntries = entries.filter((entry) => {
+                            const item = service(entry.serviceId);
+                            return (
+                              item?.affectsDsr && item.entryType !== "deduction"
+                            );
+                          }),
+                          subtotal = composingEntries.reduce(
                             (sum, entry) => sum + entry.amountCents,
                             0,
                           );
@@ -1453,6 +1480,7 @@ export default function LaunchesModule({
                                       <th>Quantidade</th>
                                       <th>Preço</th>
                                       <th>Total</th>
+                                      <th>Composição</th>
                                     </tr>
                                   </thead>
                                   <tbody>
@@ -1469,6 +1497,18 @@ export default function LaunchesModule({
                                           <td>{unitPrice(entry)}</td>
                                           <td>
                                             <b>{money(entry.amountCents)}</b>
+                                          </td>
+                                          <td>
+                                            {item?.affectsDsr &&
+                                            item.entryType !== "deduction" ? (
+                                              <span className="dsr-composes">
+                                                Compõe DSR
+                                              </span>
+                                            ) : (
+                                              <span className="dsr-not-composes">
+                                                Não compõe
+                                              </span>
+                                            )}
                                           </td>
                                         </tr>
                                       );
