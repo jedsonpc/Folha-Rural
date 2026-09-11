@@ -18,7 +18,7 @@ test("keeps the installable app metadata and update worker", async () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
   assert.match(serviceWorker, /SKIP_WAITING/);
-  assert.match(serviceWorker, /folha-rural-shell-v57-folha-rural-1\.4\.69/);
+  assert.match(serviceWorker, /folha-rural-shell-v58-folha-rural-1\.4\.70/);
   assert.match(serviceWorker, /folha-rural-data-v1/);
   assert.match(serviceWorker, /Dados não baixados para uso offline/);
   assert.match(serviceWorker, /skipWaiting/);
@@ -620,7 +620,13 @@ test("calculates editable DSR entries on Sundays and holidays", async () => {
   assert.match(module, /row\.nonComposingEntries\.length/);
   assert.match(module, /evento não configurado para composição/);
   assert.match(module, /Não compõe/);
-  assert.match(module, /row\.expectedDates\.map/);
+  assert.match(module, /row\.displayDates\.map/);
+  assert.match(module, /Feriado \(não exigido\)/);
+  assert.match(module, /dia\(s\) com apontamento/);
+  assert.match(module, /Remover feriado de/);
+  assert.match(module, /Os apontamentos do dia serão preservados/);
+  assert.match(module, /Selecionado/);
+  assert.match(module, /Feriado cadastrado/);
   assert.match(module, /DSR = base ÷ 6/);
   assert.match(styles, /\.dsr-day-details/);
   assert.match(styles, /\.dsr-composition-alert/);

@@ -483,6 +483,7 @@ export default function LaunchesModule({
         reason: string;
         expectedDays: number;
         expectedDates: string[];
+        displayDates: string[];
         remuneration: Entry[];
       }>;
     for (const worker of data.contracts) {
@@ -535,6 +536,9 @@ export default function LaunchesModule({
       const admissionWeek = Boolean(admission && weekKey(admission) === key),
         eligible = !unjustified && !lowDay && total > 0;
       const calculated = eligible ? dsrAmount(total) : 0;
+      const displayDates = Array.from(
+        new Set([...expected, ...weekly.map((entry) => entry.entryDate)]),
+      ).sort();
       if (weekly.length || admissionWeek)
         rows.push({
           contractId: worker.id,
@@ -555,6 +559,7 @@ export default function LaunchesModule({
               : "Apto",
           expectedDays: expected.length,
           expectedDates: expected,
+          displayDates,
           remuneration,
         });
     }
@@ -812,6 +817,23 @@ export default function LaunchesModule({
         >
           ★ Incluir feriado
         </button>
+        {selectedHoliday && (
+          <button
+            type="button"
+            className="danger"
+            disabled={busy}
+            onClick={async () => {
+              if (
+                window.confirm(
+                  `Remover o feriado ${selectedHoliday.name || "cadastrado"} de ${dateBR(selectedHoliday.holidayDate)}? Os apontamentos do dia serão preservados.`,
+                )
+              )
+                await post({ action: "deleteHoliday", id: selectedHoliday.id });
+            }}
+          >
+            Remover feriado de {dateBR(selectedHoliday.holidayDate)}
+          </button>
+        )}
       </div>
       {notice && <div className="inline-notice">{notice}</div>}
       {isAdmin && (
@@ -1405,7 +1427,13 @@ export default function LaunchesModule({
                     </b>
                     <small>
                       Remuneração: {money(row.total)} · {row.days.size}/
-                      {row.expectedDays} dia(s) exigido(s) · {row.reason}
+                      {row.expectedDays} dia(s) exigido(s) ·{" "}
+                      {
+                        new Set(
+                          row.weeklyEntries.map((entry) => entry.entryDate),
+                        ).size
+                      }{" "}
+                      dia(s) com apontamento · {row.reason}
                     </small>
                     {row.nonComposingEntries.length > 0 && (
                       <strong className="dsr-composition-alert">
@@ -1451,7 +1479,7 @@ export default function LaunchesModule({
                   </label>
                   {expandedDsrId === row.contractId && (
                     <div className="dsr-day-details">
-                      {row.expectedDates.map((day) => {
+                      {row.displayDates.map((day) => {
                         const entries = row.weeklyEntries.filter(
                             (entry) => entry.entryDate === day,
                           ),
@@ -1468,7 +1496,12 @@ export default function LaunchesModule({
                         return (
                           <section key={day}>
                             <header>
-                              <b>{dateBR(day)}</b>
+                              <b>
+                                {dateBR(day)}
+                                {weekHolidays.some(
+                                  (holiday) => holiday.holidayDate === day,
+                                ) && " · Feriado (não exigido)"}
+                              </b>
                               <strong>{money(subtotal)}</strong>
                             </header>
                             {entries.length ? (
@@ -1733,13 +1766,16 @@ export default function LaunchesModule({
               }}
             >
               <small>{dateBR(d.date).slice(0, 5)}</small>
-              {d.holiday ? (
-                <em>{d.holiday.name}</em>
-              ) : d.sunday ? (
-                <em>Domingo</em>
-              ) : (
-                <em>{d.count} lanç.</em>
-              )}
+              <em>
+                {[
+                  d.date === date ? "Selecionado" : "",
+                  d.holiday?.name || (d.holiday ? "Feriado cadastrado" : ""),
+                  !d.holiday && d.sunday ? "Domingo" : "",
+                  `${d.count} lanç.`,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </em>
               <b>{d.total ? money(d.total) : "—"}</b>
             </button>
           ))}
