@@ -18,7 +18,7 @@ test("keeps the installable app metadata and update worker", async () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
   assert.match(serviceWorker, /SKIP_WAITING/);
-  assert.match(serviceWorker, /folha-rural-shell-v55-folha-rural-1\.4\.67/);
+  assert.match(serviceWorker, /folha-rural-shell-v56-folha-rural-1\.4\.68/);
   assert.match(serviceWorker, /folha-rural-data-v1/);
   assert.match(serviceWorker, /Dados não baixados para uso offline/);
   assert.match(serviceWorker, /skipWaiting/);
@@ -46,16 +46,22 @@ test("sends Access history separately from registry data", async () => {
 });
 
 test("filters Access imports before building the review report", async () => {
-  const importer = await readFile(new URL("../app/access-importer.tsx", import.meta.url), "utf8");
-  const parser = await readFile(new URL("../app/access-browser-parser.ts", import.meta.url), "utf8");
+  const importer = await readFile(
+    new URL("../app/access-importer.tsx", import.meta.url),
+    "utf8",
+  );
+  const parser = await readFile(
+    new URL("../app/access-browser-parser.ts", import.meta.url),
+    "utf8",
+  );
   assert.match(importer, /Novos colaboradores/);
-  assert.match(importer, /Todos os lançamentos inéditos/);
+  assert.match(importer, /Todos os lançamentos/);
   assert.match(importer, /Competência específica/);
   assert.match(importer, /Ano específico/);
   assert.match(importer, /Custos e estoque/);
   assert.match(importer, /Culturas/);
-  assert.match(importer, /registros validados/);
-  assert.match(importer, /importados/);
+  assert.match(importer, /registros\s+validados;/);
+  assert.match(importer, /incluídos ou atualizados/);
   assert.match(parser, /filter\.scope==="launches-month"/);
   assert.match(parser, /filter\.scope==="launches-year"/);
   assert.match(parser, /sequences\.has\(n\(r\.Sequencia\)\)/);
@@ -64,36 +70,110 @@ test("filters Access imports before building the review report", async () => {
 });
 
 test("includes imported Access entries and calculates DSR from weekly remuneration", async () => {
-  const launches = await readFile(new URL("../app/launches-module.tsx", import.meta.url), "utf8");
+  const launches = await readFile(
+    new URL("../app/launches-module.tsx", import.meta.url),
+    "utf8",
+  );
   assert.doesNotMatch(launches, /sourceSequence\s*!=\s*null\)\s*continue/);
   assert.doesNotMatch(launches, /entry\.sourceSequence==null/);
-  assert.match(launches, /eligible=!unjustified&&!lowDay&&total>0/);
-  assert.match(launches, /dsrAmount = \(weeklyTotalCents: number\) => Math\.round\(weeklyTotalCents \/ 6\)/);
-  assert.match(launches, /value=!unjustified&&!lowDay&&total>0\?dsrAmount\(total\):0/);
+  assert.match(
+    launches,
+    /eligible\s*=\s*!unjustified\s*&&\s*!lowDay\s*&&\s*total\s*>\s*0/,
+  );
+  assert.match(
+    launches,
+    /dsrAmount = \(weeklyTotalCents: number\) => Math\.round\(weeklyTotalCents \/ 6\)/,
+  );
+  assert.match(
+    launches,
+    /value\s*=\s*!unjustified\s*&&\s*!lowDay\s*&&\s*total\s*>\s*0\s*\?\s*dsrAmount\(total\)\s*:\s*0/,
+  );
   assert.match(launches, /row\.dsr \+= dsrAmount\(w\.total\) \* rests/);
-  assert.match(launches, /calculated=eligible\?dsrAmount\(total\):0/);
+  assert.match(
+    launches,
+    /calculated\s*=\s*eligible\s*\?\s*dsrAmount\(total\)\s*:\s*0/,
+  );
   assert.match(launches, /!isSunday\(entry\.entryDate\)/);
-  assert.match(launches, /isSunday\(e\.entryDate\) \|\| isDsrService\(service\)/);
+  assert.match(
+    launches,
+    /isSunday\(e\.entryDate\)\s*\|\|\s*isDsrService\(service\)/,
+  );
+});
+
+test("preserves three decimal places in unit prices and calculates imported totals before DSR", async () => {
+  const parser = await readFile(
+    new URL("../app/access-browser-parser.ts", import.meta.url),
+    "utf8",
+  );
+  const importer = await readFile(
+    new URL("../app/api/import-history/route.ts", import.meta.url),
+    "utf8",
+  );
+  const launches = await readFile(
+    new URL("../app/launches-module.tsx", import.meta.url),
+    "utf8",
+  );
+  const cloud = await readFile(
+    new URL("../app/api/launches/cloud.ts", import.meta.url),
+    "utf8",
+  );
+  assert.equal(Math.round((200 * Math.round(0.274 * 1000)) / 10), 5480);
+  assert.match(parser, /unitPriceMills=Math\.round\(unitPrice\*1000\)/);
+  assert.match(
+    importer,
+    /unitPriceMills = Math\.round\(num\(row\.Preco\) \* 1000\)/,
+  );
+  assert.match(launches, /decimalPlaces=\{3\}/);
+  assert.match(launches, /unitPriceMills \?\? entry\.unitPriceCents \* 10/);
+  assert.match(
+    cloud,
+    /Math\.round\(\(Number\(row\.amount_cents\) \* 10\) \/ Number\(row\.quantity\)\)/,
+  );
+  assert.match(cloud, /amount_cents:\s*Math\.round\(\(quantity \* unitMills\) \/ 10\)/);
 });
 
 test("uses the Brazilian civil date and the current release date", async () => {
-  const dates = await readFile(new URL("../app/br-date.ts", import.meta.url), "utf8");
-  const launches = await readFile(new URL("../app/launches-module.tsx", import.meta.url), "utf8");
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const dates = await readFile(
+    new URL("../app/br-date.ts", import.meta.url),
+    "utf8",
+  );
+  const launches = await readFile(
+    new URL("../app/launches-module.tsx", import.meta.url),
+    "utf8",
+  );
+  const page = await readFile(
+    new URL("../app/page.tsx", import.meta.url),
+    "utf8",
+  );
   assert.match(dates, /timeZone: "America\/Fortaleza"/);
   assert.match(launches, /const iso = brazilToday/);
-  assert.match(page, /LAST_UPDATE = "09\/09\/2026"/);
+  assert.match(page, /LAST_UPDATE = "10\/09\/2026"/);
 });
 
 test("loads complete DSR weeks across month boundaries", async () => {
-  const localApi = await readFile(new URL("../app/api/launches/route.ts", import.meta.url), "utf8");
-  const cloudApi = await readFile(new URL("../app/api/launches/cloud.ts", import.meta.url), "utf8");
-  const launches = await readFile(new URL("../app/launches-module.tsx", import.meta.url), "utf8");
+  const localApi = await readFile(
+    new URL("../app/api/launches/route.ts", import.meta.url),
+    "utf8",
+  );
+  const cloudApi = await readFile(
+    new URL("../app/api/launches/cloud.ts", import.meta.url),
+    "utf8",
+  );
+  const launches = await readFile(
+    new URL("../app/launches-module.tsx", import.meta.url),
+    "utf8",
+  );
   for (const api of [localApi, cloudApi]) {
     assert.match(api, /const weeklyRange =/);
-    assert.match(api, /range = reportOnly \? \{ start, end \} : weeklyRange\(start, end\)/);
+    assert.match(
+      api,
+      /range = reportOnly \? \{ start, end \} : weeklyRange\(start, end\)/,
+    );
   }
-  assert.match(cloudApi, /entry_date=gte\.\$\{range\.start\}&entry_date=lt\.\$\{range\.end\}/);
+  assert.match(
+    cloudApi,
+    /entry_date=gte\.\$\{range\.start\}&entry_date=lt\.\$\{range\.end\}/,
+  );
   assert.match(launches, /if \(e\.entryDate\.startsWith\(month\)\)/);
 });
 
@@ -105,7 +185,10 @@ test("keeps the edited service nature when saving", async () => {
 
   assert.match(services, /service\.entryType \?\? service\.nature/);
   assert.match(services, /entryType: nature, nature/);
-  assert.match(services, /setForm\(\{ \.\.\.form, entryType: nature, nature \}\)/);
+  assert.match(
+    services,
+    /setForm\(\{ \.\.\.form, entryType: nature, nature \}\)/,
+  );
 
   const route = await readFile(
     new URL("../app/api/services/route.ts", import.meta.url),
@@ -116,8 +199,14 @@ test("keeps the edited service nature when saving", async () => {
 });
 
 test("calculates the employee daily rate from the monthly salary", async () => {
-  const tabs = await readFile(new URL("../app/worker-hr-tabs.tsx", import.meta.url), "utf8");
-  const route = await readFile(new URL("../app/api/hr/route.ts", import.meta.url), "utf8");
+  const tabs = await readFile(
+    new URL("../app/worker-hr-tabs.tsx", import.meta.url),
+    "utf8",
+  );
+  const route = await readFile(
+    new URL("../app/api/hr/route.ts", import.meta.url),
+    "utf8",
+  );
   assert.match(tabs, /Valor da diária \(R\$\)/);
   assert.match(tabs, /Cálculo automático: salário mensal ÷ 30/);
   assert.match(tabs, /Number\(salary\.baseSalary\)\/30/);
@@ -127,8 +216,14 @@ test("calculates the employee daily rate from the monthly salary", async () => {
 });
 
 test("applies the statutory vacation entitlement bands", async () => {
-  const tabs = await readFile(new URL("../app/worker-hr-tabs.tsx", import.meta.url), "utf8");
-  const route = await readFile(new URL("../app/api/hr/route.ts", import.meta.url), "utf8");
+  const tabs = await readFile(
+    new URL("../app/worker-hr-tabs.tsx", import.meta.url),
+    "utf8",
+  );
+  const route = await readFile(
+    new URL("../app/api/hr/route.ts", import.meta.url),
+    "utf8",
+  );
   for (const source of [tabs, route]) {
     assert.match(source, /absences\s*<=\s*5\)\s*return 30/);
     assert.match(source, /absences\s*<=\s*14\)\s*return 24/);
@@ -141,21 +236,40 @@ test("applies the statutory vacation entitlement bands", async () => {
 });
 
 test("uses the Brazilian monetary input across financial registrations", async () => {
-  const currency = await readFile(new URL("../app/currency-input.tsx", import.meta.url), "utf8");
-  assert.match(currency, /minimumFractionDigits: 2/);
-  assert.match(currency, /maximumFractionDigits: 2/);
+  const currency = await readFile(
+    new URL("../app/currency-input.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(currency, /decimalPlaces = 2/);
+  assert.match(currency, /minimumFractionDigits: decimalPlaces/);
+  assert.match(currency, /maximumFractionDigits: decimalPlaces/);
   assert.match(currency, /currency-tight/);
   assert.match(currency, /const controlled = value !== undefined/);
   assert.match(currency, /controlled \? String\(value \|\| ""\) : internal/);
-  for (const file of ["worker-hr-tabs.tsx", "launches-module.tsx", "unions-module.tsx", "registrations-module.tsx", "inventory-module.tsx"]) {
-    const source = await readFile(new URL(`../app/${file}`, import.meta.url), "utf8");
+  for (const file of [
+    "worker-hr-tabs.tsx",
+    "launches-module.tsx",
+    "unions-module.tsx",
+    "registrations-module.tsx",
+    "inventory-module.tsx",
+  ]) {
+    const source = await readFile(
+      new URL(`../app/${file}`, import.meta.url),
+      "utf8",
+    );
     assert.match(source, /CurrencyInput/);
   }
 });
 
 test("links registered crops to agricultural movements", async () => {
-  const inventory = await readFile(new URL("../app/inventory-module.tsx", import.meta.url), "utf8");
-  const route = await readFile(new URL("../app/api/inventory/route.ts", import.meta.url), "utf8");
+  const inventory = await readFile(
+    new URL("../app/inventory-module.tsx", import.meta.url),
+    "utf8",
+  );
+  const route = await readFile(
+    new URL("../app/api/inventory/route.ts", import.meta.url),
+    "utf8",
+  );
   assert.match(inventory, /section === "crops"/);
   assert.match(inventory, /<select name="crop">/);
   assert.match(route, /CULTURA::/);
@@ -163,17 +277,32 @@ test("links registered crops to agricultural movements", async () => {
 });
 
 test("saves salary through the main worker action", async () => {
-  const data = await readFile(new URL("../app/data-module.tsx", import.meta.url), "utf8");
-  const tabs = await readFile(new URL("../app/worker-hr-tabs.tsx", import.meta.url), "utf8");
+  const data = await readFile(
+    new URL("../app/data-module.tsx", import.meta.url),
+    "utf8",
+  );
+  const tabs = await readFile(
+    new URL("../app/worker-hr-tabs.tsx", import.meta.url),
+    "utf8",
+  );
   assert.match(data, /salaryRef\.current\?\.saveSalary\(\)/);
   assert.match(tabs, /useImperativeHandle\(ref/);
   assert.match(tabs, /saveSalary/);
 });
 
 test("allows father and mother dependents without CPF", async () => {
-  const data = await readFile(new URL("../app/data-module.tsx", import.meta.url), "utf8");
-  const route = await readFile(new URL("../app/api/data/route.ts", import.meta.url), "utf8");
-  const cloud = await readFile(new URL("../app/api/data/cloud.ts", import.meta.url), "utf8");
+  const data = await readFile(
+    new URL("../app/data-module.tsx", import.meta.url),
+    "utf8",
+  );
+  const route = await readFile(
+    new URL("../app/api/data/route.ts", import.meta.url),
+    "utf8",
+  );
+  const cloud = await readFile(
+    new URL("../app/api/data/cloud.ts", import.meta.url),
+    "utf8",
+  );
   assert.match(data, /CPF \(opcional para pai ou mãe\)/);
   for (const source of [route, cloud]) {
     assert.match(source, /\["father", "mother"\]\.includes/);
@@ -183,22 +312,43 @@ test("allows father and mother dependents without CPF", async () => {
 });
 
 test("uses a registered mother dependent to clear the worker mother-name issue", async () => {
-  const route = await readFile(new URL("../app/api/data/route.ts", import.meta.url), "utf8");
-  const cloud = await readFile(new URL("../app/api/data/cloud.ts", import.meta.url), "utf8");
+  const route = await readFile(
+    new URL("../app/api/data/route.ts", import.meta.url),
+    "utf8",
+  );
+  const cloud = await readFile(
+    new URL("../app/api/data/cloud.ts", import.meta.url),
+    "utf8",
+  );
   for (const source of [route, cloud]) {
     assert.match(source, /motherByPerson/);
-    assert.match(source, /motherName: contract\.motherName \|\| motherByPerson\.get/);
+    assert.match(
+      source,
+      /motherName: contract\.motherName \|\| motherByPerson\.get/,
+    );
   }
-  const badge = await readFile(new URL("../app/version-badge.css", import.meta.url), "utf8");
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const badge = await readFile(
+    new URL("../app/version-badge.css", import.meta.url),
+    "utf8",
+  );
+  const page = await readFile(
+    new URL("../app/page.tsx", import.meta.url),
+    "utf8",
+  );
   assert.match(badge, /terra-version-badge/);
   assert.doesNotMatch(badge, /content:\s*"v\d/);
   assert.match(page, /terra-version-badge">v\{SYSTEM_VERSION\}/);
 });
 
 test("keeps worker saves, termination dates and review alerts synchronized", async () => {
-  const data = await readFile(new URL("../app/data-module.tsx", import.meta.url), "utf8");
-  const review = await readFile(new URL("../app/worker-review.ts", import.meta.url), "utf8");
+  const data = await readFile(
+    new URL("../app/data-module.tsx", import.meta.url),
+    "utf8",
+  );
+  const review = await readFile(
+    new URL("../app/worker-review.ts", import.meta.url),
+    "utf8",
+  );
   assert.match(data, /const profileSaved = await request\("PUT"/);
   assert.match(data, /terminationDate: r\.terminationDate \|\| ""/);
   assert.match(data, /Data atual sugerida para o desligamento/);
@@ -207,65 +357,125 @@ test("keeps worker saves, termination dates and review alerts synchronized", asy
 });
 
 test("shows registration issues only for active workers on the dashboard", async () => {
-  const dashboard = await readFile(new URL("../app/production-dashboard.tsx", import.meta.url), "utf8");
+  const dashboard = await readFile(
+    new URL("../app/production-dashboard.tsx", import.meta.url),
+    "utf8",
+  );
   assert.match(dashboard, /activeWorkerNeedsReview/);
-  assert.match(dashboard, /reviewRows = rows\.filter\(\(r\) => activeWorkerNeedsReview\(r\)\)/);
+  assert.match(
+    dashboard,
+    /reviewRows = rows\.filter\(\(r\) => activeWorkerNeedsReview\(r\)\)/,
+  );
   assert.doesNotMatch(dashboard, /workerNeedsReview\(r\)/);
 });
 
 test("shows offline download only after login in the supervision tab", async () => {
-  const auth = await readFile(new URL("../app/auth-screen.tsx", import.meta.url), "utf8");
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
-  const installation = await readFile(new URL("../app/app-installation.tsx", import.meta.url), "utf8");
+  const auth = await readFile(
+    new URL("../app/auth-screen.tsx", import.meta.url),
+    "utf8",
+  );
+  const page = await readFile(
+    new URL("../app/page.tsx", import.meta.url),
+    "utf8",
+  );
+  const installation = await readFile(
+    new URL("../app/app-installation.tsx", import.meta.url),
+    "utf8",
+  );
   assert.doesNotMatch(auth, /AppInstallation|Baixar dados/);
   assert.match(page, /\["SP", "Supervisão"\]/);
   assert.match(page, /visible=\{active === "Supervisão"\}/);
-  assert.match(page, /label !== "Supervisão" \|\| localUser\?\.role === "admin"/);
+  assert.match(
+    page,
+    /label !== "Supervisão" \|\| localUser\?\.role === "admin"/,
+  );
   assert.match(installation, /Baixar dados e criar atalho offline/);
   assert.match(installation, /await installPrompt\.prompt\(\)/);
 });
 
 test("supports registered employment links and multiple descriptions per CBO", async () => {
-  const data = await readFile(new URL("../app/data-module.tsx", import.meta.url), "utf8");
-  const registrations = await readFile(new URL("../app/registrations-module.tsx", import.meta.url), "utf8");
-  const database = await readFile(new URL("../db/index.ts", import.meta.url), "utf8");
-  const route = await readFile(new URL("../app/api/hr/route.ts", import.meta.url), "utf8");
+  const data = await readFile(
+    new URL("../app/data-module.tsx", import.meta.url),
+    "utf8",
+  );
+  const registrations = await readFile(
+    new URL("../app/registrations-module.tsx", import.meta.url),
+    "utf8",
+  );
+  const database = await readFile(
+    new URL("../db/index.ts", import.meta.url),
+    "utf8",
+  );
+  const route = await readFile(
+    new URL("../app/api/hr/route.ts", import.meta.url),
+    "utf8",
+  );
   assert.match(data, /EmploymentLinkField/);
   assert.match(registrations, /saveLink/);
   assert.match(database, /job_functions_tenant_cbo_description_idx/);
-  assert.match(route, /A função está vinculada a colaborador e não pode ser excluída/);
+  assert.match(
+    route,
+    /A função está vinculada a colaborador e não pode ser excluída/,
+  );
 });
 
 test("edits clones and deletes existing daily and monthly entries", async () => {
-  const module = await readFile(new URL("../app/launches-module.tsx", import.meta.url), "utf8");
-  const localApi = await readFile(new URL("../app/api/launches/route.ts", import.meta.url), "utf8");
-  const cloudApi = await readFile(new URL("../app/api/launches/cloud.ts", import.meta.url), "utf8");
+  const module = await readFile(
+    new URL("../app/launches-module.tsx", import.meta.url),
+    "utf8",
+  );
+  const localApi = await readFile(
+    new URL("../app/api/launches/route.ts", import.meta.url),
+    "utf8",
+  );
+  const cloudApi = await readFile(
+    new URL("../app/api/launches/cloud.ts", import.meta.url),
+    "utf8",
+  );
   assert.doesNotMatch(module, /APONTAMENTOS REALIZADOS/);
   assert.match(module, /Editar/);
   assert.match(module, /Clonar/);
   assert.match(module, /Excluir/);
   assert.match(module, /entryMode/);
-  assert.match(module, /onClick=\{\(\)=>focusGridRow\(key,c\.name\)\}/);
+  assert.match(
+    module,
+    /onClick=\{\(\)\s*=>\s*focusGridRow\(key,\s*c\.name\)\}/,
+  );
   assert.match(module, /Editando apontamento de \$\{name\}/);
-  assert.match(module, /document\.getElementById\(`service-\$\{key\}`\)\?\.focus/);
-  assert.match(module, /Math\.max\(1,modeDayEntries\.filter/);
-  assert.match(module, /gridDirty&&<button/);
-  assert.match(localApi, /action==="updateEntry"/);
-  assert.match(cloudApi, /body\.action==="updateEntry"/);
+  assert.match(
+    module,
+    /document\.getElementById\(`service-\$\{key\}`\)\?\.focus/,
+  );
+  assert.match(module, /Math\.max\(\s*1,\s*modeDayEntries\.filter/);
+  assert.match(module, /gridDirty\s*&&\s*\(\s*<button/);
+  assert.match(localApi, /action\s*===\s*"updateEntry"/);
+  assert.match(cloudApi, /body\.action\s*===\s*"updateEntry"/);
   assert.match(localApi, /clonedFromId: null/);
-  assert.match(cloudApi, /cloned_from_id:null/);
+  assert.match(cloudApi, /cloned_from_id:\s*null/);
   assert.match(cloudApi, /apontamentos clonados foram preservados/i);
 });
 
 test("allows only administrators to delete launch entries by month or selected days", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
-  const module = await readFile(new URL("../app/launches-module.tsx", import.meta.url), "utf8");
-  const localApi = await readFile(new URL("../app/api/launches/route.ts", import.meta.url), "utf8");
-  const cloudApi = await readFile(new URL("../app/api/launches/cloud.ts", import.meta.url), "utf8");
+  const page = await readFile(
+    new URL("../app/page.tsx", import.meta.url),
+    "utf8",
+  );
+  const module = await readFile(
+    new URL("../app/launches-module.tsx", import.meta.url),
+    "utf8",
+  );
+  const localApi = await readFile(
+    new URL("../app/api/launches/route.ts", import.meta.url),
+    "utf8",
+  );
+  const cloudApi = await readFile(
+    new URL("../app/api/launches/cloud.ts", import.meta.url),
+    "utf8",
+  );
   assert.match(page, /isAdmin=\{localUser\.role === "admin"\}/);
   assert.match(module, /ÁREA EXCLUSIVA DO ADMINISTRADOR/);
   assert.match(module, /Excluir todos os apontamentos deste mês/);
-  assert.match(module, /window\.confirm\(`ATENÇÃO:/);
+  assert.match(module, /window\.confirm\(\s*`ATENÇÃO:/);
   assert.match(module, /action: "deletePeriod"/);
   assert.match(localApi, /requireLocalAdmin/);
   assert.match(localApi, /action === "deletePeriod"/);
@@ -274,10 +484,22 @@ test("allows only administrators to delete launch entries by month or selected d
 });
 
 test("restricts worker deletion to the authorized administrator and requires two confirmations", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
-  const module = await readFile(new URL("../app/data-module.tsx", import.meta.url), "utf8");
-  const localApi = await readFile(new URL("../app/api/data/route.ts", import.meta.url), "utf8");
-  const cloudApi = await readFile(new URL("../app/api/data/cloud.ts", import.meta.url), "utf8");
+  const page = await readFile(
+    new URL("../app/page.tsx", import.meta.url),
+    "utf8",
+  );
+  const module = await readFile(
+    new URL("../app/data-module.tsx", import.meta.url),
+    "utf8",
+  );
+  const localApi = await readFile(
+    new URL("../app/api/data/route.ts", import.meta.url),
+    "utf8",
+  );
+  const cloudApi = await readFile(
+    new URL("../app/api/data/cloud.ts", import.meta.url),
+    "utf8",
+  );
   assert.match(page, /jedsonpc@hotmail\.com/);
   assert.match(module, /deleteWorker/);
   assert.equal((module.match(/window\.confirm\(/g) || []).length >= 2, true);
@@ -288,14 +510,26 @@ test("restricts worker deletion to the authorized administrator and requires two
 });
 
 test("uses three automatic daily-rate rows for monthly workers", async () => {
-  const module = await readFile(new URL("../app/launches-module.tsx", import.meta.url), "utf8");
-  const localApi = await readFile(new URL("../app/api/launches/route.ts", import.meta.url), "utf8");
-  const cloudApi = await readFile(new URL("../app/api/launches/cloud.ts", import.meta.url), "utf8");
-  assert.match(module, /entryMode==="monthly"\?3:1/);
-  assert.match(module, /dailyRateCents\|\|Math\.round\(c\.baseSalaryCents\/30\)/);
+  const module = await readFile(
+    new URL("../app/launches-module.tsx", import.meta.url),
+    "utf8",
+  );
+  const localApi = await readFile(
+    new URL("../app/api/launches/route.ts", import.meta.url),
+    "utf8",
+  );
+  const cloudApi = await readFile(
+    new URL("../app/api/launches/cloud.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(module, /entryMode\s*===\s*"monthly"\s*\?\s*3\s*:/);
+  assert.match(
+    module,
+    /dailyRateCents\s*\|\|\s*Math\.round\(c\.baseSalaryCents\s*\/\s*30\)/,
+  );
   assert.match(module, /INSALUBR\|PERICULOS\|GRATIFICA/);
   assert.match(module, /formulaFactor/);
-  assert.match(module, /disabled=\{entryMode==="monthly"\}/);
+  assert.match(module, /disabled=\{entryMode\s*===\s*"monthly"\}/);
   assert.match(localApi, /baseSalaryCents/);
   assert.match(localApi, /dailyRateCents/);
   assert.match(localApi, /salary_history/);
@@ -304,14 +538,20 @@ test("uses three automatic daily-rate rows for monthly workers", async () => {
 });
 
 test("uses package version in the system version card", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const page = await readFile(
+    new URL("../app/page.tsx", import.meta.url),
+    "utf8",
+  );
   assert.match(page, /import packageInfo from "\.\.\/package\.json"/);
   assert.match(page, /SYSTEM_VERSION = packageInfo\.version/);
   assert.doesNotMatch(page, /SYSTEM_VERSION = "1\.4\.17"/);
 });
 
 test("deletes a launch period in small Supabase batches", async () => {
-  const cloud = await readFile(new URL("../app/api/launches/cloud.ts", import.meta.url), "utf8");
+  const cloud = await readFile(
+    new URL("../app/api/launches/cloud.ts", import.meta.url),
+    "utf8",
+  );
   assert.match(cloud, /const batchSize = 5/);
   assert.match(cloud, /offset < rows\.length; offset \+= batchSize/);
   assert.match(cloud, /rows\.slice\(offset, offset \+ batchSize\)/);
@@ -320,21 +560,36 @@ test("deletes a launch period in small Supabase batches", async () => {
 });
 
 test("clones day entries by merging with the selected destination", async () => {
-  const localApi = await readFile(new URL("../app/api/launches/route.ts", import.meta.url), "utf8");
-  const cloudApi = await readFile(new URL("../app/api/launches/cloud.ts", import.meta.url), "utf8");
+  const localApi = await readFile(
+    new URL("../app/api/launches/route.ts", import.meta.url),
+    "utf8",
+  );
+  const cloudApi = await readFile(
+    new URL("../app/api/launches/cloud.ts", import.meta.url),
+    "utf8",
+  );
   assert.match(localApi, /onConflictDoUpdate/);
   assert.match(localApi, /clonados ou atualizados no dia de destino/);
   assert.match(cloudApi, /resolution=merge-duplicates/);
   assert.match(cloudApi, /O dia de origem não possui lançamentos salvos/);
-  const module = await readFile(new URL("../app/launches-module.tsx", import.meta.url), "utf8");
+  const module = await readFile(
+    new URL("../app/launches-module.tsx", import.meta.url),
+    "utf8",
+  );
   assert.match(module, /Clonar apontamentos deste dia/);
   assert.match(module, /Dia de destino/);
   assert.doesNotMatch(module, /setShowClone/);
 });
 
 test("calculates editable DSR entries on Sundays and holidays", async () => {
-  const module = await readFile(new URL("../app/launches-module.tsx", import.meta.url), "utf8");
-  const styles = await readFile(new URL("../app/launches.css", import.meta.url), "utf8");
+  const module = await readFile(
+    new URL("../app/launches-module.tsx", import.meta.url),
+    "utf8",
+  );
+  const styles = await readFile(
+    new URL("../app/launches.css", import.meta.url),
+    "utf8",
+  );
   assert.match(module, /Calcular e lançar DSR no dia selecionado/);
   assert.match(module, /Gerar feriado\(s\) e depois DSR/);
   assert.match(module, /weekHolidays/);
@@ -342,14 +597,20 @@ test("calculates editable DSR entries on Sundays and holidays", async () => {
   assert.match(module, /Buscar por código, serviço ou fórmula/);
   assert.match(module, /Todos os serviços cadastrados/);
   assert.match(module, /selectableHolidayServices/);
-  assert.match(module, /setHoliday\(\{date,name:holiday\.name\}\)/);
+  assert.match(
+    module,
+    /setHoliday\(\{\s*date,\s*name:\s*holiday\.name,?\s*\}\)/,
+  );
   assert.match(module, /item\?\.affectsDsr/);
   assert.match(module, /<CurrencyInput/);
-  assert.match(styles, /\.batch-table\{width:100%;min-width:0;table-layout:fixed\}/);
+  assert.match(
+    styles,
+    /\.batch-table\{width:100%;min-width:0;table-layout:fixed\}/,
+  );
   assert.match(styles, /overflow-x:visible/);
   assert.match(module, /recalculateAppliedDsr/);
   assert.match(module, /DSR recalculado automaticamente/);
-  assert.match(module, /automaticDsr:true/);
+  assert.match(module, /automaticDsr:\s*true/);
   assert.match(module, /Consultar lançamentos dia por dia/);
   assert.match(module, /row\.expectedDates\.map/);
   assert.match(module, /DSR = base ÷ 6/);
@@ -357,9 +618,18 @@ test("calculates editable DSR entries on Sundays and holidays", async () => {
 });
 
 test("does not leave monthly tax preview frozen", async () => {
-  const module = await readFile(new URL("../app/closing-module.tsx", import.meta.url), "utf8");
-  const supabase = await readFile(new URL("../db/supabase.ts", import.meta.url), "utf8");
-  const cloud = await readFile(new URL("../app/api/closing/cloud.ts", import.meta.url), "utf8");
+  const module = await readFile(
+    new URL("../app/closing-module.tsx", import.meta.url),
+    "utf8",
+  );
+  const supabase = await readFile(
+    new URL("../db/supabase.ts", import.meta.url),
+    "utf8",
+  );
+  const cloud = await readFile(
+    new URL("../app/api/closing/cloud.ts", import.meta.url),
+    "utf8",
+  );
   assert.match(module, /controller\.abort\(\), 45000/);
   assert.match(module, /Calculando prévia…/);
   assert.match(module, /window\.clearTimeout\(timeout\)/);
@@ -373,9 +643,18 @@ test("does not leave monthly tax preview frozen", async () => {
 });
 
 test("hides zero union contributions from every payroll report", async () => {
-  const reports = await readFile(new URL("../app/reports-module.tsx", import.meta.url), "utf8");
-  const localClosing = await readFile(new URL("../app/api/closing/route.ts", import.meta.url), "utf8");
-  const cloudClosing = await readFile(new URL("../app/api/closing/cloud.ts", import.meta.url), "utf8");
+  const reports = await readFile(
+    new URL("../app/reports-module.tsx", import.meta.url),
+    "utf8",
+  );
+  const localClosing = await readFile(
+    new URL("../app/api/closing/route.ts", import.meta.url),
+    "utf8",
+  );
+  const cloudClosing = await readFile(
+    new URL("../app/api/closing/cloud.ts", import.meta.url),
+    "utf8",
+  );
   assert.match(reports, /visibleReportEntries/);
   assert.match(reports, /CONTRIBUI\.\*SINDICAL\|SINDICATO/);
   assert.match(reports, /entry\.amountCents !== 0/);
@@ -385,35 +664,74 @@ test("hides zero union contributions from every payroll report", async () => {
 });
 
 test("uses legacy service 600 for payroll INSS", async () => {
-  const localClosing = await readFile(new URL("../app/api/closing/route.ts", import.meta.url), "utf8");
-  const cloudClosing = await readFile(new URL("../app/api/closing/cloud.ts", import.meta.url), "utf8");
+  const localClosing = await readFile(
+    new URL("../app/api/closing/route.ts", import.meta.url),
+    "utf8",
+  );
+  const cloudClosing = await readFile(
+    new URL("../app/api/closing/cloud.ts", import.meta.url),
+    "utf8",
+  );
   assert.match(localClosing, /sourceId===600/);
   assert.match(localClosing, /item\.kind==="inss"&&!special\?600/);
   assert.match(cloudClosing, /Number\(s\.legacy_id\)===600/);
   assert.match(cloudClosing, /item\.kind==="inss"&&!special\?600/);
   assert.match(localClosing, /const periodLabel=/);
   assert.match(localClosing, /delete\(dailyEntries\)/);
-  assert.match(cloudClosing, /daily_entries\?.*notes=eq\.\$\{encodeURIComponent\(note\)\}/);
+  assert.match(
+    cloudClosing,
+    /daily_entries\?.*notes=eq\.\$\{encodeURIComponent\(note\)\}/,
+  );
 });
 
 test("allows service codes to be edited and advances vacation periods", async () => {
-  const servicesModule = await readFile(new URL("../app/services-module.tsx", import.meta.url), "utf8");
-  const servicesRoute = await readFile(new URL("../app/api/services/route.ts", import.meta.url), "utf8");
-  const workerTabs = await readFile(new URL("../app/worker-hr-tabs.tsx", import.meta.url), "utf8");
+  const servicesModule = await readFile(
+    new URL("../app/services-module.tsx", import.meta.url),
+    "utf8",
+  );
+  const servicesRoute = await readFile(
+    new URL("../app/api/services/route.ts", import.meta.url),
+    "utf8",
+  );
+  const workerTabs = await readFile(
+    new URL("../app/worker-hr-tabs.tsx", import.meta.url),
+    "utf8",
+  );
   assert.match(servicesModule, /value=\{form\.sourceId/);
-  assert.doesNotMatch(servicesModule, /edit\?\.sourceId \|\| "Automático"\} readOnly/);
+  assert.doesNotMatch(
+    servicesModule,
+    /edit\?\.sourceId \|\| "Automático"\} readOnly/,
+  );
   assert.match(servicesRoute, /legacy_id:105/);
   assert.match(servicesRoute, /já está sendo usado por outro serviço/);
   assert.match(workerTabs, /setVac\(emptyVacation\);await load\(\)/);
-  assert.match(workerTabs, /latest\?\.accrual_end\?addDays\(latest\.accrual_end,1\)/);
+  assert.match(
+    workerTabs,
+    /latest\?\.accrual_end\?addDays\(latest\.accrual_end,1\)/,
+  );
 });
 
 test("generates vacation, thirteenth and production-average events", async () => {
-  const servicesModule = await readFile(new URL("../app/services-module.tsx", import.meta.url), "utf8");
-  const servicesRoute = await readFile(new URL("../app/api/services/route.ts", import.meta.url), "utf8");
-  const closingModule = await readFile(new URL("../app/closing-module.tsx", import.meta.url), "utf8");
-  const localClosing = await readFile(new URL("../app/api/closing/route.ts", import.meta.url), "utf8");
-  const cloudClosing = await readFile(new URL("../app/api/closing/cloud.ts", import.meta.url), "utf8");
+  const servicesModule = await readFile(
+    new URL("../app/services-module.tsx", import.meta.url),
+    "utf8",
+  );
+  const servicesRoute = await readFile(
+    new URL("../app/api/services/route.ts", import.meta.url),
+    "utf8",
+  );
+  const closingModule = await readFile(
+    new URL("../app/closing-module.tsx", import.meta.url),
+    "utf8",
+  );
+  const localClosing = await readFile(
+    new URL("../app/api/closing/route.ts", import.meta.url),
+    "utf8",
+  );
+  const cloudClosing = await readFile(
+    new URL("../app/api/closing/cloud.ts", import.meta.url),
+    "utf8",
+  );
   assert.match(servicesModule, /INSS sobre férias/);
   assert.match(servicesModule, /IRPF sobre férias/);
   assert.match(servicesRoute, /\[INSS_FERIAS\]/);
@@ -423,7 +741,10 @@ test("generates vacation, thirteenth and production-average events", async () =>
     assert.match(source, /sourceId:120|legacy_id:120/);
     assert.match(source, /productionAverageTotal/);
     assert.match(source, /productionAverageDays/);
-    assert.match(source, /Math\.max\(0,productionAverageTotal\/dailyRateCents-30\)/);
+    assert.match(
+      source,
+      /Math\.max\(0,productionAverageTotal\/dailyRateCents-30\)/,
+    );
     assert.match(source, /INSS sobre \$\{special\}/);
   }
 });

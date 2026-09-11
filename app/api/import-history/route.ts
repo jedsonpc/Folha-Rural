@@ -79,7 +79,8 @@ export async function POST(request: Request) {
           continue;
         }
         const quantity = num(row.Producao),
-          unitPriceCents = Math.round(num(row.Preco) * 100);
+          unitPriceMills = Math.round(num(row.Preco) * 1000),
+          unitPriceCents = Math.round(unitPriceMills / 10);
         entries.push({
           companySourceId: head.company,
           entryDate: head.date,
@@ -87,7 +88,8 @@ export async function POST(request: Request) {
           serviceSourceId: num(row.CodServico),
           quantity,
           unitPriceCents,
-          amountCents: Math.round(quantity * unitPriceCents),
+          unitPriceMills,
+          amountCents: Math.round((quantity * unitPriceMills) / 10),
           discountCents: Math.round(num(row.Desconto) * 100),
           sourceSequence: num(row.Sequencia),
         });
@@ -151,13 +153,14 @@ export async function POST(request: Request) {
         continue;
       }
       const quantity = num(row.Producao),
-        unit = Math.round(num(row.Preco) * 100),
+        unitMills = Math.round(num(row.Preco) * 1000),
+        unit = Math.round(unitMills / 10),
         discount = Math.round(num(row.Desconto) * 100),
-        amount = Math.round(quantity * unit);
+        amount = Math.round((quantity * unitMills) / 10);
       pending.push(
         runtime
           .prepare(
-            `INSERT INTO daily_entries (tenant_id,company_source_id,entry_date,contract_id,service_id,quantity,unit_price_cents,amount_cents,discount_cents,source_sequence,notes) VALUES (?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT (tenant_id,company_source_id,entry_date,contract_id,service_id) DO UPDATE SET quantity=excluded.quantity,unit_price_cents=excluded.unit_price_cents,amount_cents=excluded.amount_cents,discount_cents=excluded.discount_cents,source_sequence=excluded.source_sequence`,
+            `INSERT INTO daily_entries (tenant_id,company_source_id,entry_date,contract_id,service_id,quantity,unit_price_cents,unit_price_mills,amount_cents,discount_cents,source_sequence,notes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT (tenant_id,company_source_id,entry_date,contract_id,service_id) DO UPDATE SET quantity=excluded.quantity,unit_price_cents=excluded.unit_price_cents,unit_price_mills=excluded.unit_price_mills,amount_cents=excluded.amount_cents,discount_cents=excluded.discount_cents,source_sequence=excluded.source_sequence`,
           )
           .bind(
             tenantId,
@@ -167,6 +170,7 @@ export async function POST(request: Request) {
             serviceId,
             String(quantity),
             unit,
+            unitMills,
             amount,
             discount,
             sequence,

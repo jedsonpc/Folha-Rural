@@ -30,7 +30,7 @@ export function ensureDatabase() {
       `CREATE TABLE IF NOT EXISTS tax_brackets (id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id TEXT NOT NULL, tax_type TEXT NOT NULL, effective_from TEXT NOT NULL, effective_to TEXT, lower_cents INTEGER NOT NULL, upper_cents INTEGER, rate_basis_points INTEGER NOT NULL, deduction_cents INTEGER NOT NULL DEFAULT 0, source_name TEXT NOT NULL, source_url TEXT NOT NULL, official_updated_at TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
       `CREATE UNIQUE INDEX IF NOT EXISTS tax_brackets_unique_idx ON tax_brackets (tenant_id,tax_type,effective_from,lower_cents)`,
       `CREATE TABLE IF NOT EXISTS import_runs (id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id TEXT NOT NULL, file_name TEXT NOT NULL, companies_count INTEGER NOT NULL DEFAULT 0, workers_count INTEGER NOT NULL DEFAULT 0, services_count INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'completed', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
-      `CREATE TABLE IF NOT EXISTS daily_entries (id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id TEXT NOT NULL, company_source_id INTEGER NOT NULL, entry_date TEXT NOT NULL, contract_id INTEGER NOT NULL REFERENCES employment_contracts(id), service_id INTEGER NOT NULL REFERENCES services(id), quantity TEXT NOT NULL, unit_price_cents INTEGER NOT NULL, amount_cents INTEGER NOT NULL, discount_cents INTEGER NOT NULL DEFAULT 0, source_sequence INTEGER, notes TEXT, cloned_from_id INTEGER, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+      `CREATE TABLE IF NOT EXISTS daily_entries (id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id TEXT NOT NULL, company_source_id INTEGER NOT NULL, entry_date TEXT NOT NULL, contract_id INTEGER NOT NULL REFERENCES employment_contracts(id), service_id INTEGER NOT NULL REFERENCES services(id), quantity TEXT NOT NULL, unit_price_cents INTEGER NOT NULL, unit_price_mills INTEGER NOT NULL DEFAULT 0, amount_cents INTEGER NOT NULL, discount_cents INTEGER NOT NULL DEFAULT 0, source_sequence INTEGER, notes TEXT, cloned_from_id INTEGER, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
       `CREATE UNIQUE INDEX IF NOT EXISTS entries_unique_day_item_idx ON daily_entries (tenant_id, company_source_id, entry_date, contract_id, service_id)`,
       `CREATE TABLE IF NOT EXISTS holidays (id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id TEXT NOT NULL, company_source_id INTEGER NOT NULL, holiday_date TEXT NOT NULL, name TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
       `CREATE UNIQUE INDEX IF NOT EXISTS holidays_tenant_company_date_idx ON holidays (tenant_id, company_source_id, holiday_date)`,
@@ -208,6 +208,7 @@ export function ensureDatabase() {
         const entryAdds: Record<string, string> = {
           discount_cents: "INTEGER NOT NULL DEFAULT 0",
           source_sequence: "INTEGER",
+          unit_price_mills: "INTEGER NOT NULL DEFAULT 0",
         };
         const entryMissing = Object.entries(entryAdds).filter(
           ([n]) => !entryExisting.has(n),
@@ -252,6 +253,11 @@ export function ensureDatabase() {
               ),
             ),
           );
+        await runtimeDb!
+          .prepare(
+            "UPDATE daily_entries SET unit_price_mills = unit_price_cents * 10 WHERE unit_price_mills = 0 AND unit_price_cents <> 0",
+          )
+          .run();
         await runtimeDb!
           .prepare(
             `UPDATE employment_contracts

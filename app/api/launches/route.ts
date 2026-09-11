@@ -220,7 +220,8 @@ export async function POST(request: Request) {
         contractId = Number(b.contractId),
         serviceId = Number(b.serviceId),
         quantity = Number(b.quantity),
-        unit = Math.round(Number(b.unitPrice) * 100);
+        unitMills = Math.round(Number(b.unitPrice) * 1000),
+        unit = Math.round(unitMills / 10);
       if (
         !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
         !contractId ||
@@ -232,7 +233,7 @@ export async function POST(request: Request) {
           { error: "Preencha data, colaborador, serviço, quantidade e valor." },
           { status: 400 },
         );
-      const amount = Math.round(quantity * unit);
+      const amount = Math.round((quantity * unitMills) / 10);
       await db
         .insert(dailyEntries)
         .values({
@@ -243,6 +244,7 @@ export async function POST(request: Request) {
           serviceId,
           quantity: String(quantity),
           unitPriceCents: unit,
+          unitPriceMills: unitMills,
           amountCents: amount,
           notes: String(b.notes || "").trim() || null,
         })
@@ -257,6 +259,7 @@ export async function POST(request: Request) {
           set: {
             quantity: String(quantity),
             unitPriceCents: unit,
+            unitPriceMills: unitMills,
             amountCents: amount,
             notes: String(b.notes || "").trim() || null,
           },
@@ -278,9 +281,10 @@ export async function POST(request: Request) {
         const contractId = Number(row.contractId),
           serviceId = Number(row.serviceId),
           quantity = Number(row.quantity),
-          unit = Math.round(Number(row.unitPrice) * 100);
+          unitMills = Math.round(Number(row.unitPrice) * 1000),
+          unit = Math.round(unitMills / 10);
         if (!contractId || !serviceId || quantity <= 0 || unit < 0) continue;
-        const amount = Math.round(quantity * unit);
+        const amount = Math.round((quantity * unitMills) / 10);
         await db
           .insert(dailyEntries)
           .values({
@@ -291,6 +295,7 @@ export async function POST(request: Request) {
             serviceId,
             quantity: String(quantity),
             unitPriceCents: unit,
+            unitPriceMills: unitMills,
             amountCents: amount,
           })
           .onConflictDoUpdate({
@@ -304,6 +309,7 @@ export async function POST(request: Request) {
             set: {
               quantity: String(quantity),
               unitPriceCents: unit,
+              unitPriceMills: unitMills,
               amountCents: amount,
             },
           });
@@ -315,9 +321,9 @@ export async function POST(request: Request) {
       });
     }
     if(action==="updateEntry"){
-      const id=Number(b.id),date=String(b.entryDate||""),contractId=Number(b.contractId),serviceId=Number(b.serviceId),quantity=Number(b.quantity),unit=Math.round(Number(b.unitPrice)*100);
+      const id=Number(b.id),date=String(b.entryDate||""),contractId=Number(b.contractId),serviceId=Number(b.serviceId),quantity=Number(b.quantity),unitMills=Math.round(Number(b.unitPrice)*1000),unit=Math.round(unitMills/10);
       if(!id||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(date)||!contractId||!serviceId||quantity<=0||unit<0)return Response.json({error:"Preencha data, colaborador, serviço, quantidade e valor."},{status:400});
-      await db.update(dailyEntries).set({entryDate:date,contractId,serviceId,quantity:String(quantity),unitPriceCents:unit,amountCents:Math.round(quantity*unit)}).where(and(eq(dailyEntries.id,id),eq(dailyEntries.tenantId,tenantId),eq(dailyEntries.companySourceId,company)));
+      await db.update(dailyEntries).set({entryDate:date,contractId,serviceId,quantity:String(quantity),unitPriceCents:unit,unitPriceMills:unitMills,amountCents:Math.round(quantity*unitMills/10)}).where(and(eq(dailyEntries.id,id),eq(dailyEntries.tenantId,tenantId),eq(dailyEntries.companySourceId,company)));
       return Response.json({ok:true,message:"Apontamento atualizado."});
     }
     if (action === "delete") {
@@ -405,10 +411,11 @@ export async function POST(request: Request) {
           serviceId: r.serviceId,
           quantity: r.quantity,
           unitPriceCents: r.unitPriceCents,
+          unitPriceMills: r.unitPriceMills,
           amountCents: r.amountCents,
           notes: r.notes,
           clonedFromId: r.id,
-        }).onConflictDoUpdate({target:[dailyEntries.tenantId,dailyEntries.companySourceId,dailyEntries.entryDate,dailyEntries.contractId,dailyEntries.serviceId],set:{quantity:r.quantity,unitPriceCents:r.unitPriceCents,amountCents:r.amountCents,notes:r.notes,clonedFromId:r.id}});
+        }).onConflictDoUpdate({target:[dailyEntries.tenantId,dailyEntries.companySourceId,dailyEntries.entryDate,dailyEntries.contractId,dailyEntries.serviceId],set:{quantity:r.quantity,unitPriceCents:r.unitPriceCents,unitPriceMills:r.unitPriceMills,amountCents:r.amountCents,notes:r.notes,clonedFromId:r.id}});
       return Response.json({
         ok: true,
         message: `${rows.length} lançamentos clonados ou atualizados no dia de destino.`,

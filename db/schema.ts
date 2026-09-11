@@ -310,6 +310,7 @@ export const dailyEntries = sqliteTable(
       .references(() => services.id),
     quantity: text("quantity").notNull(),
     unitPriceCents: integer("unit_price_cents").notNull(),
+    unitPriceMills: integer("unit_price_mills").notNull().default(0),
     amountCents: integer("amount_cents").notNull(),
     notes: text("notes"),
     clonedFromId: integer("cloned_from_id"),
