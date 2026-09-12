@@ -42,6 +42,9 @@ const progressive = (
     }, 0),
   );
 
+const isInssService = (description: string) =>
+  /(?:^|\b)I\.?\s*N\.?\s*S\.?\s*S\.?(?:\b|$)/i.test(description);
+
 async function calculate(
   request: Request,
   company: number,
@@ -202,7 +205,7 @@ async function calculate(
           )
           .reduce((a, e) => a + e.amountCents, 0),
         inssFull = inssRows.length ? progressive(inssBase, inssRows) : 0,
-        priorInss = period === "balance" ? monthlyEntries.filter(e=>e.contractId===c.id && e.entryDate<`${month}-16` && /\bINSS\b/i.test(e.serviceDescription) && e.discountCents>0).reduce((a,e)=>a+e.discountCents,0) : 0,
+        priorInss = period === "balance" ? monthlyEntries.filter(e=>e.contractId===c.id && e.entryDate<`${month}-16` && isInssService(e.serviceDescription) && e.discountCents>0).reduce((a,e)=>a+e.discountCents,0) : 0,
         inss = Math.max(0,inssFull-priorInss),
         legalDeduction = inssFull + irrfDependentCount * 18959,
         irrfBase = Math.max(0, irrfGross - Math.max(60720, legalDeduction)),

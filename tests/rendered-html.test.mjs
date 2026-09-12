@@ -18,7 +18,7 @@ test("keeps the installable app metadata and update worker", async () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
   assert.match(serviceWorker, /SKIP_WAITING/);
-  assert.match(serviceWorker, /folha-rural-shell-v58-folha-rural-1\.4\.70/);
+  assert.match(serviceWorker, /folha-rural-shell-v60-folha-rural-1\.4\.72/);
   assert.match(serviceWorker, /folha-rural-data-v1/);
   assert.match(serviceWorker, /Dados não baixados para uso offline/);
   assert.match(serviceWorker, /skipWaiting/);
@@ -150,7 +150,7 @@ test("uses the Brazilian civil date and the current release date", async () => {
   );
   assert.match(dates, /timeZone: "America\/Fortaleza"/);
   assert.match(launches, /const iso = brazilToday/);
-  assert.match(page, /LAST_UPDATE = "11\/09\/2026"/);
+  assert.match(page, /LAST_UPDATE = "12\/09\/2026"/);
 });
 
 test("loads complete DSR weeks across month boundaries", async () => {
@@ -710,7 +710,7 @@ test("compensates taxes already withheld in the first half of the month", async 
   );
   assert.match(
     localClosing,
-    /priorInss = period === "balance" \? monthlyEntries\.filter\(e=>e\.contractId===c\.id/,
+    /priorInss = period === "balance" \? monthlyEntries\.filter\(e=>e\.contractId===c\.id.*isInssService/,
   );
   assert.match(
     localClosing,
@@ -718,12 +718,21 @@ test("compensates taxes already withheld in the first half of the month", async 
   );
   assert.match(
     cloudClosing,
-    /priorInss = period === "balance" \? contractMonthlyEntries\.filter/,
+    /priorInss = period === "balance" \? contractMonthlyEntries\.filter\(entry=>.*isInssService/,
   );
   assert.match(
     cloudClosing,
     /priorIrrf = period === "balance" \? contractMonthlyEntries\.filter/,
   );
+  for (const source of [localClosing, cloudClosing]) {
+    assert.match(source, /const isInssService/);
+    assert.match(source, /I\\\.\?\\s\*N\\\.\?\\s\*S\\\.\?\\s\*S\\\.\?/);
+  }
+  const isInssService = (description) =>
+    /(?:^|\b)I\.?\s*N\.?\s*S\.?\s*S\.?(?:\b|$)/i.test(description);
+  assert.equal(isInssService("INSS"), true);
+  assert.equal(isInssService("I.N.S.S."), true);
+  assert.equal(isInssService("Desconto I. N. S. S."), true);
 });
 
 test("allows service codes to be edited and advances vacation periods", async () => {
