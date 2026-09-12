@@ -68,8 +68,10 @@ const money = (c: number) =>
     }).format(c / 100),
   visibleReportEntries = (entries: Entry[], services: Service[]) =>
     entries.filter((entry) => {
+      const service = services.find((item) => item.id === entry.serviceId);
+      if (service?.sourceId === 120 || service?.entryType === "special" && /M[EÉ]DIA DE PRODU[CÇ][AÃ]O EM DI[AÁ]RIAS/i.test(service.description)) return false;
       if (entry.amountCents !== 0 || (entry.discountCents || 0) !== 0) return true;
-      const description = services.find((service) => service.id === entry.serviceId)?.description || "";
+      const description = service?.description || "";
       return !/CONTRIBUI.*SINDICAL|SINDICATO/i.test(description);
     }),
   financialMoney = (c: number) =>

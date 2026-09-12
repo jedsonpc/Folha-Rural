@@ -18,7 +18,7 @@ test("keeps the installable app metadata and update worker", async () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
   assert.match(serviceWorker, /SKIP_WAITING/);
-  assert.match(serviceWorker, /folha-rural-shell-v60-folha-rural-1\.4\.72/);
+  assert.match(serviceWorker, /folha-rural-shell-v61-folha-rural-1\.4\.73/);
   assert.match(serviceWorker, /folha-rural-data-v1/);
   assert.match(serviceWorker, /Dados não baixados para uso offline/);
   assert.match(serviceWorker, /skipWaiting/);
@@ -763,6 +763,10 @@ test("allows service codes to be edited and advances vacation periods", async ()
 });
 
 test("generates vacation, thirteenth and production-average events", async () => {
+  const reportsModule = await readFile(
+    new URL("../app/reports-module.tsx", import.meta.url),
+    "utf8",
+  );
   const servicesModule = await readFile(
     new URL("../app/services-module.tsx", import.meta.url),
     "utf8",
@@ -797,5 +801,9 @@ test("generates vacation, thirteenth and production-average events", async () =>
       /Math\.max\(0,productionAverageTotal\/dailyRateCents-30\)/,
     );
     assert.match(source, /INSS sobre \$\{special\}/);
+    assert.match(source, /Acumulador histórico - Média de produção em diárias/);
+    assert.match(source, /if\(amount>0\)/);
   }
+  assert.match(reportsModule, /service\?\.sourceId === 120/);
+  assert.match(reportsModule, /entryType === "special"/);
 });

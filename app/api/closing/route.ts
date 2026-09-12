@@ -88,6 +88,7 @@ async function calculate(
       amountCents: dailyEntries.amountCents,
       discountCents: dailyEntries.discountCents,
       notes: dailyEntries.notes,
+      serviceSourceId: services.sourceId,
       inss: services.inss,
       irrf: services.irrf,
       inss13: services.inss13,
@@ -159,7 +160,7 @@ async function calculate(
   const rows = contracts
     .map((c) => {
       const ownEntries = entries.filter((e) => e.contractId === c.id),
-        own = period==="vacation"?ownEntries.filter((e)=>e.inssVacation||e.irrfVacation):period==="thirteenth"?ownEntries.filter((e)=>e.inss13||e.fgts13):ownEntries,
+        own = period==="vacation"?ownEntries.filter((e)=>e.inssVacation||e.irrfVacation):period==="thirteenth"?ownEntries.filter((e)=>e.inss13||e.fgts13):ownEntries.filter((e)=>e.serviceSourceId!==120),
         familyDependentCount = dependentRows.filter((d) => {
           if (d.personId !== c.personId || !d.salaryFamilyEligible)
             return false;
@@ -334,9 +335,10 @@ async function saveTaxEntries(request:Request,company:number,month:string,period
   const [year,value]=month.split("-").map(Number),lastDay=new Date(Date.UTC(year,value,0)).getUTCDate(),entryDate=period==="advance"?`${month}-15`:`${month}-${String(lastDay).padStart(2,"0")}`;
   const periodLabel=period==="advance"?"quinzenal":period==="vacation"?"férias":period==="thirteenth"?"13º salário":"mensal";
   for(const tax of ["INSS","IRRF"] as const){const note=`Gerado automaticamente - ${tax} ${periodLabel}`;await db.delete(dailyEntries).where(and(eq(dailyEntries.tenantId,tenantId),eq(dailyEntries.companySourceId,company),eq(dailyEntries.entryDate,entryDate),eq(dailyEntries.notes,note)))}
+  if(ids.productionAverage&&(period==="monthly"||period==="balance"))await db.delete(dailyEntries).where(and(eq(dailyEntries.tenantId,tenantId),eq(dailyEntries.companySourceId,company),eq(dailyEntries.entryDate,entryDate),eq(dailyEntries.serviceId,ids.productionAverage)));
   for(const row of result.rows){
     for(const [kind,amount] of [["inss",row.inss],["irrf",row.irrf],["union",row.union],["advance",row.advanceDiscount]] as const){const serviceId=ids[kind];if(!serviceId||amount<=0||(kind==="advance"&&period==="advance"))continue;await db.insert(dailyEntries).values({tenantId,companySourceId:company,entryDate,contractId:row.id,serviceId,quantity:"1",unitPriceCents:0,amountCents:0,discountCents:amount,notes:`Gerado automaticamente - ${kind.toUpperCase()} ${periodLabel}`}).onConflictDoUpdate({target:[dailyEntries.tenantId,dailyEntries.companySourceId,dailyEntries.entryDate,dailyEntries.contractId,dailyEntries.serviceId],set:{quantity:"1",unitPriceCents:0,amountCents:0,discountCents:amount,notes:`Gerado automaticamente - ${kind.toUpperCase()} ${periodLabel}`}})}
-    if(ids.productionAverage&&(period==="monthly"||period==="balance")){const quantity=Math.max(0,Number(row.productionAverageDays||0)),unit=Math.max(0,Number(row.dailyRateCents||0)),amount=Math.round(quantity*unit),notes="Gerado automaticamente - Média de produção em diárias mensal";await db.insert(dailyEntries).values({tenantId,companySourceId:company,entryDate,contractId:row.id,serviceId:ids.productionAverage,quantity:quantity.toFixed(4),unitPriceCents:unit,amountCents:amount,discountCents:0,notes}).onConflictDoUpdate({target:[dailyEntries.tenantId,dailyEntries.companySourceId,dailyEntries.entryDate,dailyEntries.contractId,dailyEntries.serviceId],set:{quantity:quantity.toFixed(4),unitPriceCents:unit,amountCents:amount,discountCents:0,notes}})}
+    if(ids.productionAverage&&(period==="monthly"||period==="balance")){const quantity=Math.max(0,Number(row.productionAverageDays||0)),unit=Math.max(0,Number(row.dailyRateCents||0)),amount=Math.round(quantity*unit),notes="Acumulador histórico - Média de produção em diárias";if(amount>0)await db.insert(dailyEntries).values({tenantId,companySourceId:company,entryDate,contractId:row.id,serviceId:ids.productionAverage,quantity:quantity.toFixed(4),unitPriceCents:unit,amountCents:amount,discountCents:0,notes})}
   }
 }
 export async function GET(request: Request) {
