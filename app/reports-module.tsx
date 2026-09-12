@@ -902,21 +902,43 @@ function EventTable({
     r.discount += e.discountCents || 0;
     grouped.set(e.serviceId, r);
   });
+  const orderedEvents = [...grouped].sort(([idA, a], [idB, b]) => {
+    const groupA = a.gross > 0 ? 0 : 1;
+    const groupB = b.gross > 0 ? 0 : 1;
+    if (groupA !== groupB) return groupA - groupB;
+    const serviceA = services.find((service) => service.id === idA);
+    const serviceB = services.find((service) => service.id === idB);
+    const codeA = Number(serviceA?.sourceId);
+    const codeB = Number(serviceB?.sourceId);
+    if (Number.isFinite(codeA) && Number.isFinite(codeB) && codeA !== codeB)
+      return codeA - codeB;
+    if (Number.isFinite(codeA) !== Number.isFinite(codeB))
+      return Number.isFinite(codeA) ? -1 : 1;
+    return String(serviceA?.description || idA).localeCompare(
+      String(serviceB?.description || idB),
+      "pt-BR",
+    );
+  });
   return (
     <table className="pay-table">
       <thead>
         <tr>
-          <th>Evento</th>
+          <th>Cód. / Evento</th>
           <th>Referência</th>
           <th>Proventos</th>
           <th>Descontos</th>
         </tr>
       </thead>
       <tbody>
-        {[...grouped].map(([id, r]) => (
+        {orderedEvents.map(([id, r]) => (
           <tr key={id}>
             <td>
-              {services.find((s) => s.id === id)?.description || `Evento ${id}`}
+              {(() => {
+                const service = services.find((item) => item.id === id);
+                return service
+                  ? `${service.sourceId ?? "—"} · ${service.description}`
+                  : `— · Evento ${id}`;
+              })()}
             </td>
             <td>{r.q || "—"}</td>
             <td>{r.gross ? money(r.gross) : "—"}</td>

@@ -18,7 +18,7 @@ test("keeps the installable app metadata and update worker", async () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
   assert.match(serviceWorker, /SKIP_WAITING/);
-  assert.match(serviceWorker, /folha-rural-shell-v61-folha-rural-1\.4\.73/);
+  assert.match(serviceWorker, /folha-rural-shell-v62-folha-rural-1\.4\.74/);
   assert.match(serviceWorker, /folha-rural-data-v1/);
   assert.match(serviceWorker, /Dados não baixados para uso offline/);
   assert.match(serviceWorker, /skipWaiting/);
@@ -676,6 +676,20 @@ test("hides zero union contributions from every payroll report", async () => {
   assert.match(reports, /const reportEntries = visibleReportEntries/);
   assert.match(localClosing, /amount<=0/);
   assert.match(cloudClosing, /amount>0/);
+});
+
+test("orders receipt and detailed payroll events by nature and service code", async () => {
+  const reports = await readFile(
+    new URL("../app/reports-module.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(reports, /const orderedEvents = \[\.\.\.grouped\]\.sort/);
+  assert.match(reports, /const groupA = a\.gross > 0 \? 0 : 1/);
+  assert.match(reports, /if \(groupA !== groupB\) return groupA - groupB/);
+  assert.match(reports, /return codeA - codeB/);
+  assert.match(reports, /<th>Cód\. \/ Evento<\/th>/);
+  assert.match(reports, /service\.sourceId \?\? "—"/);
+  assert.match(reports, /<EventTable entries=\{t\.es\} services=\{p\.services\} \/>/);
 });
 
 test("uses legacy service 600 for payroll INSS", async () => {
