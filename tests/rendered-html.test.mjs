@@ -699,6 +699,33 @@ test("uses legacy service 600 for payroll INSS", async () => {
   );
 });
 
+test("compensates taxes already withheld in the first half of the month", async () => {
+  const localClosing = await readFile(
+    new URL("../app/api/closing/route.ts", import.meta.url),
+    "utf8",
+  );
+  const cloudClosing = await readFile(
+    new URL("../app/api/closing/cloud.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    localClosing,
+    /priorInss = period === "balance" \? monthlyEntries\.filter\(e=>e\.contractId===c\.id/,
+  );
+  assert.match(
+    localClosing,
+    /priorIrrf = period === "balance" \? monthlyEntries\.filter\(e=>e\.contractId===c\.id/,
+  );
+  assert.match(
+    cloudClosing,
+    /priorInss = period === "balance" \? contractMonthlyEntries\.filter/,
+  );
+  assert.match(
+    cloudClosing,
+    /priorIrrf = period === "balance" \? contractMonthlyEntries\.filter/,
+  );
+});
+
 test("allows service codes to be edited and advances vacation periods", async () => {
   const servicesModule = await readFile(
     new URL("../app/services-module.tsx", import.meta.url),

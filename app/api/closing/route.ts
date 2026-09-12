@@ -202,7 +202,7 @@ async function calculate(
           )
           .reduce((a, e) => a + e.amountCents, 0),
         inssFull = inssRows.length ? progressive(inssBase, inssRows) : 0,
-        priorInss = period === "balance" ? own.filter(e=>e.entryDate<`${month}-16` && /\bINSS\b/i.test(e.serviceDescription) && e.discountCents>0).reduce((a,e)=>a+e.discountCents,0) : 0,
+        priorInss = period === "balance" ? monthlyEntries.filter(e=>e.contractId===c.id && e.entryDate<`${month}-16` && /\bINSS\b/i.test(e.serviceDescription) && e.discountCents>0).reduce((a,e)=>a+e.discountCents,0) : 0,
         inss = Math.max(0,inssFull-priorInss),
         legalDeduction = inssFull + irrfDependentCount * 18959,
         irrfBase = Math.max(0, irrfGross - Math.max(60720, legalDeduction)),
@@ -228,7 +228,7 @@ async function calculate(
                 )
               : 0,
         irrfFull = Math.max(0, irrfBeforeReduction - irrfReduction),
-        priorIrrf = period === "balance" ? own.filter(e=>e.entryDate<`${month}-16` && /IRRF|IMPOSTO.*RENDA/i.test(e.serviceDescription) && e.discountCents>0).reduce((a,e)=>a+e.discountCents,0) : 0,
+        priorIrrf = period === "balance" ? monthlyEntries.filter(e=>e.contractId===c.id && e.entryDate<`${month}-16` && /IRRF|IMPOSTO.*RENDA/i.test(e.serviceDescription) && e.discountCents>0).reduce((a,e)=>a+e.discountCents,0) : 0,
         irrf = Math.max(0,irrfFull-priorIrrf),
         admissionDay = c.admissionDate?.startsWith(month)
           ? Number(c.admissionDate.slice(8, 10))

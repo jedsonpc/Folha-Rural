@@ -209,7 +209,7 @@ async function calculateCloud(
         )
         .reduce((sum, entry) => sum + Number(entry.amount_cents), 0);
       const inssFull = inssRows.length ? progressive(inssBase, inssRows) : 0;
-      const priorInss = period === "balance" ? own.filter(entry=>entry.entry_date<`${month}-16`&&/\bINSS\b/i.test(String(serviceById.get(entry.service_id)?.description||""))&&Number(entry.discount_cents)>0).reduce((sum,entry)=>sum+Number(entry.discount_cents),0):0;
+      const priorInss = period === "balance" ? contractMonthlyEntries.filter(entry=>entry.entry_date<`${month}-16`&&/\bINSS\b/i.test(String(serviceById.get(entry.service_id)?.description||""))&&Number(entry.discount_cents)>0).reduce((sum,entry)=>sum+Number(entry.discount_cents),0):0;
       const inss = Math.max(0,inssFull-priorInss);
       const legalDeduction = inssFull + irrfDependentCount * 18959;
       const irrfBase = Math.max(0, irrfGross - Math.max(60720, legalDeduction));
@@ -235,7 +235,7 @@ async function calculateCloud(
               )
             : 0;
       const irrfFull = Math.max(0, irrfBeforeReduction - irrfReduction);
-      const priorIrrf = period === "balance" ? own.filter(entry=>entry.entry_date<`${month}-16`&&/IRRF|IMPOSTO.*RENDA/i.test(String(serviceById.get(entry.service_id)?.description||""))&&Number(entry.discount_cents)>0).reduce((sum,entry)=>sum+Number(entry.discount_cents),0):0;
+      const priorIrrf = period === "balance" ? contractMonthlyEntries.filter(entry=>entry.entry_date<`${month}-16`&&/IRRF|IMPOSTO.*RENDA/i.test(String(serviceById.get(entry.service_id)?.description||""))&&Number(entry.discount_cents)>0).reduce((sum,entry)=>sum+Number(entry.discount_cents),0):0;
       const irrf = Math.max(0,irrfFull-priorIrrf);
       const admissionDay = contract.admission_date?.startsWith(month)
         ? Number(contract.admission_date.slice(8, 10))
