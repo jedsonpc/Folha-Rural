@@ -112,6 +112,7 @@ export default function ReportsModule({
     [status, setStatus] = useState("all"),
     [order, setOrder] = useState("registration"),
     [type, setType] = useState("receipts"),
+    [summaryRangeMode, setSummaryRangeMode] = useState<"month" | "custom">("month"),
     [rangeMode, setRangeMode] = useState<"annual" | "year" | "custom">(
       "annual",
     ),
@@ -159,7 +160,7 @@ export default function ReportsModule({
         setNotice("Nenhuma empresa disponível para gerar os relatórios.");
         return;
       }
-      const usesRange = type === "events" || type === "financial";
+      const usesRange = type === "events" || type === "financial" || (type === "summary" && summaryRangeMode === "custom");
       const start = usesRange ? dateStart : `${month}-01`;
       const end = usesRange ? dateEnd : `${month}-31`;
       for (const c of targets) {
@@ -410,17 +411,18 @@ export default function ReportsModule({
             </>
           ) : (
             <>
-          <label>
-            Competência
-            <input
-              type="month"
-              value={month}
-              onChange={(e) => setMonth(e.target.value)}
-            />
-          </label>
+          {type === "summary" && <label>Apontamentos do período<select value={summaryRangeMode} onChange={(e)=>{const mode=e.target.value as "month"|"custom";setSummaryRangeMode(mode);setPacks([])}}><option value="month">Competência mensal</option><option value="custom">Período personalizado</option></select></label>}
+          {!(type === "summary" && summaryRangeMode === "custom") ? <label>
+              Competência
+              <input
+                type="month"
+                value={month}
+                onChange={(e) => setMonth(e.target.value)}
+              />
+            </label> : <><label>Data inicial<input type="date" value={dateStart} onChange={(e)=>setDateStart(e.target.value)}/></label><label>Data final<input type="date" value={dateEnd} onChange={(e)=>setDateEnd(e.target.value)}/></label></>}
             </>
           )}
-          {type !== "events" && type !== "financial" && (
+          {type !== "events" && type !== "financial" && !(type === "summary" && summaryRangeMode === "custom") && (
             <label>
               Período da folha
               <select
@@ -620,6 +622,9 @@ export default function ReportsModule({
             chosen={chosen}
             month={month}
             period={period}
+            dateStart={dateStart}
+            dateEnd={dateEnd}
+            customRange={summaryRangeMode === "custom"}
           />
         ) : (
           <Management
@@ -1281,11 +1286,17 @@ function Summary({
   chosen,
   month,
   period,
+  dateStart,
+  dateEnd,
+  customRange,
 }: {
   packs: Pack[];
   chosen: { c: Contract; p: Pack }[];
   month: string;
   period: string;
+  dateStart: string;
+  dateEnd: string;
+  customRange: boolean;
 }) {
   const companies = [
     ...new Map(
@@ -1314,9 +1325,11 @@ function Summary({
     gross = sorted.reduce((a, [, r]) => a + r.gross, 0),
     discount = sorted.reduce((a, [, r]) => a + r.discount, 0),
     fgtsBase = chosen.reduce((sum, { p, c }) => {
-      const competenceEntries = (p.competenceEntries || totals(p, c.id).es).filter(
-        (entry) => entry.contractId === c.id && entry.entryDate.slice(0, 7) === month,
-      );
+      const competenceEntries = customRange
+        ? totals(p, c.id).es
+        : (p.competenceEntries || totals(p, c.id).es).filter(
+            (entry) => entry.contractId === c.id && entry.entryDate.slice(0, 7) === month,
+          );
       return sum + competenceEntries
         .filter((entry) => p.services.find((service) => service.id === entry.serviceId)?.fgtsIncidence)
         .reduce((subtotal, entry) => subtotal + entry.amountCents, 0);
@@ -1337,6 +1350,7 @@ function Summary({
           />
         ))}
       </div>
+      {customRange && <h2 className="report-period">Apontamentos de {dateStart.split("-").reverse().join("/")} a {dateEnd.split("-").reverse().join("/")}</h2>}
       <table className="pay-table summary-events">
         <thead>
           <tr>

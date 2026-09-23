@@ -68,6 +68,8 @@ type Contract = {
   city: string | null;
   state: string | null;
   postalCode: string | null;
+  laborClaimDate: string | null;
+  laborClaimResult: string | null;
   needsReview: boolean;
   paymentType: "production" | "monthly";
   unionMember: boolean;
@@ -206,6 +208,7 @@ export default function DataModule({
     [sortBy, setSortBy] = useState<"name" | "registration" | "matEs">("name"),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
+    [additionalInfoOpen, setAdditionalInfoOpen] = useState(false),
     [functions, setFunctions] = useState<JobFunction[]>([]),
     [employmentLinks, setEmploymentLinks] = useState<EmploymentLink[]>([]);
   const [admission, setAdmission] = useState<Contract | null>(null),
@@ -300,6 +303,8 @@ export default function DataModule({
       city: "",
       state: "",
       postalCode: "",
+      laborClaimDate: "",
+      laborClaimResult: "",
       companySourceId: selectedCompany === "all" ? "" : selectedCompany,
       admissionDate: today(),
       role: "",
@@ -385,6 +390,10 @@ export default function DataModule({
     });
   }, [scoped, search, status, reviewOnly, sortBy]);
   const openAdmission = (r: Contract) => {
+    if (r.laborClaimDate || String(r.laborClaimResult || "").trim()) {
+      if (!window.confirm("ATENÇÃO: Há registro de reclamação trabalhista. Deseja iniciar a clonagem mesmo assim?")) return;
+      if (!window.confirm("SEGUNDA ADVERTÊNCIA: o cadastro possui histórico de reclamação trabalhista. Confirma a clonagem para criar um novo contrato?")) return;
+    }
     setAdmission(r);
     setNotice(workerNeedsReview(r) ? "Este colaborador possui pendências cadastrais. Revise a ficha antes de concluir a readmissão." : "");
     setNewForm({
@@ -402,6 +411,7 @@ export default function DataModule({
   };
   const openEdit = (r: Contract) => {
     setEditing(r);
+    setAdditionalInfoOpen(false);
     setTab(normalizedContractStatus(r) === "active" ? workerReviewIssues(r)[0]?.tab || "person" : "person");
     setNotice("");
     setForm({
@@ -443,6 +453,8 @@ export default function DataModule({
       city: r.city || "",
       state: r.state || "",
       postalCode: formatCep(r.postalCode),
+      laborClaimDate: r.laborClaimDate || "",
+      laborClaimResult: r.laborClaimResult || "",
       admissionDate: r.admissionDate || "",
       role: r.role || "",
       cboCode: r.cboCode || "",
@@ -770,6 +782,7 @@ export default function DataModule({
                 ...createForm,
                 companySourceId: selectedCompany,
               });
+              setAdditionalInfoOpen(false);
               setCreating(true);
             }}
           >
@@ -1067,6 +1080,32 @@ export default function DataModule({
                           ["not_informed", "Não informado"],
                         ]}
                       />
+                      <button
+                        type="button"
+                        className="additional-info-link wide"
+                        onClick={() => setAdditionalInfoOpen((open) => !open)}
+                      >
+                        {additionalInfoOpen ? "Ocultar informações adicionais" : "Informações adicionais"}
+                      </button>
+                      {additionalInfoOpen && (
+                        <div className="additional-info-box wide">
+                          <h4>Processo trabalhista</h4>
+                          <Field
+                            label="Data"
+                            type="date"
+                            value={createForm.laborClaimDate}
+                            set={(v) => setCreateForm({ ...createForm, laborClaimDate: v })}
+                          />
+                          <label className="wide">
+                            Resultado
+                            <textarea
+                              value={createForm.laborClaimResult}
+                              onChange={(e) => setCreateForm({ ...createForm, laborClaimResult: e.target.value })}
+                              placeholder="Informe o resultado ou a situação da reclamação trabalhista"
+                            />
+                          </label>
+                        </div>
+                      )}
                       <label>
                         UF de nascimento
                         <select
@@ -1858,6 +1897,32 @@ export default function DataModule({
                           ["not_informed", "Não informado"],
                         ]}
                       />
+                      <button
+                        type="button"
+                        className="additional-info-link wide"
+                        onClick={() => setAdditionalInfoOpen((open) => !open)}
+                      >
+                        {additionalInfoOpen ? "Ocultar informações adicionais" : "Informações adicionais"}
+                      </button>
+                      {additionalInfoOpen && (
+                        <div className="additional-info-box wide">
+                          <h4>Processo trabalhista</h4>
+                          <Field
+                            label="Data"
+                            type="date"
+                            value={form.laborClaimDate}
+                            set={(v) => setForm({ ...form, laborClaimDate: v })}
+                          />
+                          <label className="wide">
+                            Resultado
+                            <textarea
+                              value={form.laborClaimResult}
+                              onChange={(e) => setForm({ ...form, laborClaimResult: e.target.value })}
+                              placeholder="Informe o resultado ou a situação da reclamação trabalhista"
+                            />
+                          </label>
+                        </div>
+                      )}
                       <label>
                         UF de nascimento
                         <select

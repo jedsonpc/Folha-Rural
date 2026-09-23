@@ -114,6 +114,8 @@ export const people = sqliteTable(
     city: text("city"),
     state: text("state"),
     postalCode: text("postal_code"),
+    laborClaimDate: text("labor_claim_date"),
+    laborClaimResult: text("labor_claim_result"),
     needsReview: integer("needs_review", { mode: "boolean" })
       .notNull()
       .default(false),

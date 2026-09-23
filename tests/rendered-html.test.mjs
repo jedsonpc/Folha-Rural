@@ -18,7 +18,7 @@ test("keeps the installable app metadata and update worker", async () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
   assert.match(serviceWorker, /SKIP_WAITING/);
-  assert.match(serviceWorker, /folha-rural-shell-v62-folha-rural-1\.4\.74/);
+  assert.match(serviceWorker, /folha-rural-shell-v63-folha-rural-1\.4\.75/);
   assert.match(serviceWorker, /folha-rural-data-v1/);
   assert.match(serviceWorker, /Dados não baixados para uso offline/);
   assert.match(serviceWorker, /skipWaiting/);
@@ -548,6 +548,32 @@ test("uses package version in the system version card", async () => {
   assert.match(page, /import packageInfo from "\.\.\/package\.json"/);
   assert.match(page, /SYSTEM_VERSION = packageInfo\.version/);
   assert.doesNotMatch(page, /SYSTEM_VERSION = "1\.4\.17"/);
+});
+
+test("protects worker cloning when a labor claim is registered", async () => {
+  const module = await readFile(new URL("../app/data-module.tsx", import.meta.url), "utf8");
+  const schema = await readFile(new URL("../db/schema.ts", import.meta.url), "utf8");
+  assert.match(module, /ATENÇÃO: Há registro de reclamação trabalhista/);
+  assert.match(module, /SEGUNDA ADVERTÊNCIA/);
+  assert.match(module, /Informações adicionais/);
+  assert.match(schema, /laborClaimDate/);
+  assert.match(schema, /laborClaimResult/);
+});
+
+test("registers EPI and tool issues for multiple workers and items", async () => {
+  const module = await readFile(new URL("../app/registrations-module.tsx", import.meta.url), "utf8");
+  const api = await readFile(new URL("../app/api/hr/route.ts", import.meta.url), "utf8");
+  assert.match(module, /Fornecimento em lote/);
+  assert.match(module, /Filtrar por matrícula ou nome/);
+  assert.match(module, /Imprimir/);
+  assert.match(api, /action === "issueItems"/);
+});
+
+test("supports a custom launch period in the summarized payroll", async () => {
+  const reports = await readFile(new URL("../app/reports-module.tsx", import.meta.url), "utf8");
+  assert.match(reports, /Apontamentos do período/);
+  assert.match(reports, /Período personalizado/);
+  assert.match(reports, /customRange/);
 });
 
 test("deletes a launch period in small Supabase batches", async () => {

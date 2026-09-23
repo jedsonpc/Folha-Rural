@@ -134,6 +134,8 @@ export async function GET(request: Request) {
           city: people.city,
           state: people.state,
           postalCode: people.postalCode,
+          laborClaimDate: people.laborClaimDate,
+          laborClaimResult: people.laborClaimResult,
           needsReview: people.needsReview,
         })
         .from(employmentContracts)
@@ -454,6 +456,11 @@ export async function PUT(request: Request) {
             .toUpperCase()
             .slice(0, 2) || null,
         postalCode: String(body.postalCode || "").replace(/\D/g, "") || null,
+        laborClaimDate:
+          /^\d{4}-\d{2}-\d{2}$/.test(String(body.laborClaimDate || ""))
+            ? String(body.laborClaimDate)
+            : null,
+        laborClaimResult: String(body.laborClaimResult || "").trim() || null,
         needsReview: !cpf,
       })
       .where(and(eq(people.id, person.id), eq(people.tenantId, tenantId)));
@@ -939,6 +946,12 @@ export async function POST(request: Request) {
                 .slice(0, 2) || null,
             postalCode:
               String(body.postalCode || "").replace(/\D/g, "") || null,
+            laborClaimDate:
+              /^\d{4}-\d{2}-\d{2}$/.test(String(body.laborClaimDate || ""))
+                ? String(body.laborClaimDate)
+                : null,
+            laborClaimResult:
+              String(body.laborClaimResult || "").trim() || null,
             needsReview: false,
           })
           .returning();

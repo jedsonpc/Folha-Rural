@@ -215,3 +215,4 @@
     padding-bottom: 0;
   }
 }
+.additional-info-link{justify-self:start;border:0;background:transparent;color:#315f3d;text-decoration:underline;font-weight:800;padding:4px 0;cursor:pointer}.additional-info-box{display:grid;grid-template-columns:minmax(180px,.45fr) minmax(280px,1fr);gap:14px;padding:16px;border:1px solid #c9d8c7;border-left:5px solid #8b4a3f;border-radius:12px;background:#fffaf3}.additional-info-box h4{grid-column:1/-1;margin:0;color:#6d3028}.additional-info-box textarea{min-height:88px}@media(max-width:700px){.additional-info-box{grid-template-columns:1fr}}

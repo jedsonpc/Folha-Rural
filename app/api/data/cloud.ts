@@ -50,6 +50,8 @@ const personFields = (person: Row) => ({
   city: person.city,
   state: person.state,
   postalCode: person.postal_code,
+  laborClaimDate: person.labor_claim_date,
+  laborClaimResult: person.labor_claim_result,
   needsReview: person.needs_review,
 });
 
@@ -258,6 +260,26 @@ async function callWorkerRpc(body: Row, user: CloudUser | null) {
     );
     if (String(persisted) !== finalMatEs)
       throw new Error("Não foi possível confirmar a Matrícula no eSocial.");
+    if ("laborClaimDate" in body || "laborClaimResult" in body) {
+      const contracts = await supabaseAdmin.get<Row[]>(
+        `/rest/v1/employment_contracts?select=person_id&id=eq.${contractId}&organization_id=eq.${config.organizationId}&limit=1`,
+      );
+      const personId = contracts[0]?.person_id;
+      if (!personId)
+        throw new Error("Não foi possível identificar a pessoa para salvar as informações adicionais.");
+      const informedDate = String(body.laborClaimDate || "");
+      await supabaseAdmin.patch(
+        `/rest/v1/people?id=eq.${personId}&organization_id=eq.${config.organizationId}`,
+        {
+          labor_claim_date: /^\d{4}-\d{2}-\d{2}$/.test(informedDate)
+            ? informedDate
+            : null,
+          labor_claim_result:
+            String(body.laborClaimResult || "").trim() || null,
+        },
+        { prefer: "return=minimal" },
+      );
+    }
   }
   return Response.json(result[0] || { ok: true });
 }

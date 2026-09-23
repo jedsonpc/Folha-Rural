@@ -139,6 +139,8 @@ export function ensureDatabase() {
           city: "TEXT",
           state: "TEXT",
           postal_code: "TEXT",
+          labor_claim_date: "TEXT",
+          labor_claim_result: "TEXT",
         };
         const missing = Object.entries(additions).filter(
           ([name]) => !existing.has(name),
