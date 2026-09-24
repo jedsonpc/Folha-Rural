@@ -18,7 +18,7 @@ test("keeps the installable app metadata and update worker", async () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
   assert.match(serviceWorker, /SKIP_WAITING/);
-  assert.match(serviceWorker, /folha-rural-shell-v64-folha-rural-1\.4\.76/);
+  assert.match(serviceWorker, /folha-rural-shell-v65-folha-rural-1\.4\.77/);
   assert.match(serviceWorker, /folha-rural-data-v1/);
   assert.match(serviceWorker, /Dados não baixados para uso offline/);
   assert.match(serviceWorker, /skipWaiting/);
@@ -570,7 +570,8 @@ test("registers EPI and tool issues for multiple workers and items", async () =>
   assert.match(api, /action === "issueItems"/);
   assert.match(styles, /\.registrations-module>\.bulk-issue-card,\.registrations-module>\.issue-history\{grid-column:2;min-width:0\}/);
   assert.match(styles, /\.issue-main-fields\{display:grid!important;grid-template-columns:repeat\(3,minmax\(0,1fr\)\)!important/);
-  assert.match(styles, /\.bulk-pickers\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+  assert.match(styles, /\.bulk-pickers\{display:grid;grid-template-columns:minmax\(0,1\.2fr\) minmax\(0,\.8fr\)/);
+  assert.match(styles, /\.bulk-check-list b\{font-size:\.9rem;line-height:1\.28/);
 });
 
 test("supports a custom launch period in the summarized payroll", async () => {
