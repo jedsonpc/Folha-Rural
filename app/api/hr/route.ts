@@ -21,12 +21,13 @@ const vacationEntitlement = (absences: number, lossReason: unknown) => {
 };
 
 export async function GET(r: Request) {
-  const access = await authorizeCloud(r, "Cadastros");
+  const requestUrl = new URL(r.url), companySourceId = Number(requestUrl.searchParams.get("company") || 0);
+  const access = await authorizeCloud(r, "Cadastros", companySourceId || undefined);
   if (access.response) return access.response;
   if (getSupabaseConfig()) return cloudHrGet(r, access.user);
   try {
     await ensureDatabase();
-    const db = getRuntimeDatabase(), t = tenant(r), url = new URL(r.url);
+    const db = getRuntimeDatabase(), t = tenant(r), url = requestUrl;
     const contractId = Number(url.searchParams.get("contractId") || 0);
     if (contractId) {
       const [profile, salaries, vacations, contract] = await Promise.all([
@@ -44,7 +45,9 @@ export async function GET(r: Request) {
       db.prepare("SELECT * FROM salary_references WHERE tenant_id=? ORDER BY effective_date DESC,id DESC").bind(t).all(),
       db.prepare("SELECT s.*,(SELECT COUNT(*) FROM item_issues i WHERE i.item_id=s.id) usage_count FROM safety_items s WHERE tenant_id=? ORDER BY item_type,description").bind(t).all(),
       db.prepare("SELECT i.*,s.description item_description,p.name worker_name FROM item_issues i JOIN safety_items s ON s.id=i.item_id JOIN employment_contracts c ON c.id=i.contract_id JOIN people p ON p.id=c.person_id WHERE i.tenant_id=? ORDER BY i.issue_date DESC,i.id DESC").bind(t).all(),
-      db.prepare("SELECT c.id,c.registration_number,p.name,c.role,c.status FROM employment_contracts c JOIN people p ON p.id=c.person_id WHERE c.tenant_id=? ORDER BY CASE WHEN c.status='active' THEN 0 ELSE 1 END,p.name").bind(t).all(),
+      companySourceId
+        ? db.prepare("SELECT c.id,c.registration_number,p.name,c.role,c.status FROM employment_contracts c JOIN people p ON p.id=c.person_id WHERE c.tenant_id=? AND c.company_source_id=? ORDER BY CASE WHEN c.status='active' THEN 0 ELSE 1 END,p.name").bind(t,companySourceId).all()
+        : db.prepare("SELECT c.id,c.registration_number,p.name,c.role,c.status FROM employment_contracts c JOIN people p ON p.id=c.person_id WHERE c.tenant_id=? ORDER BY CASE WHEN c.status='active' THEN 0 ELSE 1 END,p.name").bind(t).all(),
     ]);
     return Response.json({ functions:functions.results, links:links.results, centers:centers.results, references:references.results, items:items.results, issues:issues.results, workers:workers.results });
   } catch (e) {
@@ -53,7 +56,8 @@ export async function GET(r: Request) {
 }
 
 export async function POST(r: Request) {
-  const access = await authorizeCloud(r, "Cadastros");
+  const preview = await r.clone().json() as Record<string, unknown>, companySourceId = Number(preview.companySourceId || 0);
+  const access = await authorizeCloud(r, "Cadastros", companySourceId || undefined);
   if (access.response) return access.response;
   if (getSupabaseConfig()) return cloudHrPost(r, access.user);
   try {
@@ -123,7 +127,8 @@ export async function POST(r: Request) {
     } else if (action === "issueItems") {
       const itemIds=Array.isArray(b.itemIds)?b.itemIds.map(Number).filter(Boolean):[],contractIds=Array.isArray(b.contractIds)?b.contractIds.map(Number).filter(Boolean):[];
       if (!itemIds.length||!contractIds.length||!validDate(b.issueDate)) return Response.json({error:"Selecione ao menos um item, um colaborador e a data."},{status:400});
-      const workers=await db.prepare(`SELECT id FROM employment_contracts WHERE tenant_id=? AND id IN (${contractIds.map(()=>"?").join(",")})`).bind(t,...contractIds).all<{id:number}>(),validWorkers=new Set(workers.results.map(row=>Number(row.id)));
+      if(!companySourceId)return Response.json({error:"Selecione a empresa antes de registrar o fornecimento."},{status:400});
+      const workers=await db.prepare(`SELECT id FROM employment_contracts WHERE tenant_id=? AND company_source_id=? AND id IN (${contractIds.map(()=>"?").join(",")})`).bind(t,companySourceId,...contractIds).all<{id:number}>(),validWorkers=new Set(workers.results.map(row=>Number(row.id)));
       const validItems=await db.prepare(`SELECT id FROM safety_items WHERE tenant_id=? AND active=1 AND id IN (${itemIds.map(()=>"?").join(",")})`).bind(t,...itemIds).all<{id:number}>(),allowedItems=new Set(validItems.results.map(row=>Number(row.id)));
       const statements=[];for(const contractId of contractIds)for(const itemId of itemIds)if(validWorkers.has(contractId)&&allowedItems.has(itemId))statements.push(db.prepare("INSERT INTO item_issues (tenant_id,item_id,contract_id,issue_date,quantity,return_due_date,condition_notes,employee_acknowledged) VALUES (?,?,?,?,?,?,?,?)").bind(t,itemId,contractId,b.issueDate,String(b.quantity||"1"),b.returnDueDate||null,String(b.notes||""),!!b.acknowledged));
       if(!statements.length)return Response.json({error:"Nenhum fornecimento válido foi selecionado."},{status:400});
@@ -166,11 +171,14 @@ const allowedCompanyFilter = (user: CloudUser | null) =>
     ? ""
     : `&companies.legacy_id=in.(${user.companyIds.join(",") || "0"})`;
 
+const selectedCompanyFilter = (user: CloudUser | null, companySourceId: number) =>
+  companySourceId ? `&companies.legacy_id=eq.${companySourceId}` : allowedCompanyFilter(user);
+
 async function cloudHrGet(request: Request, user: CloudUser | null) {
   const config = getSupabaseConfig()!;
   try {
     const url = new URL(request.url);
-    const contractId = String(url.searchParams.get("contractId") || "");
+    const contractId = String(url.searchParams.get("contractId") || ""), companySourceId = Number(url.searchParams.get("company") || 0);
     if (contractId) {
       const contracts = await supabaseAdmin.get<CloudRow[]>(
         `/rest/v1/employment_contracts?select=id,admission_date,status,companies!inner(legacy_id)&id=eq.${contractId}&organization_id=eq.${config.organizationId}${allowedCompanyFilter(user)}&limit=1`,
@@ -209,7 +217,7 @@ async function cloudHrGet(request: Request, user: CloudUser | null) {
         `/rest/v1/employment_links?select=*&organization_id=eq.${config.organizationId}&order=code.asc`,
       ),
       supabaseAdmin.get<CloudRow[]>(
-        `/rest/v1/employment_contracts?select=id,registration_number,role_name,employment_link_code,status,people(full_name),companies!inner(legacy_id)&organization_id=eq.${config.organizationId}${allowedCompanyFilter(user)}&order=created_at.asc`,
+        `/rest/v1/employment_contracts?select=id,registration_number,role_name,employment_link_code,status,people(full_name),companies!inner(legacy_id)&organization_id=eq.${config.organizationId}${selectedCompanyFilter(user,companySourceId)}&order=created_at.asc`,
       ),
       supabaseAdmin.get<CloudRow[]>(
         `/rest/v1/salary_references?select=*&organization_id=eq.${config.organizationId}&order=effective_date.desc,created_at.desc`,
@@ -304,8 +312,9 @@ async function cloudHrPost(request: Request, user: CloudUser | null) {
     if (action === "issueItems") {
       const itemIds=Array.isArray(body.itemIds)?body.itemIds.map(String).filter(Boolean):[],contractIds=Array.isArray(body.contractIds)?body.contractIds.map(String).filter(Boolean):[];
       if(!itemIds.length||!contractIds.length||!validDate(body.issueDate))return Response.json({error:"Selecione ao menos um item, um colaborador e a data."},{status:400});
+      const companySourceId=Number(body.companySourceId||0);if(!companySourceId)return Response.json({error:"Selecione a empresa antes de registrar o fornecimento."},{status:400});
       const contractFilter=contractIds.join(","),itemFilter=itemIds.join(",");
-      const contracts=await supabaseAdmin.get<CloudRow[]>(`/rest/v1/employment_contracts?select=id,companies!inner(legacy_id)&organization_id=eq.${config.organizationId}&id=in.(${contractFilter})${allowedCompanyFilter(user)}`),items=await supabaseAdmin.get<CloudRow[]>(`/rest/v1/safety_items?select=id&organization_id=eq.${config.organizationId}&active=eq.true&id=in.(${itemFilter})`);
+      const contracts=await supabaseAdmin.get<CloudRow[]>(`/rest/v1/employment_contracts?select=id,companies!inner(legacy_id)&organization_id=eq.${config.organizationId}&id=in.(${contractFilter})&companies.legacy_id=eq.${companySourceId}`),items=await supabaseAdmin.get<CloudRow[]>(`/rest/v1/safety_items?select=id&organization_id=eq.${config.organizationId}&active=eq.true&id=in.(${itemFilter})`);
       const rows=contracts.flatMap(contract=>items.map(item=>({organization_id:config.organizationId,item_id:item.id,contract_id:contract.id,issue_date:body.issueDate,quantity:String(body.quantity||"1"),return_due_date:body.returnDueDate||null,condition_notes:String(body.notes||""),employee_acknowledged:Boolean(body.acknowledged)})));
       if(!rows.length)return Response.json({error:"Nenhum fornecimento válido foi selecionado."},{status:400});
       await supabaseAdmin.post("/rest/v1/item_issues",rows,{prefer:"return=minimal"});

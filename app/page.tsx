@@ -578,7 +578,7 @@ export default function Home() {
               "EPI",
               "Ferramentas",
             ].includes(active) ? (
-            <RegistrationsModule activeSection={active} />
+            <RegistrationsModule activeSection={active} selectedCompany={company} />
           ) : active === "Colaboradores" ? (
             <DataModule
               mode={active}

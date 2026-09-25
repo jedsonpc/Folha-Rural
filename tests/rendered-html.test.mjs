@@ -18,7 +18,7 @@ test("keeps the installable app metadata and update worker", async () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
   assert.match(serviceWorker, /SKIP_WAITING/);
-  assert.match(serviceWorker, /folha-rural-shell-v68-folha-rural-1\.4\.80/);
+  assert.match(serviceWorker, /folha-rural-shell-v69-folha-rural-1\.4\.81/);
   assert.match(serviceWorker, /folha-rural-data-v1/);
   assert.match(serviceWorker, /Dados não baixados para uso offline/);
   assert.match(serviceWorker, /skipWaiting/);
@@ -578,11 +578,15 @@ test("registers EPI and tool issues for multiple workers and items", async () =>
   assert.match(module, /Somente desligados/);
   assert.match(module, /Ativos e desligados/);
   assert.match(module, /workerStatus==="active"\?x\.status==="active":x\.status!=="active"/);
+  assert.match(module, /params\.set\("company",selectedCompany\)/);
+  assert.match(module, /companySourceId:selectedCompany==="all"\?null:Number\(selectedCompany\)/);
   assert.match(module, /Imprimir/);
   assert.match(module, /safety-registration/);
   assert.match(module, /className="bulk-item-name"/);
   assert.match(api, /action === "issueItems"/);
   assert.match(api, /c\.role,c\.status FROM employment_contracts/);
+  assert.match(api, /c\.company_source_id=\?/);
+  assert.match(api, /companies\.legacy_id=eq\.\$\{companySourceId\}/);
   assert.doesNotMatch(api, /status=eq\.active&id=in\.\(\$\{contractFilter\}\)/);
   assert.match(styles, /\.registrations-module\.safety-registration\{display:block\}/);
   assert.match(styles, /\.issue-main-fields\{display:grid!important;grid-template-columns:repeat\(3,minmax\(0,1fr\)\)!important/);
