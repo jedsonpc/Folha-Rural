@@ -18,7 +18,7 @@ test("keeps the installable app metadata and update worker", async () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
   assert.match(serviceWorker, /SKIP_WAITING/);
-  assert.match(serviceWorker, /folha-rural-shell-v65-folha-rural-1\.4\.77/);
+  assert.match(serviceWorker, /folha-rural-shell-v66-folha-rural-1\.4\.78/);
   assert.match(serviceWorker, /folha-rural-data-v1/);
   assert.match(serviceWorker, /Dados não baixados para uso offline/);
   assert.match(serviceWorker, /skipWaiting/);
@@ -82,21 +82,29 @@ test("includes imported Access entries and calculates DSR from weekly remunerati
   );
   assert.match(
     launches,
-    /dsrAmount = \(weeklyTotalCents: number\) => Math\.round\(weeklyTotalCents \/ 6\)/,
+    /dsrMinimum = \(dailyRateCents: number\) => Math\.round\(dailyRateCents \/ 6\)/,
   );
   assert.match(
     launches,
-    /value\s*=\s*!unjustified\s*&&\s*!lowDay\s*&&\s*total\s*>\s*0\s*\?\s*dsrAmount\(total\)\s*:\s*0/,
+    /admissionWeek\s*\?\s*calculated\s*:\s*Math\.max\(calculated, dsrMinimum\(dailyRateCents\)\)/,
   );
-  assert.match(launches, /row\.dsr \+= dsrAmount\(w\.total\) \* rests/);
   assert.match(
     launches,
-    /calculated\s*=\s*eligible\s*\?\s*dsrAmount\(total\)\s*:\s*0/,
+    /dsrAmount\(total, daily, admissionWeek\)/,
+  );
+  assert.match(launches, /dsrAmount\(w\.total, row\.daily, admissionWeek\) \* rests/);
+  assert.match(
+    launches,
+    /calculated\s*=\s*eligible\s*\?\s*dsrAmount\(total, daily, admissionWeek\)\s*:\s*0/,
   );
   assert.match(launches, /!isSunday\(entry\.entryDate\)/);
   assert.match(
     launches,
     /isSunday\(e\.entryDate\)\s*\|\|\s*isDsrService\(service\)/,
+  );
+  assert.match(
+    launches,
+    /O DSR não pode ser inferior a 1\/6 da diária, exceto na semana de admissão/,
   );
 });
 
@@ -150,7 +158,7 @@ test("uses the Brazilian civil date and the current release date", async () => {
   );
   assert.match(dates, /timeZone: "America\/Fortaleza"/);
   assert.match(launches, /const iso = brazilToday/);
-  assert.match(page, /LAST_UPDATE = "12\/09\/2026"/);
+  assert.match(page, /LAST_UPDATE = "25\/09\/2026"/);
 });
 
 test("loads complete DSR weeks across month boundaries", async () => {

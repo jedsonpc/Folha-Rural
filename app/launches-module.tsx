@@ -88,7 +88,17 @@ const iso = brazilToday,
     const value = Math.abs(Number(match[0]));
     return normalized.includes("%") || value > 1 ? value / 100 : value;
   },
-  dsrAmount = (weeklyTotalCents: number) => Math.round(weeklyTotalCents / 6),
+  dsrMinimum = (dailyRateCents: number) => Math.round(dailyRateCents / 6),
+  dsrAmount = (
+    weeklyTotalCents: number,
+    dailyRateCents = 0,
+    admissionWeek = false,
+  ) => {
+    const calculated = Math.round(weeklyTotalCents / 6);
+    return admissionWeek
+      ? calculated
+      : Math.max(calculated, dsrMinimum(dailyRateCents));
+  },
   isDailyAdditional = (service?: Service) =>
     Boolean(
       service && /INSALUBR|PERICULOS|GRATIFICA/i.test(service.description),
@@ -229,7 +239,13 @@ export default function LaunchesModule({
                 .filter((e) => e.entryDate === day)
                 .reduce((sum, e) => sum + e.amountCents, 0) < daily,
           ),
-        value = !unjustified && !lowDay && total > 0 ? dsrAmount(total) : 0;
+        admissionWeek = Boolean(
+          worker.admissionDate && weekKey(worker.admissionDate) === key,
+        ),
+        value =
+          !unjustified && !lowDay && total > 0
+            ? dsrAmount(total, daily, admissionWeek)
+            : 0;
       if (value <= 0) continue;
       const rows = grouped.get(dsrEntry.entryDate) || [];
       rows.push({
@@ -357,6 +373,8 @@ export default function LaunchesModule({
         production: number;
         dsr: number;
         rests: number;
+        daily: number;
+        admissionDate: string;
         worked: Set<string>;
         weeks: Map<string, { total: number; days: Set<string> }>;
       }
@@ -378,6 +396,10 @@ export default function LaunchesModule({
           production: 0,
           dsr: 0,
           rests: 0,
+          daily:
+            c.dailyRateCents ||
+            Math.round((c.baseSalaryCents || 0) / 30),
+          admissionDate: c.admissionDate || "",
           worked: new Set(),
           weeks: new Map(),
         };
@@ -409,7 +431,11 @@ export default function LaunchesModule({
             rests++;
         }
         row.rests += rests;
-        if (w.days.size) row.dsr += dsrAmount(w.total) * rests;
+        const admissionWeek = Boolean(
+          row.admissionDate && weekKey(row.admissionDate) === key,
+        );
+        if (w.days.size)
+          row.dsr += dsrAmount(w.total, row.daily, admissionWeek) * rests;
       }
     return [...by.values()].sort((a, b) => a.name.localeCompare(b.name));
   }, [data, month]);
@@ -479,6 +505,8 @@ export default function LaunchesModule({
         weeklyEntries: Entry[];
         nonComposingEntries: Entry[];
         calculated: number;
+        minimumDsr: number;
+        admissionWeek: boolean;
         eligible: boolean;
         reason: string;
         expectedDays: number;
@@ -535,7 +563,10 @@ export default function LaunchesModule({
         );
       const admissionWeek = Boolean(admission && weekKey(admission) === key),
         eligible = !unjustified && !lowDay && total > 0;
-      const calculated = eligible ? dsrAmount(total) : 0;
+      const minimumDsr = admissionWeek ? 0 : dsrMinimum(daily),
+        calculated = eligible
+          ? dsrAmount(total, daily, admissionWeek)
+          : 0;
       const displayDates = Array.from(
         new Set([...expected, ...weekly.map((entry) => entry.entryDate)]),
       ).sort();
@@ -551,6 +582,8 @@ export default function LaunchesModule({
           weeklyEntries: weekly,
           nonComposingEntries,
           calculated,
+          minimumDsr,
+          admissionWeek,
           eligible,
           reason: unjustified
             ? "Falta injustificada"
@@ -623,6 +656,18 @@ export default function LaunchesModule({
     )
       return;
     const eligible = selectedWeekDsr.filter((row) => row.eligible);
+    const belowMinimum = eligible.filter(
+      (row) =>
+        !row.admissionWeek &&
+        Math.round(Number(dsrValues[row.contractId] || 0) * 100) <
+          row.minimumDsr,
+    );
+    if (belowMinimum.length) {
+      setNotice(
+        `O DSR não pode ser inferior a 1/6 da diária, exceto na semana de admissão. Revise ${belowMinimum.length} colaborador(es).`,
+      );
+      return;
+    }
     if (hasWeekHoliday) {
       const holidayRows = eligible
         .map((row) => ({
@@ -1339,7 +1384,10 @@ export default function LaunchesModule({
                   ))}
               </optgroup>
             </select>
-            <small>O DSR corresponde a 1/6 da remuneração semanal.</small>
+            <small>
+              O DSR corresponde a 1/6 da remuneração semanal e, fora da
+              semana de admissão, não pode ficar abaixo de 1/6 da diária.
+            </small>
           </label>
           {hasWeekHoliday && (
             <label>
@@ -1469,7 +1517,7 @@ export default function LaunchesModule({
                   <label>
                     DSR (R$)
                     <CurrencyInput
-                      min="0"
+                      min={(row.minimumDsr / 100).toFixed(2)}
                       disabled={!row.eligible}
                       value={dsrValues[row.contractId] || ""}
                       onValueChange={(value) =>
@@ -1562,6 +1610,9 @@ export default function LaunchesModule({
                         <b>{money(row.total)}</b>
                         <span>DSR = base ÷ 6</span>
                         <b>{money(row.calculated)}</b>
+                        {!row.admissionWeek && (
+                          <span>Piso: 1/6 da diária = {money(row.minimumDsr)}</span>
+                        )}
                       </footer>
                     </div>
                   )}

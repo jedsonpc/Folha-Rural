@@ -1,4 +1,4 @@
-const CACHE_NAME = "folha-rural-shell-v65-folha-rural-1.4.77";
+const CACHE_NAME = "folha-rural-shell-v66-folha-rural-1.4.78";
 const DATA_CACHE_NAME = "folha-rural-data-v1";
 const APP_SHELL = [
   "/",
